@@ -16,7 +16,8 @@
   - `admin/` — 管理员登录、获取当前管理员、退出登录、修改密码
   - `user/` — 推广用户注册、登录、获取当前用户、退出登录、修改密码、忘记密码流程
   - `auth/` — 可复用的验证码服务和密码重置 Token 机制（Redis 存储，TTL 自动过期）
-- 数据库迁移：`db/migration/kasi_promotion.sql` 定义 `sys_admin_user`、`promotion_user` 两张持久表，验证码和密码重置 Token 等临时数据由 Redis（`vc:*`、`pwd:*` 键）管理，TTL 自动过期。
+- 数据库迁移：`db/migration/V1__kasi_promotion.sql` 定义 `sys_admin_user`、`promotion_user` 两张持久表，验证码和密码重置 Token 等临时数据由 Redis（`vc:*`、`pwd:*` 键）管理，TTL 自动过期。
+- Git 仓库：`https://github.com/wwxst/kasi-backend.git`，远程 `origin`，分支 `master`。
 - 在文档和代码审查中，请将当前架构与规划架构区分开来。不要将规划中的模块描述为已实现的模块。
 
 ## 工具链

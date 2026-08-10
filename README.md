@@ -45,7 +45,7 @@ src/
     resources/
       application.properties                # 数据源、Flyway、MyBatis、JWT、验证码配置
       db/migration/
-        kasi_promotion.sql                  # 数据库迁移脚本（2张表）
+        V1__kasi_promotion.sql              # 数据库迁移脚本（2张表）
       mapper/                               # 2个 MyBatis XML 映射文件
   test/
     java/com/kasi/backend/
@@ -247,4 +247,8 @@ Java 21 下编译会因 `release 25` 失败，必须使用 Java 25。
 
 ## 9. Git 与协作
 
-当前仓库仍在 `master` 分支且没有提交和远程仓库；工作区存在已暂存及未暂存的初始化修改。任何代理开始工作前都应先查看 `git status --short --branch`，只修改任务涉及的文件，不使用 `git reset --hard` 或 `git checkout --` 丢弃现有改动。
+- **仓库地址**：`https://github.com/wwxst/kasi-backend.git`
+- **当前分支**：`master`，已关联远程 `origin/master`
+- 提交规范：使用 [Conventional Commits](https://www.conventionalcommits.org/) 格式（`feat:`、`fix:`、`docs:`、`refactor:`、`test:` 等）。
+- 任何代理开始工作前都应先查看 `git status --short --branch`，只修改任务涉及的文件，不使用 `git reset --hard` 或 `git checkout --` 丢弃现有改动。
+- 提交前运行 `git diff --check` 检查空白字符问题。
