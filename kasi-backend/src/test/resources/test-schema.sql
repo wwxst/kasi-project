@@ -1,0 +1,51 @@
+-- H2测试表结构（与MySQL兼容）
+
+CREATE TABLE IF NOT EXISTS sys_admin_user (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    username VARCHAR(64) NOT NULL,
+    password VARCHAR(255) NOT NULL,
+    nickname VARCHAR(64) NOT NULL,
+    real_name VARCHAR(64) DEFAULT NULL,
+    mobile VARCHAR(32) DEFAULT NULL,
+    email VARCHAR(128) DEFAULT NULL,
+    avatar_url VARCHAR(512) DEFAULT NULL,
+    department_id BIGINT DEFAULT NULL,
+    status TINYINT NOT NULL DEFAULT 1,
+    is_super_admin TINYINT NOT NULL DEFAULT 0,
+    last_login_at TIMESTAMP DEFAULT NULL,
+    last_login_ip VARCHAR(64) DEFAULT NULL,
+    password_changed_at TIMESTAMP DEFAULT NULL,
+    remark VARCHAR(500) DEFAULT NULL,
+    created_by BIGINT DEFAULT NULL,
+    updated_by BIGINT DEFAULT NULL,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    deleted_at TIMESTAMP DEFAULT NULL,
+    UNIQUE (username),
+    UNIQUE (mobile),
+    UNIQUE (email)
+);
+
+CREATE TABLE IF NOT EXISTS promotion_user (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    user_no VARCHAR(32) NOT NULL,
+    username VARCHAR(64) DEFAULT NULL,
+    password VARCHAR(255) NOT NULL,
+    nickname VARCHAR(64) DEFAULT NULL,
+    real_name VARCHAR(64) DEFAULT NULL,
+    mobile VARCHAR(32) DEFAULT NULL,
+    email VARCHAR(128) DEFAULT NULL,
+    avatar_url VARCHAR(512) DEFAULT NULL,
+    status TINYINT NOT NULL DEFAULT 1,
+    register_source VARCHAR(32) DEFAULT NULL,
+    last_login_at TIMESTAMP DEFAULT NULL,
+    last_login_ip VARCHAR(64) DEFAULT NULL,
+    remark VARCHAR(500) DEFAULT NULL,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    deleted_at TIMESTAMP DEFAULT NULL,
+    UNIQUE (user_no),
+    UNIQUE (username),
+    UNIQUE (mobile),
+    UNIQUE (email)
+);
