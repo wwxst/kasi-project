@@ -1,4 +1,4 @@
-package com.kasi.backend.auth.verification;
+package com.kasi.backend.auth.service;
 
 /**
  * 验证码发送器接口

@@ -1,5 +1,6 @@
-package com.kasi.backend.auth.password;
+package com.kasi.backend.auth.service;
 
+import com.kasi.backend.auth.entity.PasswordResetTokenReservation;
 import com.kasi.backend.common.enums.SubjectType;
 
 public interface PasswordResetTokenService {

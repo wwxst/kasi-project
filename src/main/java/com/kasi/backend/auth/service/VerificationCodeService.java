@@ -1,4 +1,4 @@
-package com.kasi.backend.auth.verification;
+package com.kasi.backend.auth.service;
 
 import com.kasi.backend.common.enums.VerificationScene;
 

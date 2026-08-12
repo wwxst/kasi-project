@@ -1,5 +1,7 @@
-package com.kasi.backend.security.session;
+package com.kasi.backend.security.service;
 
+import com.kasi.backend.security.entity.AuthSession;
+import com.kasi.backend.security.entity.SessionMutation;
 import com.kasi.backend.BaseAuthTest;
 import com.kasi.backend.common.enums.SubjectType;
 import com.kasi.backend.security.context.AuthContext;

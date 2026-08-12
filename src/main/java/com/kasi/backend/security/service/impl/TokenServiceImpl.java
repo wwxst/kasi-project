@@ -1,6 +1,6 @@
-package com.kasi.backend.security.token.impl;
+package com.kasi.backend.security.service.impl;
 
-import com.kasi.backend.security.token.TokenService;
+import com.kasi.backend.security.service.TokenService;
 import com.kasi.backend.common.enums.SubjectType;
 import com.kasi.backend.security.context.AuthContext;
 import io.jsonwebtoken.Claims;

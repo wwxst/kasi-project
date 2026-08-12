@@ -3,7 +3,7 @@ package com.kasi.backend.user.controller;
 import com.kasi.backend.common.response.ApiResponse;
 import com.kasi.backend.auth.dto.ChangePasswordDTO;
 import com.kasi.backend.security.context.AuthContextHolder;
-import com.kasi.backend.security.session.SessionService;
+import com.kasi.backend.security.service.SessionService;
 import jakarta.servlet.http.HttpServletRequest;
 import com.kasi.backend.user.dto.*;
 import com.kasi.backend.user.vo.*;

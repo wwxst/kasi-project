@@ -2,7 +2,7 @@ package com.kasi.backend.security.config;
 
 import com.kasi.backend.common.response.ApiResponse;
 import com.kasi.backend.common.exception.ErrorCode;
-import com.kasi.backend.security.token.JwtAuthenticationFilter;
+import com.kasi.backend.security.filter.JwtAuthenticationFilter;
 import tools.jackson.databind.ObjectMapper;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;

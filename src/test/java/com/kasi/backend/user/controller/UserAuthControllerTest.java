@@ -1,7 +1,7 @@
 package com.kasi.backend.user.controller;
 
 import com.kasi.backend.BaseAuthTest;
-import com.kasi.backend.auth.verification.TestVerificationCodeSender;
+import com.kasi.backend.auth.service.TestVerificationCodeSender;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;

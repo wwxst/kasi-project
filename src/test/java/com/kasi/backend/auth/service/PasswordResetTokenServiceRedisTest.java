@@ -1,6 +1,7 @@
-package com.kasi.backend.auth.password;
+package com.kasi.backend.auth.service;
 
-import com.kasi.backend.auth.password.impl.PasswordResetTokenServiceImpl;
+import com.kasi.backend.auth.entity.PasswordResetTokenReservation;
+import com.kasi.backend.auth.service.impl.PasswordResetTokenServiceImpl;
 import com.kasi.backend.common.enums.SubjectType;
 import com.kasi.backend.common.exception.BusinessException;
 import org.junit.jupiter.api.AfterAll;

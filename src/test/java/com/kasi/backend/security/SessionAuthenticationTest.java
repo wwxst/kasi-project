@@ -2,9 +2,9 @@ package com.kasi.backend.security;
 
 import com.kasi.backend.BaseAuthTest;
 import com.kasi.backend.common.enums.SubjectType;
-import com.kasi.backend.security.session.AuthSession;
-import com.kasi.backend.security.session.SessionService;
-import com.kasi.backend.security.token.TokenService;
+import com.kasi.backend.security.entity.AuthSession;
+import com.kasi.backend.security.service.SessionService;
+import com.kasi.backend.security.service.TokenService;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.MethodOrderer;
 import org.junit.jupiter.api.Order;

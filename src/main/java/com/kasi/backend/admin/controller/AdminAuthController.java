@@ -7,7 +7,7 @@ import com.kasi.backend.auth.dto.ChangePasswordDTO;
 import com.kasi.backend.admin.service.AdminAuthService;
 import com.kasi.backend.common.response.ApiResponse;
 import com.kasi.backend.security.context.AuthContextHolder;
-import com.kasi.backend.security.session.SessionService;
+import com.kasi.backend.security.service.SessionService;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;

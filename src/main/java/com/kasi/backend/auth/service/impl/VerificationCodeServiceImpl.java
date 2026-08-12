@@ -1,7 +1,7 @@
-package com.kasi.backend.auth.verification.impl;
+package com.kasi.backend.auth.service.impl;
 
-import com.kasi.backend.auth.verification.VerificationCodeSender;
-import com.kasi.backend.auth.verification.VerificationCodeService;
+import com.kasi.backend.auth.service.VerificationCodeSender;
+import com.kasi.backend.auth.service.VerificationCodeService;
 import com.kasi.backend.common.enums.TargetType;
 import com.kasi.backend.common.enums.VerificationScene;
 import com.kasi.backend.common.exception.BusinessException;

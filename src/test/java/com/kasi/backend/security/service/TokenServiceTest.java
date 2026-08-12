@@ -1,6 +1,6 @@
-package com.kasi.backend.security.token;
+package com.kasi.backend.security.service;
 
-import com.kasi.backend.security.token.impl.TokenServiceImpl;
+import com.kasi.backend.security.service.impl.TokenServiceImpl;
 import com.kasi.backend.common.enums.SubjectType;
 import com.kasi.backend.security.context.AuthContext;
 import org.junit.jupiter.api.DisplayName;

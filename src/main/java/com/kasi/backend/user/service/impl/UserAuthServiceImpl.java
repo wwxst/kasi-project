@@ -1,18 +1,18 @@
 package com.kasi.backend.user.service.impl;
 
-import com.kasi.backend.auth.password.PasswordResetTokenService;
-import com.kasi.backend.auth.password.PasswordResetTokenReservation;
+import com.kasi.backend.auth.service.PasswordResetTokenService;
+import com.kasi.backend.auth.entity.PasswordResetTokenReservation;
 import com.kasi.backend.auth.dto.ChangePasswordDTO;
-import com.kasi.backend.auth.verification.VerificationCodeService;
+import com.kasi.backend.auth.service.VerificationCodeService;
 import com.kasi.backend.common.enums.SubjectType;
 import com.kasi.backend.common.enums.UserStatus;
 import com.kasi.backend.common.enums.VerificationScene;
 import com.kasi.backend.common.exception.BusinessException;
 import com.kasi.backend.common.exception.ErrorCode;
-import com.kasi.backend.security.session.AuthSession;
-import com.kasi.backend.security.session.SessionMutation;
-import com.kasi.backend.security.token.TokenService;
-import com.kasi.backend.security.session.SessionService;
+import com.kasi.backend.security.entity.AuthSession;
+import com.kasi.backend.security.entity.SessionMutation;
+import com.kasi.backend.security.service.TokenService;
+import com.kasi.backend.security.service.SessionService;
 import com.kasi.backend.user.dto.*;
 import com.kasi.backend.user.vo.*;
 import com.kasi.backend.user.entity.PromotionUser;

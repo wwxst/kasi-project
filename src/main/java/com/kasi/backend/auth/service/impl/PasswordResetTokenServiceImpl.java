@@ -1,7 +1,7 @@
-package com.kasi.backend.auth.password.impl;
+package com.kasi.backend.auth.service.impl;
 
-import com.kasi.backend.auth.password.PasswordResetTokenReservation;
-import com.kasi.backend.auth.password.PasswordResetTokenService;
+import com.kasi.backend.auth.entity.PasswordResetTokenReservation;
+import com.kasi.backend.auth.service.PasswordResetTokenService;
 import com.kasi.backend.common.exception.BusinessException;
 import com.kasi.backend.common.exception.ErrorCode;
 import com.kasi.backend.common.exception.AuthStateUnavailableException;
