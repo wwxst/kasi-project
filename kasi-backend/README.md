@@ -30,19 +30,21 @@ src/
         mapper/PromotionUserMapper.java     # 用户 MyBatis Mapper
         dto/                                # 用户 DTO（注册/登录/重置密码等）
       auth/                                 # 可复用的认证基础设施
-        verification/VerificationCodeService.java # 验证码服务接口
-        verification/impl/VerificationCodeServiceImpl.java # 验证码 Redis 实现
-        password/PasswordResetTokenService.java # 密码重置 Token 服务接口
-        password/impl/PasswordResetTokenServiceImpl.java # 密码重置 Token Redis 实现
+        entity/PasswordResetTokenReservation.java # 密码重置 Token 预占模型
+        service/PasswordResetTokenService.java # 密码重置 Token 服务接口
+        service/VerificationCodeService.java # 验证码服务接口
+        service/impl/PasswordResetTokenServiceImpl.java # 密码重置 Token Redis 实现
+        service/impl/VerificationCodeServiceImpl.java # 验证码 Redis 实现
       security/                             # 安全基础
         config/SecurityConfig.java          # Spring Security 配置
         context/AuthContext.java            # 认证上下文
         context/AuthContextHolder.java      # 请求级上下文持有者（ThreadLocal）
-        token/TokenService.java             # JWT 服务接口
-        token/impl/TokenServiceImpl.java    # JWT 生成与解析实现
-        token/JwtAuthenticationFilter.java  # JWT 认证过滤器
-        session/SessionService.java         # 会话服务接口
-        session/impl/SessionServiceImpl.java # Redis 账号版本与单会话状态实现
+        entity/                             # 会话版本与变更模型
+        filter/JwtAuthenticationFilter.java # JWT 认证过滤器
+        service/TokenService.java           # JWT 服务接口
+        service/SessionService.java         # 会话服务接口
+        service/impl/TokenServiceImpl.java  # JWT 生成与解析实现
+        service/impl/SessionServiceImpl.java # Redis 账号版本与单会话状态实现
       common/                               # 公共组件
         response/ApiResponse.java           # 统一响应体
         exception/ErrorCode.java            # 错误码枚举

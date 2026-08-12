@@ -1,8 +1,8 @@
-package com.kasi.backend.security.session.impl;
+package com.kasi.backend.security.service.impl;
 
-import com.kasi.backend.security.session.AuthSession;
-import com.kasi.backend.security.session.SessionMutation;
-import com.kasi.backend.security.session.SessionService;
+import com.kasi.backend.security.entity.AuthSession;
+import com.kasi.backend.security.entity.SessionMutation;
+import com.kasi.backend.security.service.SessionService;
 import com.kasi.backend.common.enums.SubjectType;
 import com.kasi.backend.common.exception.AuthStateUnavailableException;
 import com.kasi.backend.security.context.AuthContext;

@@ -2,7 +2,7 @@ package com.kasi.backend;
 
 import tools.jackson.databind.ObjectMapper;
 import com.kasi.backend.config.TestRedisConfig;
-import com.kasi.backend.auth.verification.TestVerificationCodeSender;
+import com.kasi.backend.auth.service.TestVerificationCodeSender;
 import org.junit.jupiter.api.BeforeEach;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;

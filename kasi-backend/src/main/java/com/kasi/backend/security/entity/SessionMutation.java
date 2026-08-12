@@ -1,4 +1,4 @@
-package com.kasi.backend.security.session;
+package com.kasi.backend.security.entity;
 
 import com.kasi.backend.common.enums.SubjectType;
 

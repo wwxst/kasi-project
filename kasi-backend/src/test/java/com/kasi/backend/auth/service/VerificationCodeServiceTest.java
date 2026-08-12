@@ -1,6 +1,6 @@
-package com.kasi.backend.auth.verification;
+package com.kasi.backend.auth.service;
 
-import com.kasi.backend.auth.verification.impl.VerificationCodeServiceImpl;
+import com.kasi.backend.auth.service.impl.VerificationCodeServiceImpl;
 import com.kasi.backend.common.enums.VerificationScene;
 import com.kasi.backend.common.exception.BusinessException;
 import com.kasi.backend.common.exception.AuthStateUnavailableException;

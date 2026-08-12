@@ -1,4 +1,4 @@
-package com.kasi.backend.auth.verification;
+package com.kasi.backend.auth.service;
 
 import org.springframework.context.annotation.Primary;
 import org.springframework.context.annotation.Profile;

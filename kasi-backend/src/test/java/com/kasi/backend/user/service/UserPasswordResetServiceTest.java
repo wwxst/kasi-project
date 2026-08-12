@@ -1,12 +1,12 @@
 package com.kasi.backend.user.service;
 
 import com.kasi.backend.BaseAuthTest;
-import com.kasi.backend.auth.password.PasswordResetTokenReservation;
-import com.kasi.backend.auth.password.PasswordResetTokenService;
+import com.kasi.backend.auth.entity.PasswordResetTokenReservation;
+import com.kasi.backend.auth.service.PasswordResetTokenService;
 import com.kasi.backend.common.enums.SubjectType;
 import com.kasi.backend.common.exception.BusinessException;
-import com.kasi.backend.security.session.SessionService;
-import com.kasi.backend.security.session.SessionMutation;
+import com.kasi.backend.security.service.SessionService;
+import com.kasi.backend.security.entity.SessionMutation;
 import com.kasi.backend.user.dto.ResetPasswordDTO;
 import com.kasi.backend.user.mapper.PromotionUserMapper;
 import org.junit.jupiter.api.DisplayName;

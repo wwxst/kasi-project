@@ -1,4 +1,4 @@
-package com.kasi.backend.auth.password;
+package com.kasi.backend.auth.entity;
 
 import com.kasi.backend.common.enums.SubjectType;
 

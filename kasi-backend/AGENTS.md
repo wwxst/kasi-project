@@ -86,6 +86,7 @@ java -version
 
 - 仓库内所有以 `Service` 命名的组件均采用接口与实现分离：调用方依赖 `*Service` 接口，Spring 组件与事务注解放在对应 `impl/*ServiceImpl` 实现类。
 - 业务请求统一使用 `*DTO`，业务响应统一使用 `*VO`；通用响应包装器仍使用 `ApiResponse<VO>`，不因 VO 分层重复包装。
+- `auth` 与 `security` 基础模块同样使用统一的 `service/impl` 结构；安全过滤器放在 `security.filter`，会话/重置凭证内部模型放在各自 `entity` 包。
 
 ## DTO 校验规范
 
