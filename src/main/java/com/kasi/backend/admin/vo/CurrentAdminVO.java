@@ -1,4 +1,4 @@
-package com.kasi.backend.user.dto;
+package com.kasi.backend.admin.vo;
 
 import lombok.Builder;
 import lombok.Data;
@@ -6,14 +6,13 @@ import lombok.Data;
 import java.time.LocalDateTime;
 
 /**
- * 当前用户信息响应
+ * 当前管理员信息响应
  */
 @Data
 @Builder
-public class CurrentUserResponse {
+public class CurrentAdminVO {
 
     private Long id;
-    private String userNo;
     private String username;
     private String nickname;
     private String realName;
@@ -21,6 +20,7 @@ public class CurrentUserResponse {
     private String email;
     private String avatarUrl;
     private Integer status;
+    private Integer isSuperAdmin;
     private LocalDateTime lastLoginAt;
     private String lastLoginIp;
     private LocalDateTime createdAt;

@@ -17,4 +17,8 @@ public class AuthContext {
     private SubjectType subjectType;
     /** 用户名/账号 */
     private String username;
+    /** JWT唯一标识，用于单会话撤销 */
+    private String jti;
+    /** Redis中的账号会话版本 */
+    private String sessionVersion;
 }

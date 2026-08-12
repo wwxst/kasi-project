@@ -1,6 +1,7 @@
 package com.kasi.backend.security.config;
 
 import com.kasi.backend.common.response.ApiResponse;
+import com.kasi.backend.common.exception.ErrorCode;
 import com.kasi.backend.security.token.JwtAuthenticationFilter;
 import tools.jackson.databind.ObjectMapper;
 import jakarta.servlet.http.HttpServletResponse;
@@ -22,7 +23,7 @@ import java.nio.charset.StandardCharsets;
 /**
  * Spring Security 统一配置
  * <p>
- * 采用无状态JWT认证模式，关闭Session和表单登录，
+ * 采用 JWT + Redis 会话状态认证模式，关闭 Servlet Session 和表单登录，
  * 所有认证失败和权限不足均返回JSON而非重定向HTML页面。
  */
 @Configuration
@@ -39,7 +40,7 @@ public class SecurityConfig {
         http
                 // 关闭CSRF（REST API无需CSRF保护）
                 .csrf(csrf -> csrf.disable())
-                // 无状态会话
+                // Servlet Session 无状态，JWT 的实际有效性仍需 Redis 会话校验
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 // 异常处理：返回JSON
                 .exceptionHandling(exceptions -> exceptions
@@ -48,7 +49,8 @@ public class SecurityConfig {
                             response.setContentType(MediaType.APPLICATION_JSON_VALUE);
                             response.setCharacterEncoding(StandardCharsets.UTF_8.name());
                             response.getWriter().write(objectMapper.writeValueAsString(
-                                    ApiResponse.error(1002, "未登录或Token已过期")
+                                    ApiResponse.error(ErrorCode.UNAUTHORIZED.getCode(),
+                                            ErrorCode.UNAUTHORIZED.getMessage())
                             ));
                         })
                         .accessDeniedHandler((request, response, accessDeniedException) -> {
@@ -56,7 +58,8 @@ public class SecurityConfig {
                             response.setContentType(MediaType.APPLICATION_JSON_VALUE);
                             response.setCharacterEncoding(StandardCharsets.UTF_8.name());
                             response.getWriter().write(objectMapper.writeValueAsString(
-                                    ApiResponse.error(1003, "无权限访问")
+                                    ApiResponse.error(ErrorCode.FORBIDDEN.getCode(),
+                                            ErrorCode.FORBIDDEN.getMessage())
                             ));
                         })
                 )
@@ -66,6 +69,7 @@ public class SecurityConfig {
                         .requestMatchers("/api/admin/auth/login").permitAll()
                         .requestMatchers("/api/user/auth/login").permitAll()
                         .requestMatchers("/api/user/auth/register").permitAll()
+                        .requestMatchers("/api/user/auth/register/code").permitAll()
                         .requestMatchers("/api/user/auth/password/forgot/**").permitAll()
                         .requestMatchers("/api/user/auth/password/reset").permitAll()
                         .requestMatchers("/actuator/health").permitAll()

@@ -10,6 +10,7 @@ import org.springframework.data.redis.connection.lettuce.LettuceConnectionFactor
 import redis.embedded.RedisServer;
 
 import java.io.IOException;
+import java.net.ServerSocket;
 
 /**
  * 测试环境嵌入式Redis配置
@@ -19,17 +20,24 @@ import java.io.IOException;
 @TestConfiguration
 public class TestRedisConfig {
 
-    private static RedisServer redisServer;
+    private RedisServer redisServer;
+    private int redisPort;
 
     @Bean
     @Primary
     public RedisConnectionFactory testRedisConnectionFactory() throws IOException {
         if (redisServer == null) {
-            redisServer = new RedisServer(6379);
+            redisPort = findAvailablePort();
+            redisServer = RedisServer.builder()
+                    .port(redisPort)
+                    .setting("maxheap 128mb")
+                    .setting("maxmemory 64mb")
+                    .setting("save \"\"")
+                    .build();
             redisServer.start();
         }
 
-        RedisStandaloneConfiguration config = new RedisStandaloneConfiguration("localhost", 6379);
+        RedisStandaloneConfiguration config = new RedisStandaloneConfiguration("localhost", redisPort);
         LettuceConnectionFactory factory = new LettuceConnectionFactory(config);
         factory.afterPropertiesSet();
         return factory;
@@ -39,6 +47,12 @@ public class TestRedisConfig {
     public void stopRedis() {
         if (redisServer != null) {
             redisServer.stop();
+        }
+    }
+
+    private int findAvailablePort() throws IOException {
+        try (ServerSocket socket = new ServerSocket(0)) {
+            return socket.getLocalPort();
         }
     }
 }
