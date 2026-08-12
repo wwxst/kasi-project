@@ -1,4 +1,4 @@
-package com.kasi.backend.user.dto;
+package com.kasi.backend.user.vo;
 
 import lombok.Builder;
 import lombok.Data;
@@ -8,7 +8,7 @@ import lombok.Data;
  */
 @Data
 @Builder
-public class VerifyCodeResponse {
+public class VerifyCodeVO {
 
     private String resetToken;
     private Long expiresIn;
