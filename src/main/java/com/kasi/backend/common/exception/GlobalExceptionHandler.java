@@ -51,6 +51,14 @@ public class GlobalExceptionHandler {
                 .body(ApiResponse.error(ErrorCode.UNAUTHORIZED.getCode(), "未登录或Token已过期"));
     }
 
+    @ExceptionHandler(AuthStateUnavailableException.class)
+    public ResponseEntity<ApiResponse<Void>> handleAuthStateUnavailable(AuthStateUnavailableException e) {
+        log.error("认证状态服务不可用", e);
+        return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE)
+                .body(ApiResponse.error(ErrorCode.AUTH_STATE_UNAVAILABLE.getCode(),
+                        ErrorCode.AUTH_STATE_UNAVAILABLE.getMessage()));
+    }
+
     /**
      * 权限不足异常
      */

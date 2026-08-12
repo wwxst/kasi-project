@@ -3,8 +3,8 @@ package com.kasi.backend.auth.verification;
 /**
  * 验证码发送器接口
  * <p>
- * 当前开发环境使用ConsoleVerificationCodeSender（仅输出日志），
- * 后续接入短信/邮件服务时，增加对应实现即可，无需修改业务代码。
+ * local profile 使用 ConsoleVerificationCodeSender；test profile 使用测试捕获实现。
+ * 生产环境必须提供真实实现，否则应用启动失败。
  */
 public interface VerificationCodeSender {
 

@@ -1,6 +1,8 @@
 package com.kasi.backend.user.controller;
 
 import com.kasi.backend.BaseAuthTest;
+import com.kasi.backend.auth.verification.TestVerificationCodeSender;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.test.web.servlet.request.MockMvcRequestBuilders;
@@ -13,24 +15,79 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @DisplayName("推广用户认证")
 class UserAuthControllerTest extends BaseAuthTest {
 
+    @Autowired
+    private TestVerificationCodeSender verificationCodeSender;
+
     // ==================== 注册测试 ====================
 
     @Test
     @DisplayName("手机号注册成功")
     void registerSuccess() throws Exception {
-        // 先发送验证码
         mockMvc.perform(MockMvcRequestBuilders
-                        .post("/api/user/auth/password/forgot/code")
+                        .post("/api/user/auth/register/code")
                         .contentType("application/json")
                         .content("""
-                                {"target":"13600136000","scene":"REGISTER"}
+                                {"target":" 13600136000 "}
                                 """))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(0));
+
+        mockMvc.perform(MockMvcRequestBuilders
+                        .post("/api/user/auth/register")
+                        .contentType("application/json")
+                        .content(String.format("""
+                                {"account":" 13600136000 ","verificationCode":"%s","password":"testpass123","confirmPassword":"testpass123"}
+                                """, verificationCodeSender.latestCode("13600136000"))))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(0));
+
+        String userNo = jdbcTemplate.queryForObject(
+                "SELECT user_no FROM promotion_user WHERE mobile = '13600136000'", String.class);
+        String source = jdbcTemplate.queryForObject(
+                "SELECT register_source FROM promotion_user WHERE mobile = '13600136000'", String.class);
+        org.junit.jupiter.api.Assertions.assertFalse(userNo.startsWith("TMP-"));
+        org.junit.jupiter.api.Assertions.assertEquals("MOBILE", source);
+    }
+
+    @Test
+    @DisplayName("邮箱注册统一转小写并记录EMAIL来源")
+    void registerWithEmailNormalizesAccountAndSource() throws Exception {
+        mockMvc.perform(MockMvcRequestBuilders
+                        .post("/api/user/auth/register/code")
+                        .contentType("application/json")
+                        .content("{\"target\":\" New.User@Example.COM \"}"))
                 .andExpect(status().isOk());
 
-        // 从数据库获取验证码明文（测试用，ConsoleSender输出到了日志）
-        // 由于验证码是哈希存储的，这里不能直接读明文。
-        // 改为：在VerificationCodeService中留一个测试钩子，或者使用固定验证码。
-        // 暂时简化：先注册一个通过手机号的用户
+        mockMvc.perform(MockMvcRequestBuilders
+                        .post("/api/user/auth/register")
+                        .contentType("application/json")
+                        .content(String.format("""
+                                {"account":" New.User@Example.COM ","verificationCode":"%s","password":"testpass123","confirmPassword":"testpass123"}
+                                """, verificationCodeSender.latestCode("new.user@example.com"))))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(0));
+
+        String source = jdbcTemplate.queryForObject(
+                "SELECT register_source FROM promotion_user WHERE email = 'new.user@example.com'", String.class);
+        org.junit.jupiter.api.Assertions.assertEquals("EMAIL", source);
+    }
+
+    @Test
+    @DisplayName("前端scene字段不能改变注册发码场景")
+    void registerCodeIgnoresClientScene() throws Exception {
+        mockMvc.perform(MockMvcRequestBuilders
+                        .post("/api/user/auth/register/code")
+                        .contentType("application/json")
+                        .content("{\"target\":\"13600136000\",\"scene\":\"RESET_PASSWORD\"}"))
+                .andExpect(status().isOk());
+
+        mockMvc.perform(MockMvcRequestBuilders
+                        .post("/api/user/auth/register")
+                        .contentType("application/json")
+                        .content(String.format("""
+                                {"account":"13600136000","verificationCode":"%s","password":"testpass123","confirmPassword":"testpass123"}
+                                """, verificationCodeSender.latestCode("13600136000"))))
+                .andExpect(jsonPath("$.code").value(0));
     }
 
     @Test
@@ -142,8 +199,43 @@ class UserAuthControllerTest extends BaseAuthTest {
                                 {"account":"nonexistent","password":"user123456"}
                                 """))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.code").value(3001))
+                .andExpect(jsonPath("$.code").value(3003))
                 .andExpect(jsonPath("$.message").value("账号或密码错误"));
+    }
+
+    @Test
+    @DisplayName("登录账号会trim且邮箱忽略大小写")
+    void loginNormalizesAccount() throws Exception {
+        mockMvc.perform(MockMvcRequestBuilders
+                        .post("/api/user/auth/login")
+                        .contentType("application/json")
+                        .content("{\"account\":\" Test@Example.COM \",\"password\":\"user123456\"}"))
+                .andExpect(jsonPath("$.code").value(0));
+    }
+
+    @Test
+    @DisplayName("注册账号格式错误返回校验错误")
+    void registerRejectsInvalidAccountFormat() throws Exception {
+        mockMvc.perform(MockMvcRequestBuilders
+                        .post("/api/user/auth/register/code")
+                        .contentType("application/json")
+                        .content("{\"target\":\"not-an-account\"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(1006));
+    }
+
+    @Test
+    @DisplayName("超过BCrypt UTF8字节上限的密码返回校验错误")
+    void loginRejectsPasswordOverBcryptByteLimit() throws Exception {
+        String password = "密".repeat(25);
+
+        mockMvc.perform(MockMvcRequestBuilders
+                        .post("/api/user/auth/login")
+                        .contentType("application/json")
+                        .content(objectMapper.writeValueAsString(
+                                java.util.Map.of("account", "testuser", "password", password))))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(1006));
     }
 
     // ==================== 获取当前用户 ====================
@@ -179,6 +271,37 @@ class UserAuthControllerTest extends BaseAuthTest {
                         .header("Authorization", "Bearer " + token))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.code").value(0));
+
+        mockMvc.perform(MockMvcRequestBuilders
+                        .get("/api/user/auth/me")
+                        .header("Authorization", "Bearer " + token))
+                .andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    @DisplayName("修改密码后所有旧会话失效")
+    void changePasswordInvalidatesAllExistingSessions() throws Exception {
+        String firstToken = loginAsUser();
+        String secondToken = loginAsUser();
+
+        mockMvc.perform(MockMvcRequestBuilders
+                        .put("/api/user/auth/password")
+                        .header("Authorization", "Bearer " + firstToken)
+                        .contentType("application/json")
+                        .content("""
+                                {"oldPassword":"user123456","newPassword":"newuserpass","confirmPassword":"newuserpass"}
+                                """))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(0));
+
+        mockMvc.perform(MockMvcRequestBuilders
+                        .get("/api/user/auth/me")
+                        .header("Authorization", "Bearer " + firstToken))
+                .andExpect(status().isUnauthorized());
+        mockMvc.perform(MockMvcRequestBuilders
+                        .get("/api/user/auth/me")
+                        .header("Authorization", "Bearer " + secondToken))
+                .andExpect(status().isUnauthorized());
     }
 
     // ==================== 修改密码 ====================
@@ -234,5 +357,28 @@ class UserAuthControllerTest extends BaseAuthTest {
                                 """))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.code").value(0)); // 不暴露用户是否存在
+
+        mockMvc.perform(MockMvcRequestBuilders
+                        .post("/api/user/auth/password/forgot/code")
+                        .contentType("application/json")
+                        .content("{\"target\":\"nonexistent@test.com\"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(4003));
+    }
+
+    @Test
+    @DisplayName("不存在账号与存在账号的忘记密码错误响应一致")
+    void verifyForgotPasswordDoesNotRevealAccountExistence() throws Exception {
+        mockMvc.perform(MockMvcRequestBuilders
+                        .post("/api/user/auth/password/forgot/code")
+                        .contentType("application/json")
+                        .content("{\"target\":\"unknown@example.com\"}"))
+                .andExpect(jsonPath("$.code").value(0));
+
+        mockMvc.perform(MockMvcRequestBuilders
+                        .post("/api/user/auth/password/forgot/verify")
+                        .contentType("application/json")
+                        .content("{\"target\":\"unknown@example.com\",\"code\":\"000000\"}"))
+                .andExpect(jsonPath("$.code").value(4001));
     }
 }

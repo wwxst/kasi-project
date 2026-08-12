@@ -12,11 +12,14 @@
 - **第一阶段认证模块已实现**，包含管理员（ADMIN）和推广用户（USER）双认证体系，详见 [README.md](README.md)。
 - 已实现的包结构：
   - `common/` — 统一响应（ApiResponse）、错误码（ErrorCode）、全局异常处理、业务枚举
-  - `security/` — JWT 令牌管理、认证过滤器、AuthContext 上下文、Spring Security 配置
+  - `security/` — JWT 令牌管理、认证过滤器、Redis 会话版本/单会话校验、AuthContext 上下文、Spring Security 配置
   - `admin/` — 管理员登录、获取当前管理员、退出登录、修改密码
   - `user/` — 推广用户注册、登录、获取当前用户、退出登录、修改密码、忘记密码流程
-  - `auth/` — 可复用的验证码服务和密码重置 Token 机制（Redis 存储，TTL 自动过期）
-- 数据库迁移：`db/migration/V1__kasi_promotion.sql` 定义 `sys_admin_user`、`promotion_user` 两张持久表，验证码和密码重置 Token 等临时数据由 Redis（`vc:*`、`pwd:*` 键）管理，TTL 自动过期。
+  - `auth/` — 可复用的验证码服务和密码重置 Token 机制（Redis 存储，Lua 原子消费/预占，TTL 自动过期）
+- 数据库迁移：`db/migration/V1__kasi_promotion.sql` 定义 `sys_admin_user`、`promotion_user` 两张持久表；验证码和密码重置 Token 等临时数据由 Redis（`vc:*`、`pwd:*` 键）管理，TTL 自动过期。
+- 会话状态由 Redis（`auth:version:{type}:{userId}`、`auth:session:{jti}`）管理。JWT 携带 `jti`、`sessionVersion`，受保护请求必须同时校验签名、账号状态和 Redis 会话；Redis 不可用时安全失败返回 503，不能降级放行。
+- 修改密码、密码重置等敏感 MySQL 状态变更会先将账号版本切换为 `MUTATING:{nonce}`，数据库成功后再恢复新的 `ACTIVE:*` 版本，使旧 Token 失效。普通 logout 只撤销当前 `jti` 会话。
+- 当前没有管理员禁用账号的 Controller/API；不要在文档或测试中将规划中的账号管理能力描述为已实现。
 - Git 仓库：`https://github.com/wwxst/kasi-backend.git`，远程 `origin`，分支 `master`。
 - 在文档和代码审查中，请将当前架构与规划架构区分开来。不要将规划中的模块描述为已实现的模块。
 
@@ -75,10 +78,14 @@ java -version
 | 层 | 包路径 | 职责 | 禁止事项 |
 |----|--------|------|----------|
 | Controller | `*.controller` | 接收请求、参数校验（`@Valid`）、调用 Service、组装响应 | 不可直接调用 Mapper，不可包含业务逻辑 |
-| Service | `*.service` | 业务编排、事务管理、调用 Mapper/其他 Service | 不可操作 `HttpServletRequest`/`HttpServletResponse` |
+| Service | `*.service` / `*.service.impl` | 接口定义在 `*.service`，业务实现、事务管理及 Mapper/其他 Service 调用放在 `*.service.impl` | 不可操作 `HttpServletRequest`/`HttpServletResponse` |
 | Mapper | `*.mapper` | 数据库 CRUD，每个 Mapper 只操作一张主表 | 不可包含业务逻辑 |
 | Entity | `*.entity` | 纯数据对象，与数据库表一一对应 | 不可包含业务方法（除 getter/setter） |
-| DTO | `*.dto` | 请求/响应传输对象，使用 Jakarta Validation 注解 | 不可直接传入 Service 层之外 |
+| DTO | `*.dto` | 请求传输对象，类名以 `DTO` 结尾，使用 Jakarta Validation 注解 | 不可承载响应展示模型 |
+| VO | `*.vo` | Controller 返回的业务展示对象，类名以 `VO` 结尾 | 不可用于接收请求或映射数据库表 |
+
+- 仓库内所有以 `Service` 命名的组件均采用接口与实现分离：调用方依赖 `*Service` 接口，Spring 组件与事务注解放在对应 `impl/*ServiceImpl` 实现类。
+- 业务请求统一使用 `*DTO`，业务响应统一使用 `*VO`；通用响应包装器仍使用 `ApiResponse<VO>`，不因 VO 分层重复包装。
 
 ## DTO 校验规范
 
@@ -114,19 +121,21 @@ java -version
   - `{action}`：具体操作
 - RESTful 动词：查询=`GET`、创建=`POST`、全量更新=`PUT`、部分更新=`PATCH`、删除=`DELETE`
 - 示例：`POST /api/user/auth/register`、`PUT /api/admin/auth/password`
+- 当前认证端点包括：注册验证码 `POST /api/user/auth/register/code`，忘记密码重置 `POST /api/user/auth/password/reset`。
 
 ## 事务管理规范
 
 - Service 层涉及**多条写操作**（插入/更新/删除）的方法必须使用 `@Transactional`。
 - 只读操作（`SELECT`）建议使用 `@Transactional(readOnly = true)` 以优化数据库性能。
 - 事务边界应定义在 Service 方法上，**不要在 Controller 层开启事务**。
-- 当前认证模块中需要事务的场景：用户注册（插入用户 + 标记验证码已用）、密码重置（标记 Token 已用 + 更新密码）。
+- 当前认证模块中需要事务的场景：用户注册（插入用户 + 标记验证码已用）、密码重置（数据库更新密码；Redis Token 在成功提交后删除）。敏感状态变更前必须先完成 Redis 会话失效/进入 `MUTATING`，Redis 失败不得继续修改密码等关键状态。
 
 ## 安全
 
 - 仅引入 Security Starter 并不构成一个认证设计方案。在暴露账号端点之前，请先定义登录机制、会话或令牌生命周期、密码哈希、角色以及 401/403 行为。
 - 切勿比较或持久化原始密码。使用强 `PasswordEncoder`，并同时测试认证成功和被拒绝的路径。
 - 将 `is_super_admin` 和 `status` 视为领域规则，而非受信任的请求字段。
+- 验证码发送器按 profile 隔离：`local` 仅使用 `ConsoleVerificationCodeSender`，`test` 使用测试 sender；生产环境必须提供真实 sender，不能以 Console 输出代替实际投递。
 
 ## 文档规则
 

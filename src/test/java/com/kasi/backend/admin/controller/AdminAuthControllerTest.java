@@ -55,7 +55,7 @@ class AdminAuthControllerTest extends BaseAuthTest {
                                 {"account":"nonexistent","password":"admin123456"}
                                 """))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.code").value(2001))
+                .andExpect(jsonPath("$.code").value(2003))
                 .andExpect(jsonPath("$.message").value("账号或密码错误"));
     }
 
