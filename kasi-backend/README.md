@@ -1,6 +1,6 @@
 # Kasi Backend 开发文档
 
-最后核对时间：2026-08-10
+最后核对时间：2026-08-12
 
 ## 1. 项目定位
 
@@ -17,25 +17,32 @@ src/
       KasiBackendApplication.java          # 启动入口
       admin/                                # 管理员认证模块
         controller/AdminAuthController.java # /api/admin/auth/* 控制器
-        service/AdminAuthService.java       # 管理员认证业务逻辑
+        service/AdminAuthService.java       # 管理员认证服务接口
+        service/impl/AdminAuthServiceImpl.java # 管理员认证业务实现
         entity/SysAdminUser.java            # 管理员实体
         mapper/SysAdminUserMapper.java      # 管理员 MyBatis Mapper
         dto/                                # 管理员 DTO（登录请求/响应、修改密码等）
       user/                                 # 推广用户认证模块
         controller/UserAuthController.java  # /api/user/auth/* 控制器
-        service/UserAuthService.java        # 用户认证业务逻辑
+        service/UserAuthService.java        # 用户认证服务接口
+        service/impl/UserAuthServiceImpl.java # 用户认证业务实现
         entity/PromotionUser.java           # 用户实体
         mapper/PromotionUserMapper.java     # 用户 MyBatis Mapper
         dto/                                # 用户 DTO（注册/登录/重置密码等）
       auth/                                 # 可复用的认证基础设施
-        verification/                       # 验证码模块（发送、校验、哈希存储）
-        password/                           # 密码重置 Token 模块
+        verification/VerificationCodeService.java # 验证码服务接口
+        verification/impl/VerificationCodeServiceImpl.java # 验证码 Redis 实现
+        password/PasswordResetTokenService.java # 密码重置 Token 服务接口
+        password/impl/PasswordResetTokenServiceImpl.java # 密码重置 Token Redis 实现
       security/                             # 安全基础
         config/SecurityConfig.java          # Spring Security 配置
         context/AuthContext.java            # 认证上下文
         context/AuthContextHolder.java      # 请求级上下文持有者（ThreadLocal）
-        token/TokenService.java             # JWT 生成与解析
+        token/TokenService.java             # JWT 服务接口
+        token/impl/TokenServiceImpl.java    # JWT 生成与解析实现
         token/JwtAuthenticationFilter.java  # JWT 认证过滤器
+        session/SessionService.java         # 会话服务接口
+        session/impl/SessionServiceImpl.java # Redis 账号版本与单会话状态实现
       common/                               # 公共组件
         response/ApiResponse.java           # 统一响应体
         exception/ErrorCode.java            # 错误码枚举
@@ -57,6 +64,13 @@ src/
       application-test.properties           # 测试环境配置（H2）
       test-schema.sql                       # 测试表结构
 ```
+
+### Java model naming
+
+- Request models live in `*.dto` and use the `DTO` suffix.
+- Response models live in `*.vo` and use the `VO` suffix.
+- Shared authentication requests live in `auth/dto`, such as `ChangePasswordDTO`.
+- Service contracts use `*Service`; implementations live in `impl` and use `*ServiceImpl`.
 
 ## 3. 构建工具链
 
@@ -86,12 +100,13 @@ $env:Path = "$env:JAVA_HOME\bin;$env:Path"
 
 | 配置项 | 说明 |
 |--------|------|
-| 数据源 | MySQL，通过环境变量 `SPRING_DATASOURCE_URL/USERNAME/PASSWORD` 注入，默认连接 `localhost:3306/kasi_promotion`，**字符编码统一 UTF-8** |
+| 数据源 | MySQL，必须通过环境变量 `SPRING_DATASOURCE_URL/USERNAME/PASSWORD` 注入，**字符编码统一 UTF-8** |
 | Flyway | 启用，迁移脚本路径 `classpath:db/migration`，`baseline-on-migrate=true` |
 | MyBatis | Mapper XML 路径 `classpath:mapper/*.xml`，开启驼峰自动映射 |
-| JWT | 密钥通过 `JWT_SECRET` 环境变量注入，过期时间 7200 秒 |
+| JWT | 密钥通过 `JWT_SECRET` 环境变量注入，过期时间 7200 秒；登录会话依赖 Redis |
 | 验证码 | 过期 300 秒，重发间隔 60 秒，每日上限 10 次 |
 | 密码重置 Token | 过期 600 秒 |
+| 验证码发送器 | `local` profile 使用 Console sender；`test` profile 使用测试 sender；生产环境需提供真实实现 |
 
 应用要连接 MySQL，至少需要提供：
 
@@ -123,6 +138,8 @@ $env:SPRING_DATASOURCE_PASSWORD = '<database-password>'
 | MySQL | `promotion_user` | 推广用户 | user_no(基于自增id生成), username, password(BCrypt), mobile, email, status, register_source |
 | Redis | `vc:*` | 验证码（临时） | 5分钟过期，60秒重发间隔，每日上限10次 |
 | Redis | `pwd:*` | 密码重置 Token（临时） | 10分钟过期，一次性消费后删除 |
+| Redis | `auth:version:*` | 账号会话版本（含 `ACTIVE:*` 或 `MUTATING:*`） | TTL 不超过 JWT 有效期加宽限期 |
+| Redis | `auth:session:*` | 单个 JWT 会话（按 `jti`） | TTL 与 JWT 有效期一致，退出时删除 |
 
 > **说明**：`sys_sequence` 表已移除，`user_no` 改为基于 `promotion_user` 自增主键生成。`auth_verification_code` 和 `auth_password_reset_token` 表已移除，改用 Redis 存储（更高效、自动过期）。
 
@@ -130,7 +147,7 @@ $env:SPRING_DATASOURCE_PASSWORD = '<database-password>'
 
 ### 6.1 认证架构
 
-系统采用 **JWT 无状态认证**，通过 `subjectType` 字段区分两种身份，实现严格的权限隔离：
+系统采用 **JWT + Redis 会话状态认证**，通过 `subjectType` 字段区分两种身份，实现严格的权限隔离。JWT 载荷包含 `jti` 和 `sessionVersion`；受保护请求除验签外，还必须通过 Redis 账号版本和单会话校验，并回查账号状态：
 
 | 角色 | 路由前缀 | 权限 | 说明 |
 |------|----------|------|------|
@@ -140,6 +157,8 @@ $env:SPRING_DATASOURCE_PASSWORD = '<database-password>'
 - ADMIN Token **不可**访问 USER 接口（返回 403）
 - USER Token **不可**访问 ADMIN 接口（返回 403）
 - 无 Token 访问受保护接口返回 401
+- Redis 不可用时认证安全失败并返回 503，不降级放行；账号会话版本不存在时旧 JWT 直接失效并返回 401。
+- 普通退出仅删除当前 `auth:session:{jti}`；修改密码、密码重置等敏感变更会先切换为 `MUTATING:{nonce}`，数据库成功后生成新的账号版本，使该账号旧 Token 全部失效。
 
 ### 6.2 管理员认证 API
 
@@ -150,18 +169,21 @@ $env:SPRING_DATASOURCE_PASSWORD = '<database-password>'
 | POST | `/api/admin/auth/logout` | 退出登录 | ADMIN |
 | PUT | `/api/admin/auth/password` | 修改密码（需旧密码） | ADMIN |
 
+当前没有“管理员禁用账号”的 Controller/API；账号状态变更接口属于后续用户管理范围。
+
 ### 6.3 推广用户认证 API
 
 | 方法 | 路径 | 说明 | 认证 |
 |------|------|------|------|
 | POST | `/api/user/auth/register` | 用户注册（账号 + 验证码 + 密码） | 否 |
+| POST | `/api/user/auth/register/code` | 发送注册验证码（场景由后端固定为 `REGISTER`） | 否 |
 | POST | `/api/user/auth/login` | 用户登录（账号/手机号/邮箱 + 密码） | 否 |
 | GET | `/api/user/auth/me` | 获取当前用户信息 | USER |
 | POST | `/api/user/auth/logout` | 退出登录 | USER |
 | PUT | `/api/user/auth/password` | 修改密码（需旧密码） | USER |
 | POST | `/api/user/auth/password/forgot/code` | 发送忘记密码验证码 | 否 |
 | POST | `/api/user/auth/password/forgot/verify` | 校验验证码，返回重置 Token | 否 |
-| PUT | `/api/user/auth/password/forgot/reset` | 使用重置 Token 修改密码 | 否 |
+| POST | `/api/user/auth/password/reset` | 使用重置 Token 修改密码 | 否 |
 
 ### 6.4 统一响应格式
 
@@ -181,9 +203,11 @@ $env:SPRING_DATASOURCE_PASSWORD = '<database-password>'
 ### 6.5 技术实现要点
 
 - **密码存储**：BCrypt 哈希，使用 Spring Security `PasswordEncoder`
-- **JWT**：HMAC-SHA256 签名，载荷包含 `userId`、`subjectType`、`username`，过期时间 7200 秒
+- **JWT**：HMAC-SHA256 签名，载荷包含 `userId`、`subjectType`、`username`、`jti`、`sessionVersion`，过期时间 7200 秒；每次受保护请求都校验 Redis 会话状态
 - **验证码**：SHA-256 哈希后存入 Redis（内存不存明文），TTL 5 分钟自动过期，60 秒重发间隔，每日上限 10 次
-- **密码重置**：验证码校验通过后颁发一次性重置 Token（SHA-256 哈希后存入 Redis），TTL 10 分钟，消费时原子删除防重放
+- **密码重置**：验证码校验通过后颁发一次性重置 Token（SHA-256 哈希后存入 Redis），同一用户同时只保留一个有效 Token；使用 `READY -> PROCESSING` 原子预占，数据库成功后删除，异常时不自动恢复，TTL 10 分钟
+- **Redis 故障**：验证码、密码重置 Token 和会话状态无法确认时统一安全失败并返回 503
+- **验证码发送**：仅 `local` profile 输出 Console；`test` profile 使用测试捕获 sender；生产环境未配置真实 sender 时不允许启动为可发送状态
 - **用户编号**：基于 `promotion_user` 自增主键格式化生成（如 KS000001），插入后回写
 
 ## 7. 测试现状
@@ -193,6 +217,7 @@ $env:SPRING_DATASOURCE_PASSWORD = '<database-password>'
 - 测试基类：[BaseAuthTest.java](src/test/java/com/kasi/backend/BaseAuthTest.java)，每个测试方法前自动清理数据并插入基础测试数据
 - 测试数据库：H2 内存数据库（MySQL 兼容模式），通过 `@ActiveProfiles("test")` 激活
 - 测试表结构：[test-schema.sql](src/test/resources/test-schema.sql)，与生产表结构一致（H2 兼容语法）
+- 测试 Redis 使用随机可用端口的嵌入式实例；`BaseAuthTest` 的 MockMvc 接入真实 Spring Security FilterChain。
 
 ### 现有测试类
 
@@ -241,7 +266,7 @@ Java 21 下编译会因 `release 25` 失败，必须使用 Java 25。
 ### P2：后续规划
 
 1. ⬜ 实现用户管理 CRUD（管理员对推广用户的增删改查）。
-2. ⬜ 接入真实短信/邮件验证码发送（当前为 Console 输出）。
+2. ⬜ 接入真实短信/邮件验证码发送（`local` 开发环境当前为 Console 输出）。
 3. ⬜ 实现 Token 刷新机制。
 4. ⬜ 添加操作日志和登录审计。
 

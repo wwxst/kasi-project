@@ -27,6 +27,10 @@ public interface PromotionUserMapper {
      */
     PromotionUser findByAccount(@Param("account") String account);
 
+    PromotionUser findByAccountForUpdate(@Param("account") String account);
+
+    PromotionUser findByIdForUpdate(@Param("id") Long id);
+
     int insert(PromotionUser user);
 
     int updatePassword(@Param("id") Long id,

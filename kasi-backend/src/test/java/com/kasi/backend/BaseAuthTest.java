@@ -2,6 +2,7 @@ package com.kasi.backend;
 
 import tools.jackson.databind.ObjectMapper;
 import com.kasi.backend.config.TestRedisConfig;
+import com.kasi.backend.auth.verification.TestVerificationCodeSender;
 import org.junit.jupiter.api.BeforeEach;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -15,6 +16,8 @@ import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 import org.springframework.web.context.WebApplicationContext;
 
 import java.util.Set;
+
+import static org.springframework.security.test.web.servlet.setup.SecurityMockMvcConfigurers.springSecurity;
 
 /**
  * 认证模块测试基类
@@ -43,6 +46,9 @@ public abstract class BaseAuthTest {
     @Autowired
     protected StringRedisTemplate redisTemplate;
 
+    @Autowired
+    protected TestVerificationCodeSender testVerificationCodeSender;
+
     /** 测试管理员密码（明文） */
     protected static final String ADMIN_PASSWORD = "admin123456";
     /** 测试用户密码（明文） */
@@ -51,7 +57,10 @@ public abstract class BaseAuthTest {
     @BeforeEach
     void baseSetUp() {
         // 手动构建MockMvc
-        this.mockMvc = MockMvcBuilders.webAppContextSetup(webApplicationContext).build();
+        this.mockMvc = MockMvcBuilders.webAppContextSetup(webApplicationContext)
+                .apply(springSecurity())
+                .build();
+        testVerificationCodeSender.clear();
 
         // 清理所有Redis键（验证码、Token等）
         Set<String> redisKeys = redisTemplate.keys("vc:*");
@@ -59,6 +68,10 @@ public abstract class BaseAuthTest {
             redisTemplate.delete(redisKeys);
         }
         redisKeys = redisTemplate.keys("pwd:*");
+        if (redisKeys != null && !redisKeys.isEmpty()) {
+            redisTemplate.delete(redisKeys);
+        }
+        redisKeys = redisTemplate.keys("auth:*");
         if (redisKeys != null && !redisKeys.isEmpty()) {
             redisTemplate.delete(redisKeys);
         }

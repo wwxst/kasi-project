@@ -49,6 +49,18 @@
         LIMIT 1
     </select>
 
+    <select id="findByAccountForUpdate" resultMap="BaseResultMap">
+        SELECT * FROM promotion_user
+        WHERE deleted_at IS NULL
+          AND (username = #{account} OR mobile = #{account} OR email = #{account})
+        LIMIT 1
+        FOR UPDATE
+    </select>
+
+    <select id="findByIdForUpdate" resultMap="BaseResultMap">
+        SELECT * FROM promotion_user WHERE id = #{id} AND deleted_at IS NULL FOR UPDATE
+    </select>
+
     <insert id="insert" parameterType="com.kasi.backend.user.entity.PromotionUser" useGeneratedKeys="true" keyProperty="id">
         INSERT INTO promotion_user (user_no, username, password, nickname, real_name, mobile, email,
                                     avatar_url, status, register_source, remark)

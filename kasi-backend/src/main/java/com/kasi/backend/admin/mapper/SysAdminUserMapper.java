@@ -25,6 +25,10 @@ public interface SysAdminUserMapper {
      */
     SysAdminUser findByAccount(@Param("account") String account);
 
+    SysAdminUser findByAccountForUpdate(@Param("account") String account);
+
+    SysAdminUser findByIdForUpdate(@Param("id") Long id);
+
     int insert(SysAdminUser user);
 
     int updatePassword(@Param("id") Long id,

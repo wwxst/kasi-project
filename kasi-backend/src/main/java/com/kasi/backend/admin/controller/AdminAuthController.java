@@ -1,12 +1,14 @@
 package com.kasi.backend.admin.controller;
 
-import com.kasi.backend.admin.dto.AdminLoginRequest;
-import com.kasi.backend.admin.dto.AdminLoginResponse;
-import com.kasi.backend.admin.dto.ChangePasswordRequest;
-import com.kasi.backend.admin.dto.CurrentAdminResponse;
+import com.kasi.backend.admin.dto.AdminLoginDTO;
+import com.kasi.backend.admin.vo.AdminLoginVO;
+import com.kasi.backend.admin.vo.CurrentAdminVO;
+import com.kasi.backend.auth.dto.ChangePasswordDTO;
 import com.kasi.backend.admin.service.AdminAuthService;
 import com.kasi.backend.common.response.ApiResponse;
 import com.kasi.backend.security.context.AuthContextHolder;
+import com.kasi.backend.security.session.SessionService;
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.*;
@@ -20,13 +22,15 @@ import org.springframework.web.bind.annotation.*;
 public class AdminAuthController {
 
     private final AdminAuthService adminAuthService;
+    private final SessionService sessionService;
 
     /**
      * 管理员登录
      */
     @PostMapping("/login")
-    public ApiResponse<AdminLoginResponse> login(@Valid @RequestBody AdminLoginRequest request) {
-        AdminLoginResponse response = adminAuthService.login(request);
+    public ApiResponse<AdminLoginVO> login(@Valid @RequestBody AdminLoginDTO request,
+                                                  HttpServletRequest httpRequest) {
+        AdminLoginVO response = adminAuthService.login(request, httpRequest.getRemoteAddr());
         return ApiResponse.success("登录成功", response);
     }
 
@@ -34,20 +38,20 @@ public class AdminAuthController {
      * 获取当前管理员信息
      */
     @GetMapping("/me")
-    public ApiResponse<CurrentAdminResponse> me() {
+    public ApiResponse<CurrentAdminVO> me() {
         Long adminId = AuthContextHolder.getAdminId();
-        CurrentAdminResponse response = adminAuthService.getCurrentAdmin(adminId);
+        CurrentAdminVO response = adminAuthService.getCurrentAdmin(adminId);
         return ApiResponse.success(response);
     }
 
     /**
      * 管理员退出登录
      * <p>
-     * 当前使用无状态JWT，退出由客户端清除Token即可，
-     * 服务端仅返回成功确认。
+     * 删除 Redis 中的单会话状态，仅撤销当前设备 Token。
      */
     @PostMapping("/logout")
     public ApiResponse<Void> logout() {
+        sessionService.revokeSession(AuthContextHolder.get().getJti());
         return ApiResponse.successMessage("退出成功");
     }
 
@@ -55,7 +59,7 @@ public class AdminAuthController {
      * 修改登录密码
      */
     @PutMapping("/password")
-    public ApiResponse<Void> changePassword(@Valid @RequestBody ChangePasswordRequest request) {
+    public ApiResponse<Void> changePassword(@Valid @RequestBody ChangePasswordDTO request) {
         Long adminId = AuthContextHolder.getAdminId();
         adminAuthService.changePassword(adminId, request);
         return ApiResponse.successMessage("密码修改成功");
