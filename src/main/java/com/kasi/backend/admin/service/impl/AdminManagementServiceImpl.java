@@ -3,6 +3,8 @@ package com.kasi.backend.admin.service.impl;
 import com.kasi.backend.admin.dto.AdminPageQueryDTO;
 import com.kasi.backend.admin.dto.CreateAdminDTO;
 import com.kasi.backend.admin.dto.UpdateAdminDTO;
+import com.kasi.backend.admin.dto.UpdateAdminStatusDTO;
+import com.kasi.backend.admin.dto.ResetAdminPasswordDTO;
 import com.kasi.backend.admin.entity.SysAdminUser;
 import com.kasi.backend.admin.mapper.SysAdminUserMapper;
 import com.kasi.backend.admin.service.AdminManagementService;
@@ -24,6 +26,7 @@ import org.springframework.transaction.support.TransactionSynchronizationManager
 
 import java.util.List;
 import java.util.Locale;
+import java.time.LocalDateTime;
 
 @Service
 @RequiredArgsConstructor
@@ -118,6 +121,43 @@ public class AdminManagementServiceImpl implements AdminManagementService {
         updateProfile(admin);
         registerCompletion(mutation);
         return toDetailVO(sysAdminUserMapper.findById(targetId));
+    }
+
+    @Override
+    @Transactional
+    public void updateStatus(Long operatorId, Long targetId, UpdateAdminStatusDTO request) {
+        SysAdminUser admin = getMutableOrdinaryAdmin(targetId);
+        SessionMutation mutation = sessionService.beginMutation(SubjectType.ADMIN, targetId);
+        if (sysAdminUserMapper.updateStatus(admin.getId(), request.getStatus()) != 1) {
+            throw new IllegalStateException("管理员状态更新未生效");
+        }
+        registerCompletion(mutation);
+    }
+
+    @Override
+    @Transactional
+    public void resetPassword(Long operatorId, Long targetId, ResetAdminPasswordDTO request) {
+        if (!request.getNewPassword().equals(request.getConfirmPassword())) {
+            throw new BusinessException(ErrorCode.ADMIN_PASSWORD_NOT_MATCH);
+        }
+        SysAdminUser admin = getMutableOrdinaryAdmin(targetId);
+        SessionMutation mutation = sessionService.beginMutation(SubjectType.ADMIN, targetId);
+        if (sysAdminUserMapper.updatePassword(admin.getId(), passwordEncoder.encode(request.getNewPassword()),
+                LocalDateTime.now()) != 1) {
+            throw new IllegalStateException("管理员密码重置未生效");
+        }
+        registerCompletion(mutation);
+    }
+
+    private SysAdminUser getMutableOrdinaryAdmin(Long targetId) {
+        SysAdminUser admin = sysAdminUserMapper.findByIdForUpdate(targetId);
+        if (admin == null) {
+            throw new BusinessException(ErrorCode.ADMIN_MANAGEMENT_NOT_FOUND);
+        }
+        if (Integer.valueOf(1).equals(admin.getIsSuperAdmin())) {
+            throw new BusinessException(ErrorCode.ADMIN_SUPER_ADMIN_PROTECTED);
+        }
+        return admin;
     }
 
     private void checkUniqueIdentifiers(String username, String mobile, String email) {

@@ -10,6 +10,7 @@ import java.util.Map;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -152,6 +153,97 @@ class AdminManagementMutationTest extends BaseAuthTest {
                                  "departmentId":null,"remark":null}
                                 """))
                 .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(2010));
+    }
+
+    @Test
+    @DisplayName("禁用和重新启用普通管理员均旋转会话版本")
+    void updateStatusInvalidatesOldTokenAndControlsLogin() throws Exception {
+        String operatorToken = loginAsAdmin("operator", ADMIN_PASSWORD);
+        String superToken = loginAsAdmin();
+        Long operatorId = jdbcTemplate.queryForObject(
+                "SELECT id FROM sys_admin_user WHERE username = 'operator'", Long.class);
+
+        mockMvc.perform(patch("/api/admin/management/{id}/status", operatorId)
+                        .header("Authorization", "Bearer " + superToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"status\":0}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(0));
+        mockMvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders
+                        .get("/api/admin/auth/me")
+                        .header("Authorization", "Bearer " + operatorToken))
+                .andExpect(status().isUnauthorized());
+        mockMvc.perform(post("/api/admin/auth/login")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"account\":\"operator\",\"password\":\"kasi123456\"}"))
+                .andExpect(jsonPath("$.code").value(2002));
+
+        mockMvc.perform(patch("/api/admin/management/{id}/status", operatorId)
+                        .header("Authorization", "Bearer " + superToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"status\":1}"))
+                .andExpect(jsonPath("$.code").value(0));
+        mockMvc.perform(post("/api/admin/auth/login")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"account\":\"operator\",\"password\":\"kasi123456\"}"))
+                .andExpect(jsonPath("$.code").value(0));
+        mockMvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders
+                        .get("/api/admin/auth/me")
+                        .header("Authorization", "Bearer " + operatorToken))
+                .andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    @DisplayName("超级管理员重置普通管理员密码并使旧会话失效")
+    void resetPasswordInvalidatesOldTokenAndCredentials() throws Exception {
+        String operatorToken = loginAsAdmin("operator", ADMIN_PASSWORD);
+        Long operatorId = jdbcTemplate.queryForObject(
+                "SELECT id FROM sys_admin_user WHERE username = 'operator'", Long.class);
+
+        mockMvc.perform(put("/api/admin/management/{id}/password", operatorId)
+                        .header("Authorization", "Bearer " + loginAsAdmin())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"newPassword\":\"newpass123!\",\"confirmPassword\":\"newpass123!\"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(0));
+        mockMvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders
+                        .get("/api/admin/auth/me")
+                        .header("Authorization", "Bearer " + operatorToken))
+                .andExpect(status().isUnauthorized());
+        mockMvc.perform(post("/api/admin/auth/login")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"account\":\"operator\",\"password\":\"kasi123456\"}"))
+                .andExpect(jsonPath("$.code").value(2003));
+        mockMvc.perform(post("/api/admin/auth/login")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"account\":\"operator\",\"password\":\"newpass123!\"}"))
+                .andExpect(jsonPath("$.code").value(0));
+    }
+
+    @Test
+    @DisplayName("重置密码不一致和超级管理员目标均被拒绝")
+    void statusAndPasswordProtectSuperAdminAndPasswordConfirmation() throws Exception {
+        String token = loginAsAdmin();
+        Long operatorId = jdbcTemplate.queryForObject(
+                "SELECT id FROM sys_admin_user WHERE username = 'operator'", Long.class);
+        Long superAdminId = jdbcTemplate.queryForObject(
+                "SELECT id FROM sys_admin_user WHERE username = ?", Long.class, ADMIN_USERNAME);
+
+        mockMvc.perform(put("/api/admin/management/{id}/password", operatorId)
+                        .header("Authorization", "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"newPassword\":\"newpass123\",\"confirmPassword\":\"newpass456\"}"))
+                .andExpect(jsonPath("$.code").value(2011));
+        mockMvc.perform(patch("/api/admin/management/{id}/status", superAdminId)
+                        .header("Authorization", "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"status\":0}"))
+                .andExpect(jsonPath("$.code").value(2010));
+        mockMvc.perform(put("/api/admin/management/{id}/password", superAdminId)
+                        .header("Authorization", "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"newPassword\":\"newpass123\",\"confirmPassword\":\"newpass123\"}"))
                 .andExpect(jsonPath("$.code").value(2010));
     }
 

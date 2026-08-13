@@ -2,9 +2,9 @@ package com.kasi.backend.admin.service.impl;
 
 import com.kasi.backend.admin.dto.AdminLoginDTO;
 import com.kasi.backend.admin.dto.UpdateAdminProfileDTO;
+import com.kasi.backend.admin.dto.AdminChangePasswordDTO;
 import com.kasi.backend.admin.vo.AdminLoginVO;
 import com.kasi.backend.admin.vo.CurrentAdminVO;
-import com.kasi.backend.auth.dto.ChangePasswordDTO;
 import com.kasi.backend.admin.entity.SysAdminUser;
 import com.kasi.backend.admin.mapper.SysAdminUserMapper;
 import com.kasi.backend.admin.service.AdminAuthService;
@@ -125,7 +125,7 @@ public class AdminAuthServiceImpl implements AdminAuthService {
      */
     @Transactional
     @Override
-    public void changePassword(Long adminId, ChangePasswordDTO request) {
+    public void changePassword(Long adminId, AdminChangePasswordDTO request) {
         SysAdminUser admin = sysAdminUserMapper.findByIdForUpdate(adminId);
         if (admin == null) {
             throw new BusinessException(ErrorCode.ADMIN_NOT_FOUND);
@@ -143,7 +143,7 @@ public class AdminAuthServiceImpl implements AdminAuthService {
 
         // 确认密码一致性
         if (!request.getNewPassword().equals(request.getConfirmPassword())) {
-            throw new BusinessException(ErrorCode.USER_PASSWORD_NOT_MATCH);
+            throw new BusinessException(ErrorCode.ADMIN_PASSWORD_NOT_MATCH);
         }
 
         // 加密并更新
