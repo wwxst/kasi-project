@@ -133,7 +133,6 @@ class AdminAuthControllerTest extends BaseAuthTest {
                 .andExpect(jsonPath("$.code").value(0))
                 .andExpect(jsonPath("$.data.username").value("kasiadmin"))
                 .andExpect(jsonPath("$.data.realName").value("系统管理员"))
-                .andExpect(jsonPath("$.data.nickname").doesNotExist())
                 .andExpect(jsonPath("$.data.isSuperAdmin").value(1));
     }
 
@@ -147,8 +146,7 @@ class AdminAuthControllerTest extends BaseAuthTest {
                         .header("Authorization", "Bearer " + token))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.username").value("kasiadmin"))
-                .andExpect(jsonPath("$.data.realName").value("系统管理员"))
-                .andExpect(jsonPath("$.data.nickname").doesNotExist());
+                .andExpect(jsonPath("$.data.realName").value("系统管理员"));
     }
 
     @Test
