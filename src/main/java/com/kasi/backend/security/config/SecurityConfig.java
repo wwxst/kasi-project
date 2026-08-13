@@ -73,6 +73,8 @@ public class SecurityConfig {
                         .requestMatchers("/api/user/auth/password/forgot/**").permitAll()
                         .requestMatchers("/api/user/auth/password/reset").permitAll()
                         .requestMatchers("/actuator/health").permitAll()
+                        // 管理员管理接口：仅超级管理员可访问
+                        .requestMatchers("/api/admin/management/**").hasRole("SUPER_ADMIN")
                         // 管理员接口：仅ADMIN角色可访问
                         .requestMatchers("/api/admin/**").hasRole("ADMIN")
                         // 用户接口：仅USER角色可访问
