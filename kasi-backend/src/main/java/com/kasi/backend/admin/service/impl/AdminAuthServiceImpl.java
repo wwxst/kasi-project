@@ -19,6 +19,7 @@ import com.kasi.backend.security.service.SessionService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.dao.DuplicateKeyException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -185,8 +186,13 @@ public class AdminAuthServiceImpl implements AdminAuthService {
         admin.setEmail(email);
         admin.setAvatarUrl(request.getAvatarUrl());
         admin.setUpdatedBy(adminId);
-        if (sysAdminUserMapper.updateProfile(admin) != 1) {
-            throw new IllegalStateException("管理员资料更新未生效");
+        try {
+            if (sysAdminUserMapper.updateProfile(admin) != 1) {
+                throw new IllegalStateException("管理员资料更新未生效");
+            }
+        } catch (DuplicateKeyException exception) {
+            ensureProfileUnique(adminId, admin.getUsername(), admin.getMobile(), admin.getEmail());
+            throw exception;
         }
         if (mutation != null) {
             org.springframework.transaction.support.TransactionSynchronizationManager

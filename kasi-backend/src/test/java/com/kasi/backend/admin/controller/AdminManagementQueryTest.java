@@ -71,4 +71,16 @@ class AdminManagementQueryTest extends BaseAuthTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.code").value(1006));
     }
+
+    @Test
+    @DisplayName("极大合法页码返回空列表而不发生偏移量溢出")
+    void getPageSupportsLargePageWithoutOffsetOverflow() throws Exception {
+        mockMvc.perform(MockMvcRequestBuilders.get("/api/admin/management")
+                        .param("page", String.valueOf(Integer.MAX_VALUE))
+                        .param("size", "100")
+                        .header("Authorization", "Bearer " + loginAsAdmin()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(0))
+                .andExpect(jsonPath("$.data.list").isEmpty());
+    }
 }

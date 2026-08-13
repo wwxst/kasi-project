@@ -33,7 +33,7 @@ public interface SysAdminUserMapper {
     long countByKeyword(@Param("keyword") String keyword);
 
     List<SysAdminUser> findPage(@Param("keyword") String keyword,
-                                @Param("offset") int offset,
+                                @Param("offset") long offset,
                                 @Param("size") int size);
 
     int insert(SysAdminUser user);
