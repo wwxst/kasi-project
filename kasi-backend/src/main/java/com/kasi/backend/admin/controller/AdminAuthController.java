@@ -2,9 +2,9 @@ package com.kasi.backend.admin.controller;
 
 import com.kasi.backend.admin.dto.AdminLoginDTO;
 import com.kasi.backend.admin.dto.UpdateAdminProfileDTO;
+import com.kasi.backend.admin.dto.AdminChangePasswordDTO;
 import com.kasi.backend.admin.vo.AdminLoginVO;
 import com.kasi.backend.admin.vo.CurrentAdminVO;
-import com.kasi.backend.auth.dto.ChangePasswordDTO;
 import com.kasi.backend.admin.service.AdminAuthService;
 import com.kasi.backend.common.response.ApiResponse;
 import com.kasi.backend.security.context.AuthContextHolder;
@@ -60,7 +60,7 @@ public class AdminAuthController {
      * 修改登录密码
      */
     @PutMapping("/password")
-    public ApiResponse<Void> changePassword(@Valid @RequestBody ChangePasswordDTO request) {
+    public ApiResponse<Void> changePassword(@Valid @RequestBody AdminChangePasswordDTO request) {
         Long adminId = AuthContextHolder.getAdminId();
         adminAuthService.changePassword(adminId, request);
         return ApiResponse.successMessage("密码修改成功");

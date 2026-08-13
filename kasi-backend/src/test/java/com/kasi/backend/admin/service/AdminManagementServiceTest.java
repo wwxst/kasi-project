@@ -1,6 +1,7 @@
 package com.kasi.backend.admin.service;
 
 import com.kasi.backend.admin.dto.UpdateAdminDTO;
+import com.kasi.backend.admin.dto.UpdateAdminStatusDTO;
 import com.kasi.backend.admin.entity.SysAdminUser;
 import com.kasi.backend.admin.mapper.SysAdminUserMapper;
 import com.kasi.backend.admin.service.impl.AdminManagementServiceImpl;
@@ -57,5 +58,31 @@ class AdminManagementServiceTest {
         var order = inOrder(sessionService, mapper);
         order.verify(sessionService).beginMutation(SubjectType.ADMIN, 2L);
         order.verify(mapper).updateProfile(any(SysAdminUser.class));
+    }
+
+    @Test
+    @DisplayName("状态变更时先冻结Redis会话再更新数据库")
+    void updateStatusBeginsSessionMutationBeforeDatabaseWrite() {
+        SysAdminUserMapper mapper = mock(SysAdminUserMapper.class);
+        PasswordEncoder passwordEncoder = mock(PasswordEncoder.class);
+        SessionService sessionService = mock(SessionService.class);
+        AdminManagementServiceImpl service = new AdminManagementServiceImpl(
+                mapper, passwordEncoder, sessionService);
+        SysAdminUser target = new SysAdminUser();
+        target.setId(2L);
+        target.setIsSuperAdmin(0);
+        when(mapper.findByIdForUpdate(2L)).thenReturn(target);
+        when(mapper.updateStatus(2L, 0)).thenReturn(1);
+        when(sessionService.beginMutation(SubjectType.ADMIN, 2L))
+                .thenReturn(new SessionMutation(SubjectType.ADMIN, 2L, "nonce"));
+        UpdateAdminStatusDTO request = new UpdateAdminStatusDTO();
+        request.setStatus(0);
+        TransactionSynchronizationManager.initSynchronization();
+
+        service.updateStatus(1L, 2L, request);
+
+        var order = inOrder(sessionService, mapper);
+        order.verify(sessionService).beginMutation(SubjectType.ADMIN, 2L);
+        order.verify(mapper).updateStatus(2L, 0);
     }
 }
