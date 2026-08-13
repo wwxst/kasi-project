@@ -12,7 +12,6 @@ public class PromotionUser {
 
     private Long id;
     private String userNo;
-    private String username;
     private String password;
     private String nickname;
     private String realName;

@@ -125,7 +125,7 @@ class UserAuthControllerTest extends BaseAuthTest {
                         .post("/api/user/auth/login")
                         .contentType("application/json")
                         .content("""
-                                {"account":"testuser","password":"user123456"}
+                                {"account":"13800138000","password":"user123456"}
                                 """))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.code").value(0))
@@ -168,7 +168,7 @@ class UserAuthControllerTest extends BaseAuthTest {
                         .post("/api/user/auth/login")
                         .contentType("application/json")
                         .content("""
-                                {"account":"testuser","password":"wrongpassword"}
+                                {"account":"13800138000","password":"wrongpassword"}
                                 """))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.code").value(3003))
@@ -182,7 +182,7 @@ class UserAuthControllerTest extends BaseAuthTest {
                         .post("/api/user/auth/login")
                         .contentType("application/json")
                         .content("""
-                                {"account":"disabled_user","password":"user123456"}
+                                {"account":"13700137000","password":"user123456"}
                                 """))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.code").value(3002))
@@ -233,7 +233,7 @@ class UserAuthControllerTest extends BaseAuthTest {
                         .post("/api/user/auth/login")
                         .contentType("application/json")
                         .content(objectMapper.writeValueAsString(
-                                java.util.Map.of("account", "testuser", "password", password))))
+                                java.util.Map.of("account", "13800138000", "password", password))))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.code").value(1006));
     }
@@ -325,7 +325,7 @@ class UserAuthControllerTest extends BaseAuthTest {
                         .post("/api/user/auth/login")
                         .contentType("application/json")
                         .content("""
-                                {"account":"testuser","password":"newuserpass"}
+                                {"account":"13800138000","password":"newuserpass"}
                                 """))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.code").value(0));

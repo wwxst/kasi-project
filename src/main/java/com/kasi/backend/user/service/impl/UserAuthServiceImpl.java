@@ -96,10 +96,8 @@ public class UserAuthServiceImpl implements UserAuthService {
         user.setUserNo("TMP-" + UUID.randomUUID().toString().replace("-", "").substring(0, 28));
         if (isEmail(account)) {
             user.setEmail(account);
-            user.setUsername(account);
         } else {
             user.setMobile(account);
-            user.setUsername(account);
         }
         user.setPassword(passwordEncoder.encode(request.getPassword()));
         user.setStatus(UserStatus.NORMAL.getCode());
@@ -111,7 +109,7 @@ public class UserAuthServiceImpl implements UserAuthService {
         // 根据自增id生成用户编号并回写
         String userNo = "KS" + String.format("%06d", user.getId());
         String nickname = "用户" + userNo;
-        promotionUserMapper.updateUserNo(user.getId(), userNo, nickname);
+        promotionUserMapper.updateUserNo(user.getId(), userNo);
 
         log.info("用户注册成功: userNo={}, account={}", userNo, account);
     }
@@ -148,7 +146,7 @@ public class UserAuthServiceImpl implements UserAuthService {
         // 生成Token
         AuthSession session = sessionService.createSession(SubjectType.USER, user.getId());
         String token = tokenService.generateToken(
-                user.getId(), SubjectType.USER, user.getUsername(),
+                user.getId(), SubjectType.USER, account,
                 session.jti(), session.sessionVersion());
 
         // 更新最后登录信息
@@ -185,7 +183,6 @@ public class UserAuthServiceImpl implements UserAuthService {
         return CurrentUserVO.builder()
                 .id(user.getId())
                 .userNo(user.getUserNo())
-                .username(user.getUsername())
                 .nickname(user.getNickname())
                 .realName(user.getRealName())
                 .mobile(user.getMobile())
@@ -238,7 +235,7 @@ public class UserAuthServiceImpl implements UserAuthService {
             }
         });
 
-        log.info("用户 [{}] 修改密码成功", user.getUsername());
+        log.info("用户 [ID={}] 修改密码成功", userId);
     }
 
     /**

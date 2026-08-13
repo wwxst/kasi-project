@@ -14,8 +14,6 @@ public interface PromotionUserMapper {
 
     PromotionUser findById(@Param("id") Long id);
 
-    PromotionUser findByUsername(@Param("username") String username);
-
     PromotionUser findByMobile(@Param("mobile") String mobile);
 
     PromotionUser findByEmail(@Param("email") String email);
@@ -23,7 +21,7 @@ public interface PromotionUserMapper {
     PromotionUser findByUserNo(@Param("userNo") String userNo);
 
     /**
-     * 根据account模糊匹配 username / mobile / email
+     * 根据 account 匹配手机号或邮箱
      */
     PromotionUser findByAccount(@Param("account") String account);
 
@@ -42,5 +40,5 @@ public interface PromotionUserMapper {
 
     int updateStatus(@Param("id") Long id, @Param("status") Integer status);
 
-    int updateUserNo(@Param("id") Long id, @Param("userNo") String userNo, @Param("nickname") String nickname);
+    int updateUserNo(@Param("id") Long id, @Param("userNo") String userNo);
 }
