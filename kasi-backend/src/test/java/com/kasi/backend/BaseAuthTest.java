@@ -99,18 +99,18 @@ public abstract class BaseAuthTest {
 
         // 插入测试普通用户
         jdbcTemplate.update(
-                "INSERT INTO promotion_user (user_no, username, password, nickname, mobile, email, status) VALUES (?, ?, ?, ?, ?, ?, ?)",
-                "KS000001", "testuser", passwordEncoder.encode(USER_PASSWORD), "测试用户", "13800138000", "test@example.com", 1);
+                "INSERT INTO promotion_user (user_no, password, nickname, mobile, email, status) VALUES (?, ?, ?, ?, ?, ?)",
+                "KS000001", passwordEncoder.encode(USER_PASSWORD), "测试用户", "13800138000", "test@example.com", 1);
 
         // 插入一个仅有手机号的用户（用于忘记密码测试）
         jdbcTemplate.update(
-                "INSERT INTO promotion_user (user_no, username, password, nickname, mobile, status) VALUES (?, ?, ?, ?, ?, ?)",
-                "KS000002", "mobileuser", passwordEncoder.encode(USER_PASSWORD), "手机用户", "13900139000", 1);
+                "INSERT INTO promotion_user (user_no, password, nickname, mobile, status) VALUES (?, ?, ?, ?, ?)",
+                "KS000002", passwordEncoder.encode(USER_PASSWORD), "手机用户", "13900139000", 1);
 
         // 插入禁用用户
         jdbcTemplate.update(
-                "INSERT INTO promotion_user (user_no, username, password, nickname, mobile, status) VALUES (?, ?, ?, ?, ?, ?)",
-                "KS000003", "disabled_user", passwordEncoder.encode(USER_PASSWORD), "已禁用用户", "13700137000", 0);
+                "INSERT INTO promotion_user (user_no, password, nickname, mobile, status) VALUES (?, ?, ?, ?, ?)",
+                "KS000003", passwordEncoder.encode(USER_PASSWORD), "已禁用用户", "13700137000", 0);
     }
 
     /**
@@ -140,7 +140,7 @@ public abstract class BaseAuthTest {
      * 发送用户登录请求并返回Token
      */
     protected String loginAsUser() throws Exception {
-        return loginAsUser("testuser", USER_PASSWORD);
+        return loginAsUser("13800138000", USER_PASSWORD);
     }
 
     /**

@@ -14,7 +14,6 @@ public class CurrentUserVO {
 
     private Long id;
     private String userNo;
-    private String username;
     private String nickname;
     private String realName;
     private String mobile;

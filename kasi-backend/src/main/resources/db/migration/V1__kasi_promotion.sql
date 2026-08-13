@@ -43,7 +43,6 @@ CREATE TABLE `promotion_user`
 (
     `id`              BIGINT UNSIGNED NOT NULL AUTO_INCREMENT COMMENT '主键ID',
     `user_no`         VARCHAR(32)     NOT NULL COMMENT '业务用户编号，如KS000001',
-    `username`        VARCHAR(64)              DEFAULT NULL COMMENT '登录账号',
     `password`        VARCHAR(255)    NOT NULL COMMENT '密码（BCrypt加密）',
     `nickname`        VARCHAR(64)              DEFAULT NULL COMMENT '昵称',
     `real_name`       VARCHAR(64)              DEFAULT NULL COMMENT '真实姓名',
@@ -60,7 +59,6 @@ CREATE TABLE `promotion_user`
     `deleted_at`      DATETIME                 DEFAULT NULL COMMENT '软删除时间',
     PRIMARY KEY (`id`),
     UNIQUE KEY `uk_user_no` (`user_no`),
-    UNIQUE KEY `uk_username` (`username`),
     UNIQUE KEY `uk_mobile` (`mobile`),
     UNIQUE KEY `uk_email` (`email`),
     KEY `idx_status` (`status`),

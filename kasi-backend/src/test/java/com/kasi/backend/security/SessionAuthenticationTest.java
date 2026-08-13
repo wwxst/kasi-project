@@ -34,7 +34,7 @@ class SessionAuthenticationTest extends BaseAuthTest {
     @DisplayName("JWT对应账号禁用后返回401")
     void disabledAccountReturnsUnauthorized() throws Exception {
         String token = loginAsUser();
-        jdbcTemplate.update("UPDATE promotion_user SET status = 0 WHERE username = 'testuser'");
+        jdbcTemplate.update("UPDATE promotion_user SET status = 0 WHERE mobile = '13800138000'");
 
         mockMvc.perform(MockMvcRequestBuilders.get("/api/user/auth/me")
                         .header("Authorization", "Bearer " + token))
@@ -70,7 +70,7 @@ class SessionAuthenticationTest extends BaseAuthTest {
     @DisplayName("旧格式JWT缺少会话状态时返回401且不重建Redis")
     void tokenWithoutRedisStateReturnsUnauthorizedWithoutRebuilding() throws Exception {
         String token = tokenService.generateToken(
-                1L, SubjectType.USER, "testuser", "orphan-jti", "orphan-version");
+                1L, SubjectType.USER, "13800138000", "orphan-jti", "orphan-version");
 
         mockMvc.perform(MockMvcRequestBuilders.get("/api/user/auth/me")
                         .header("Authorization", "Bearer " + token))

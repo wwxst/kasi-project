@@ -5,7 +5,6 @@
     <resultMap id="BaseResultMap" type="com.kasi.backend.user.entity.PromotionUser">
         <id column="id" property="id"/>
         <result column="user_no" property="userNo"/>
-        <result column="username" property="username"/>
         <result column="password" property="password"/>
         <result column="nickname" property="nickname"/>
         <result column="real_name" property="realName"/>
@@ -26,10 +25,6 @@
         SELECT * FROM promotion_user WHERE id = #{id} AND deleted_at IS NULL
     </select>
 
-    <select id="findByUsername" resultMap="BaseResultMap">
-        SELECT * FROM promotion_user WHERE username = #{username} AND deleted_at IS NULL
-    </select>
-
     <select id="findByMobile" resultMap="BaseResultMap">
         SELECT * FROM promotion_user WHERE mobile = #{mobile} AND deleted_at IS NULL
     </select>
@@ -45,14 +40,14 @@
     <select id="findByAccount" resultMap="BaseResultMap">
         SELECT * FROM promotion_user
         WHERE deleted_at IS NULL
-          AND (username = #{account} OR mobile = #{account} OR email = #{account})
+          AND (mobile = #{account} OR email = #{account})
         LIMIT 1
     </select>
 
     <select id="findByAccountForUpdate" resultMap="BaseResultMap">
         SELECT * FROM promotion_user
         WHERE deleted_at IS NULL
-          AND (username = #{account} OR mobile = #{account} OR email = #{account})
+          AND (mobile = #{account} OR email = #{account})
         LIMIT 1
         FOR UPDATE
     </select>
@@ -62,9 +57,9 @@
     </select>
 
     <insert id="insert" parameterType="com.kasi.backend.user.entity.PromotionUser" useGeneratedKeys="true" keyProperty="id">
-        INSERT INTO promotion_user (user_no, username, password, nickname, real_name, mobile, email,
+        INSERT INTO promotion_user (user_no, password, nickname, real_name, mobile, email,
                                     avatar_url, status, register_source, remark)
-        VALUES (#{userNo}, #{username}, #{password}, #{nickname}, #{realName}, #{mobile}, #{email},
+        VALUES (#{userNo}, #{password}, #{nickname}, #{realName}, #{mobile}, #{email},
                 #{avatarUrl}, #{status}, #{registerSource}, #{remark})
     </insert>
 
@@ -83,7 +78,7 @@
     </update>
 
     <update id="updateUserNo">
-        UPDATE promotion_user SET user_no = #{userNo}, nickname = #{nickname} WHERE id = #{id}
+        UPDATE promotion_user SET user_no = #{userNo} WHERE id = #{id}
     </update>
 
 </mapper>
