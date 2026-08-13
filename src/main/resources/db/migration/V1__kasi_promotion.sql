@@ -56,7 +56,6 @@ CREATE TABLE `promotion_user`
     `remark`          VARCHAR(500)             DEFAULT NULL COMMENT '备注',
     `created_at`      DATETIME        NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
     `updated_at`      DATETIME        NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
-    `deleted_at`      DATETIME                 DEFAULT NULL COMMENT '软删除时间',
     PRIMARY KEY (`id`),
     UNIQUE KEY `uk_user_no` (`user_no`),
     UNIQUE KEY `uk_mobile` (`mobile`),

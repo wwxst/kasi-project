@@ -20,7 +20,7 @@
 
 - [ ] 写失败测试：反射确认 `PromotionUser` 没有 `username`，认证响应没有该字段。
 - [ ] 运行 `mvnw.cmd '-Dtest=UserAuthControllerTest,ServiceImplementationStructureTest' test`，确认 RED。
-- [ ] 删除推广用户 `username` 列、唯一索引、Entity 属性、Mapper resultMap 字段和两个认证 VO 字段；保留 `nickname`、`userNo`、联系方式、`deleted_at`。
+- [ ] 删除推广用户 `username` 列、唯一索引、Entity 属性、Mapper resultMap 字段和两个认证 VO 字段；保留 `nickname`、`userNo` 和联系方式。
 - [ ] 运行同一组结构/编译测试，修正由旧 Service 引用产生的编译错误但不恢复 username。
 - [ ] 提交：`refactor: remove promotion user username`。
 
@@ -50,8 +50,8 @@
 
 - [ ] 写失败测试：默认分页、关键词匹配 userNo/mobile/email/nickname/realName、空关键词、超大页码、详情不存在 `3011`、无 password。
 - [ ] 运行 `mvnw.cmd '-Dtest=UserManagementQueryTest' test`，确认 RED。
-- [ ] 增加 `countByKeyword` 和 `findPage(keyword,long offset,int size)`；SQL 使用 `deleted_at IS NULL`、括号关键词条件、`ORDER BY id ASC`、参数绑定。
-- [ ] Service 使用 `((long) page - 1) * size`，映射 Entity 到 VO 时不返回 password/deletedAt。
+- [ ] 增加 `countByKeyword` 和 `findPage(keyword,long offset,int size)`；SQL 使用括号关键词条件、`ORDER BY id ASC` 和参数绑定。
+- [ ] Service 使用 `((long) page - 1) * size`，映射 Entity 到 VO 时不返回 password。
 - [ ] 运行 `mvnw.cmd '-Dtest=UserManagementQueryTest,ServiceImplementationStructureTest' test`。
 - [ ] 提交：`feat: query promotion users`。
 

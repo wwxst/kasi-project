@@ -225,7 +225,7 @@ $env:SPRING_DATASOURCE_PASSWORD = '<database-password>'
 | PUT | `/api/user/management/{id}/password` | 管理员重置推广用户密码 |
 | DELETE | `/api/user/management/{id}` | 物理删除推广用户 |
 
-联系人、状态、密码或删除等敏感变更会先将 Redis 会话版本切换为 `MUTATING`；Redis 失败时不执行 MySQL 写入，数据库提交成功后生成新的 `ACTIVE` 版本，使全部旧 Token 失效。只修改昵称、姓名、头像或备注不会使会话失效。物理删除后原手机号和邮箱可以复用。
+联系人、状态、密码或删除等敏感变更会先将 Redis 会话版本切换为 `MUTATING`；Redis 失败时不执行 MySQL 写入，数据库提交成功后生成新的 `ACTIVE` 版本，使全部旧 Token 失效。只修改昵称、姓名、头像或备注不会使会话失效。`promotion_user` 不保留 `deleted_at`，物理删除后原手机号和邮箱可以复用。
 
 ### 6.6 统一响应格式
 

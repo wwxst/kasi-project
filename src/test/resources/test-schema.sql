@@ -41,7 +41,6 @@ CREATE TABLE IF NOT EXISTS promotion_user (
     remark VARCHAR(500) DEFAULT NULL,
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    deleted_at TIMESTAMP DEFAULT NULL,
     UNIQUE (user_no),
     UNIQUE (mobile),
     UNIQUE (email)
