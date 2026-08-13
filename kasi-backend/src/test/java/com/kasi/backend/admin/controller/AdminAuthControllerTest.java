@@ -13,6 +13,53 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @DisplayName("管理员认证")
 class AdminAuthControllerTest extends BaseAuthTest {
 
+    @Test
+    @DisplayName("超级管理员可在个人资料修改账号和资料")
+    void updateSuperAdminProfile() throws Exception {
+        String token = loginAsAdmin();
+
+        mockMvc.perform(MockMvcRequestBuilders.put("/api/admin/auth/profile")
+                        .header("Authorization", "Bearer " + token)
+                        .contentType("application/json")
+                        .content("""
+                                {"username":"kasiadmin2","realName":"系统负责人",
+                                 "mobile":" 13800138001 ","email":" ADMIN@EXAMPLE.COM ",
+                                 "avatarUrl":"https://example.com/admin.png"}
+                                """))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.username").value("kasiadmin2"))
+                .andExpect(jsonPath("$.data.realName").value("系统负责人"))
+                .andExpect(jsonPath("$.data.email").value("admin@example.com"))
+                .andExpect(jsonPath("$.data.isSuperAdmin").value(1));
+
+        mockMvc.perform(MockMvcRequestBuilders.get("/api/admin/auth/me")
+                        .header("Authorization", "Bearer " + token))
+                .andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    @DisplayName("普通管理员可修改本人展示资料且原Token继续有效")
+    void updateOrdinaryAdminDisplayProfileKeepsTokenValid() throws Exception {
+        String token = loginAsAdmin("operator", ADMIN_PASSWORD);
+
+        mockMvc.perform(MockMvcRequestBuilders.put("/api/admin/auth/profile")
+                        .header("Authorization", "Bearer " + token)
+                        .contentType("application/json")
+                        .content("""
+                                {"username":"operator","realName":"运营负责人",
+                                 "mobile":null,"email":null,
+                                 "avatarUrl":"https://example.com/operator.png"}
+                                """))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.realName").value("运营负责人"))
+                .andExpect(jsonPath("$.data.isSuperAdmin").value(0));
+
+        mockMvc.perform(MockMvcRequestBuilders.get("/api/admin/auth/me")
+                        .header("Authorization", "Bearer " + token))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.realName").value("运营负责人"));
+    }
+
     // ==================== 登录测试 ====================
 
     @Test

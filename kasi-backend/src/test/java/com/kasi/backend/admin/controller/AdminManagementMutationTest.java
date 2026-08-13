@@ -9,6 +9,7 @@ import java.util.Map;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -108,6 +109,50 @@ class AdminManagementMutationTest extends BaseAuthTest {
                                 """))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.code").value(1006));
+    }
+
+    @Test
+    @DisplayName("超级管理员编辑普通管理员资料并使登录标识变更后的旧Token失效")
+    void updateAdminInvalidatesOldTokenWhenIdentifierChanges() throws Exception {
+        String operatorToken = loginAsAdmin("operator", ADMIN_PASSWORD);
+        Long operatorId = jdbcTemplate.queryForObject(
+                "SELECT id FROM sys_admin_user WHERE username = 'operator'", Long.class);
+
+        mockMvc.perform(put("/api/admin/management/{id}", operatorId)
+                        .header("Authorization", "Bearer " + loginAsAdmin())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"username":"operator2","realName":"运营主管",
+                                 "mobile":" 13900139001 ","email":" OPERATOR2@EXAMPLE.COM ",
+                                 "avatarUrl":"https://example.com/operator.png",
+                                 "departmentId":9,"remark":"运营部"}
+                                """))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.username").value("operator2"))
+                .andExpect(jsonPath("$.data.email").value("operator2@example.com"));
+
+        mockMvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders
+                        .get("/api/admin/auth/me")
+                        .header("Authorization", "Bearer " + operatorToken))
+                .andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    @DisplayName("管理接口不允许编辑唯一超级管理员")
+    void updateAdminProtectsSuperAdmin() throws Exception {
+        Long superAdminId = jdbcTemplate.queryForObject(
+                "SELECT id FROM sys_admin_user WHERE username = ?", Long.class, ADMIN_USERNAME);
+
+        mockMvc.perform(put("/api/admin/management/{id}", superAdminId)
+                        .header("Authorization", "Bearer " + loginAsAdmin())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"username":"kasiadmin2","realName":"系统管理员",
+                                 "mobile":null,"email":null,"avatarUrl":null,
+                                 "departmentId":null,"remark":null}
+                                """))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(2010));
     }
 
     private void assertDuplicate(String token, String username, String mobile, String email, int code)

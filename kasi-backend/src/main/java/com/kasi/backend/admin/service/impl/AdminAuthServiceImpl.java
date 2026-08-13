@@ -1,6 +1,7 @@
 package com.kasi.backend.admin.service.impl;
 
 import com.kasi.backend.admin.dto.AdminLoginDTO;
+import com.kasi.backend.admin.dto.UpdateAdminProfileDTO;
 import com.kasi.backend.admin.vo.AdminLoginVO;
 import com.kasi.backend.admin.vo.CurrentAdminVO;
 import com.kasi.backend.auth.dto.ChangePasswordDTO;
@@ -24,6 +25,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.util.Locale;
+import java.util.Objects;
 
 /**
  * 管理员认证服务
@@ -160,5 +162,66 @@ public class AdminAuthServiceImpl implements AdminAuthService {
                 });
 
         log.info("管理员 [{}] 修改密码成功", admin.getUsername());
+    }
+
+    @Override
+    @Transactional
+    public CurrentAdminVO updateProfile(Long adminId, UpdateAdminProfileDTO request) {
+        SysAdminUser admin = sysAdminUserMapper.findByIdForUpdate(adminId);
+        if (admin == null) {
+            throw new BusinessException(ErrorCode.ADMIN_NOT_FOUND);
+        }
+        String mobile = trimToNull(request.getMobile());
+        String email = normalizeEmail(request.getEmail());
+        ensureProfileUnique(adminId, request.getUsername(), mobile, email);
+        boolean identifierChanged = !request.getUsername().equals(admin.getUsername())
+                || !Objects.equals(mobile, admin.getMobile())
+                || !Objects.equals(email, admin.getEmail());
+        SessionMutation mutation = identifierChanged
+                ? sessionService.beginMutation(SubjectType.ADMIN, adminId) : null;
+        admin.setUsername(request.getUsername());
+        admin.setRealName(request.getRealName());
+        admin.setMobile(mobile);
+        admin.setEmail(email);
+        admin.setAvatarUrl(request.getAvatarUrl());
+        admin.setUpdatedBy(adminId);
+        if (sysAdminUserMapper.updateProfile(admin) != 1) {
+            throw new IllegalStateException("管理员资料更新未生效");
+        }
+        if (mutation != null) {
+            org.springframework.transaction.support.TransactionSynchronizationManager
+                    .registerSynchronization(new org.springframework.transaction.support.TransactionSynchronization() {
+                        @Override
+                        public void afterCommit() {
+                            sessionService.completeMutation(mutation);
+                        }
+                    });
+        }
+        return getCurrentAdmin(adminId);
+    }
+
+    private void ensureProfileUnique(Long adminId, String username, String mobile, String email) {
+        ensureOther(sysAdminUserMapper.findByUsername(username), adminId, ErrorCode.ADMIN_USERNAME_DUPLICATE);
+        if (mobile != null) {
+            ensureOther(sysAdminUserMapper.findByMobile(mobile), adminId, ErrorCode.ADMIN_MOBILE_DUPLICATE);
+        }
+        if (email != null) {
+            ensureOther(sysAdminUserMapper.findByEmail(email), adminId, ErrorCode.ADMIN_EMAIL_DUPLICATE);
+        }
+    }
+
+    private void ensureOther(SysAdminUser existing, Long adminId, ErrorCode errorCode) {
+        if (existing != null && !adminId.equals(existing.getId())) {
+            throw new BusinessException(errorCode);
+        }
+    }
+
+    private String trimToNull(String value) {
+        return value == null || value.trim().isEmpty() ? null : value.trim();
+    }
+
+    private String normalizeEmail(String email) {
+        String value = trimToNull(email);
+        return value == null ? null : value.toLowerCase(Locale.ROOT);
     }
 }

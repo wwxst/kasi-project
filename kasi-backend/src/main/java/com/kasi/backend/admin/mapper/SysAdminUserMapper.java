@@ -38,6 +38,8 @@ public interface SysAdminUserMapper {
 
     int insert(SysAdminUser user);
 
+    int updateProfile(SysAdminUser user);
+
     int updatePassword(@Param("id") Long id,
                        @Param("password") String password,
                        @Param("passwordChangedAt") LocalDateTime passwordChangedAt);

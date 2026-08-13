@@ -90,6 +90,20 @@
                 #{departmentId}, #{status}, #{isSuperAdmin}, #{remark}, #{createdBy}, #{updatedBy})
     </insert>
 
+    <update id="updateProfile" parameterType="com.kasi.backend.admin.entity.SysAdminUser">
+        UPDATE sys_admin_user
+        SET username = #{username},
+            real_name = #{realName},
+            mobile = #{mobile},
+            email = #{email},
+            avatar_url = #{avatarUrl},
+            department_id = #{departmentId},
+            remark = #{remark},
+            updated_by = #{updatedBy},
+            updated_at = CURRENT_TIMESTAMP
+        WHERE id = #{id}
+    </update>
+
     <update id="updatePassword">
         UPDATE sys_admin_user
         SET password = #{password}, password_changed_at = #{passwordChangedAt}

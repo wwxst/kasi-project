@@ -1,6 +1,7 @@
 package com.kasi.backend.admin.service;
 
 import com.kasi.backend.admin.dto.AdminLoginDTO;
+import com.kasi.backend.admin.dto.UpdateAdminProfileDTO;
 import com.kasi.backend.admin.vo.AdminLoginVO;
 import com.kasi.backend.admin.vo.CurrentAdminVO;
 import com.kasi.backend.auth.dto.ChangePasswordDTO;
@@ -15,4 +16,6 @@ public interface AdminAuthService {
     CurrentAdminVO getCurrentAdmin(Long adminId);
 
     void changePassword(Long adminId, ChangePasswordDTO request);
+
+    CurrentAdminVO updateProfile(Long adminId, UpdateAdminProfileDTO request);
 }
