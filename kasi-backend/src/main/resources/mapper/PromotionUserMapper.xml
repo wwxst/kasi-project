@@ -18,48 +18,44 @@
         <result column="remark" property="remark"/>
         <result column="created_at" property="createdAt"/>
         <result column="updated_at" property="updatedAt"/>
-        <result column="deleted_at" property="deletedAt"/>
     </resultMap>
 
     <select id="findById" resultMap="BaseResultMap">
-        SELECT * FROM promotion_user WHERE id = #{id} AND deleted_at IS NULL
+        SELECT * FROM promotion_user WHERE id = #{id}
     </select>
 
     <select id="findByMobile" resultMap="BaseResultMap">
-        SELECT * FROM promotion_user WHERE mobile = #{mobile} AND deleted_at IS NULL
+        SELECT * FROM promotion_user WHERE mobile = #{mobile}
     </select>
 
     <select id="findByEmail" resultMap="BaseResultMap">
-        SELECT * FROM promotion_user WHERE email = #{email} AND deleted_at IS NULL
+        SELECT * FROM promotion_user WHERE email = #{email}
     </select>
 
     <select id="findByUserNo" resultMap="BaseResultMap">
-        SELECT * FROM promotion_user WHERE user_no = #{userNo} AND deleted_at IS NULL
+        SELECT * FROM promotion_user WHERE user_no = #{userNo}
     </select>
 
     <select id="findByAccount" resultMap="BaseResultMap">
         SELECT * FROM promotion_user
-        WHERE deleted_at IS NULL
-          AND (mobile = #{account} OR email = #{account})
+        WHERE mobile = #{account} OR email = #{account}
         LIMIT 1
     </select>
 
     <select id="findByAccountForUpdate" resultMap="BaseResultMap">
         SELECT * FROM promotion_user
-        WHERE deleted_at IS NULL
-          AND (mobile = #{account} OR email = #{account})
+        WHERE mobile = #{account} OR email = #{account}
         LIMIT 1
         FOR UPDATE
     </select>
 
     <select id="findByIdForUpdate" resultMap="BaseResultMap">
-        SELECT * FROM promotion_user WHERE id = #{id} AND deleted_at IS NULL FOR UPDATE
+        SELECT * FROM promotion_user WHERE id = #{id} FOR UPDATE
     </select>
 
     <select id="countByKeyword" resultType="long">
         SELECT COUNT(*) FROM promotion_user
-        WHERE deleted_at IS NULL
-          AND (#{keyword} IS NULL
+        WHERE (#{keyword} IS NULL
             OR user_no LIKE CONCAT('%', #{keyword}, '%')
             OR mobile LIKE CONCAT('%', #{keyword}, '%')
             OR email LIKE CONCAT('%', #{keyword}, '%')
@@ -69,8 +65,7 @@
 
     <select id="findPage" resultMap="BaseResultMap">
         SELECT * FROM promotion_user
-        WHERE deleted_at IS NULL
-          AND (#{keyword} IS NULL
+        WHERE (#{keyword} IS NULL
             OR user_no LIKE CONCAT('%', #{keyword}, '%')
             OR mobile LIKE CONCAT('%', #{keyword}, '%')
             OR email LIKE CONCAT('%', #{keyword}, '%')

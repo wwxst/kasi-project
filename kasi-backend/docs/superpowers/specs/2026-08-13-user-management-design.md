@@ -191,8 +191,8 @@ Redis 失败返回 HTTP 503 和 `AUTH_STATE_UNAVAILABLE(1007)`，不执行数据
 直接修改 `V1__kasi_promotion.sql` 和 `test-schema.sql`，不新增 `V2`：
 
 - 从 `promotion_user` 删除 `username` 列及唯一索引。
-- 保留 `user_no`、`nickname`、`real_name`、`mobile`、`email`、`avatar_url`、`status`、`register_source`、`remark` 和时间字段。
-- 管理删除执行物理 `DELETE`，不写 `deleted_at`；该字段仅保留用于现有软删除查询兼容。
+- 保留 `user_no`、`nickname`、`real_name`、`mobile`、`email`、`avatar_url`、`status`、`register_source`、`remark`、`created_at` 和 `updated_at`。
+- 推广用户表不保留 `deleted_at`，管理删除只执行物理 `DELETE`。
 - 注册 Mapper 不再插入 `username`；登录查询只按 `mobile` 或 `email` 匹配。
 - 新增分页统计、分页查询、资料更新、状态更新、密码更新和物理删除 Mapper 方法。
 - 所有 SQL 使用 MyBatis 参数绑定，列表固定 `ORDER BY id ASC`。

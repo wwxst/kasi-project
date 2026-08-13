@@ -24,6 +24,7 @@
 - 管理员只使用必填 `real_name`，不使用 `nickname`。管理员删除执行物理 `DELETE`，不写入 `deleted_at`，删除后账号、手机号和邮箱可以复用。
 - 推广用户不使用独立 `username`，只用手机号或邮箱登录；`user_no` 仅作为内部编号。超级管理员和普通管理员均可通过 `/api/user/management/**` 分页、搜索、新增、编辑、启禁用、重置密码和物理删除推广用户。
 - 推广用户联系方式、状态、密码和删除等敏感管理操作先进入 Redis `MUTATING` 状态；Redis 失败时不得写 MySQL。物理删除后手机号和邮箱可以复用。
+- `promotion_user` 不保留 `deleted_at`；推广用户删除只使用物理 `DELETE`。`sys_admin_user.deleted_at` 仍保留，不在本规则范围内。
 - Git 仓库：`https://github.com/wwxst/kasi-backend.git`，远程 `origin`，分支 `master`。
 - 在文档和代码审查中，请将当前架构与规划架构区分开来。不要将规划中的模块描述为已实现的模块。
 

@@ -19,16 +19,16 @@ import static org.assertj.core.api.Assertions.assertThat;
 class PromotionUserStructureTest extends BaseAuthTest {
 
     @Test
-    @DisplayName("实体和认证响应不再暴露独立username")
-    void promotionUserModelsDoNotExposeUsername() {
-        assertThat(fieldNames(PromotionUser.class)).doesNotContain("username");
+    @DisplayName("实体不保留用户名或软删除字段且认证响应不暴露用户名")
+    void promotionUserModelsDoNotExposeRemovedFields() {
+        assertThat(fieldNames(PromotionUser.class)).doesNotContain("username", "deletedAt");
         assertThat(fieldNames(CurrentUserVO.class)).doesNotContain("username");
         assertThat(fieldNames(UserLoginVO.UserInfo.class)).doesNotContain("username");
     }
 
     @Test
-    @DisplayName("推广用户数据库和Mapper不再声明username")
-    void promotionUserSchemaAndMapperDoNotDeclareUsername() throws Exception {
+    @DisplayName("推广用户数据库和Mapper不再声明用户名或软删除字段")
+    void promotionUserSchemaAndMapperDoNotDeclareRemovedFields() throws Exception {
         String migration = Files.readString(
                 Path.of("src/main/resources/db/migration/V1__kasi_promotion.sql"), StandardCharsets.UTF_8);
         String promotionBlock = migration.substring(migration.indexOf("-- 推广用户表"));
@@ -38,9 +38,9 @@ class PromotionUserStructureTest extends BaseAuthTest {
         String mapper = Files.readString(
                 Path.of("src/main/resources/mapper/PromotionUserMapper.xml"), StandardCharsets.UTF_8);
 
-        assertThat(promotionBlock).doesNotContain("username");
-        assertThat(testPromotionBlock).doesNotContain("username");
-        assertThat(mapper).doesNotContain("username");
+        assertThat(promotionBlock).doesNotContain("username", "deleted_at");
+        assertThat(testPromotionBlock).doesNotContain("username", "deleted_at");
+        assertThat(mapper).doesNotContain("username", "deleted_at");
     }
 
     private static java.util.List<String> fieldNames(Class<?> type) {
