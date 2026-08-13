@@ -46,7 +46,8 @@ class SessionAuthenticationTest extends BaseAuthTest {
     @DisplayName("JWT对应账号软删除后返回401")
     void deletedAccountReturnsUnauthorized() throws Exception {
         String token = loginAsAdmin();
-        jdbcTemplate.update("UPDATE sys_admin_user SET deleted_at = CURRENT_TIMESTAMP WHERE username = 'admin'");
+        jdbcTemplate.update("UPDATE sys_admin_user SET deleted_at = CURRENT_TIMESTAMP WHERE username = ?",
+                ADMIN_USERNAME);
 
         mockMvc.perform(MockMvcRequestBuilders.get("/api/admin/auth/me")
                         .header("Authorization", "Bearer " + token))

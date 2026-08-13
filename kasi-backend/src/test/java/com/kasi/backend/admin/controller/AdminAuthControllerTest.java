@@ -22,13 +22,13 @@ class AdminAuthControllerTest extends BaseAuthTest {
                         .post("/api/admin/auth/login")
                         .contentType("application/json")
                         .content("""
-                                {"account":"admin","password":"admin123456"}
+                                {"account":"kasiadmin","password":"kasi123456"}
                                 """))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.code").value(0))
                 .andExpect(jsonPath("$.data.accessToken").isNotEmpty())
                 .andExpect(jsonPath("$.data.tokenType").value("Bearer"))
-                .andExpect(jsonPath("$.data.admin.username").value("admin"));
+                .andExpect(jsonPath("$.data.admin.username").value("kasiadmin"));
     }
 
     @Test
@@ -38,7 +38,7 @@ class AdminAuthControllerTest extends BaseAuthTest {
                         .post("/api/admin/auth/login")
                         .contentType("application/json")
                         .content("""
-                                {"account":"admin","password":"wrongpassword"}
+                                {"account":"kasiadmin","password":"wrongpassword"}
                                 """))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.code").value(2003))
@@ -52,7 +52,7 @@ class AdminAuthControllerTest extends BaseAuthTest {
                         .post("/api/admin/auth/login")
                         .contentType("application/json")
                         .content("""
-                                {"account":"nonexistent","password":"admin123456"}
+                                {"account":"nonexistent","password":"kasi123456"}
                                 """))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.code").value(2003))
@@ -66,7 +66,7 @@ class AdminAuthControllerTest extends BaseAuthTest {
                         .post("/api/admin/auth/login")
                         .contentType("application/json")
                         .content("""
-                                {"account":"disabled_admin","password":"admin123456"}
+                                {"account":"disabledadmin","password":"kasi123456"}
                                 """))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.code").value(2002))
@@ -84,9 +84,24 @@ class AdminAuthControllerTest extends BaseAuthTest {
                         .header("Authorization", "Bearer " + token))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.code").value(0))
-                .andExpect(jsonPath("$.data.username").value("admin"))
-                .andExpect(jsonPath("$.data.nickname").value("超级管理员"))
+                .andExpect(jsonPath("$.data.username").value("kasiadmin"))
+                .andExpect(jsonPath("$.data.realName").value("系统管理员"))
+                .andExpect(jsonPath("$.data.nickname").doesNotExist())
                 .andExpect(jsonPath("$.data.isSuperAdmin").value(1));
+    }
+
+    @Test
+    @DisplayName("当前管理员只返回真实姓名")
+    void getCurrentAdminReturnsRealNameWithoutNickname() throws Exception {
+        String token = loginAsAdmin();
+
+        mockMvc.perform(MockMvcRequestBuilders
+                        .get("/api/admin/auth/me")
+                        .header("Authorization", "Bearer " + token))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.username").value("kasiadmin"))
+                .andExpect(jsonPath("$.data.realName").value("系统管理员"))
+                .andExpect(jsonPath("$.data.nickname").doesNotExist());
     }
 
     @Test
@@ -121,7 +136,7 @@ class AdminAuthControllerTest extends BaseAuthTest {
                         .header("Authorization", "Bearer " + token)
                         .contentType("application/json")
                         .content("""
-                                {"oldPassword":"admin123456","newPassword":"newpass123","confirmPassword":"newpass123"}
+                                {"oldPassword":"kasi123456","newPassword":"newpass123","confirmPassword":"newpass123"}
                                 """))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.code").value(0));
@@ -131,7 +146,7 @@ class AdminAuthControllerTest extends BaseAuthTest {
                         .post("/api/admin/auth/login")
                         .contentType("application/json")
                         .content("""
-                                {"account":"admin","password":"newpass123"}
+                                {"account":"kasiadmin","password":"newpass123"}
                                 """))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.code").value(0));
@@ -161,7 +176,7 @@ class AdminAuthControllerTest extends BaseAuthTest {
                         .header("Authorization", "Bearer " + token)
                         .contentType("application/json")
                         .content("""
-                                {"oldPassword":"admin123456","newPassword":"admin123456","confirmPassword":"admin123456"}
+                                {"oldPassword":"kasi123456","newPassword":"kasi123456","confirmPassword":"kasi123456"}
                                 """))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.code").value(2005));
