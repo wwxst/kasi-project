@@ -11,6 +11,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -245,6 +246,53 @@ class AdminManagementMutationTest extends BaseAuthTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"newPassword\":\"newpass123\",\"confirmPassword\":\"newpass123\"}"))
                 .andExpect(jsonPath("$.code").value(2010));
+    }
+
+    @Test
+    @DisplayName("物理删除普通管理员后旧会话失效且唯一字段可复用")
+    void deleteAdminPhysicallyRemovesAccountAndAllowsReuse() throws Exception {
+        jdbcTemplate.update("UPDATE sys_admin_user SET mobile = ?, email = ? WHERE username = 'operator'",
+                "13500135000", "operator@example.com");
+        String operatorToken = loginAsAdmin("operator", ADMIN_PASSWORD);
+        Long operatorId = jdbcTemplate.queryForObject(
+                "SELECT id FROM sys_admin_user WHERE username = 'operator'", Long.class);
+        String superToken = loginAsAdmin();
+
+        mockMvc.perform(delete("/api/admin/management/{id}", operatorId)
+                        .header("Authorization", "Bearer " + superToken))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(0));
+        assertThat(jdbcTemplate.queryForObject(
+                "SELECT COUNT(*) FROM sys_admin_user WHERE id = ?", Integer.class, operatorId)).isZero();
+        mockMvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders
+                        .get("/api/admin/auth/me")
+                        .header("Authorization", "Bearer " + operatorToken))
+                .andExpect(status().isUnauthorized());
+
+        mockMvc.perform(post("/api/admin/management")
+                        .header("Authorization", "Bearer " + superToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"username":"operator","password":"password1",
+                                 "confirmPassword":"password1","realName":"新运营管理员",
+                                 "mobile":"13500135000","email":"operator@example.com"}
+                                """))
+                .andExpect(jsonPath("$.code").value(0));
+    }
+
+    @Test
+    @DisplayName("物理删除拒绝超级管理员和不存在的目标")
+    void deleteAdminProtectsSuperAdminAndMissingTarget() throws Exception {
+        Long superAdminId = jdbcTemplate.queryForObject(
+                "SELECT id FROM sys_admin_user WHERE username = ?", Long.class, ADMIN_USERNAME);
+        String token = loginAsAdmin();
+
+        mockMvc.perform(delete("/api/admin/management/{id}", superAdminId)
+                        .header("Authorization", "Bearer " + token))
+                .andExpect(jsonPath("$.code").value(2010));
+        mockMvc.perform(delete("/api/admin/management/{id}", 999999)
+                        .header("Authorization", "Bearer " + token))
+                .andExpect(jsonPath("$.code").value(2006));
     }
 
     private void assertDuplicate(String token, String username, String mobile, String email, int code)

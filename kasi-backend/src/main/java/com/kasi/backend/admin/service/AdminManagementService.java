@@ -21,4 +21,6 @@ public interface AdminManagementService {
     void updateStatus(Long operatorId, Long targetId, UpdateAdminStatusDTO request);
 
     void resetPassword(Long operatorId, Long targetId, ResetAdminPasswordDTO request);
+
+    void delete(Long operatorId, Long targetId);
 }

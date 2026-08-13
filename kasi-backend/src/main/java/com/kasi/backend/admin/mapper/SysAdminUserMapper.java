@@ -49,4 +49,6 @@ public interface SysAdminUserMapper {
                         @Param("lastLoginIp") String lastLoginIp);
 
     int updateStatus(@Param("id") Long id, @Param("status") Integer status);
+
+    int deleteOrdinaryById(@Param("id") Long id);
 }

@@ -85,4 +85,28 @@ class AdminManagementServiceTest {
         order.verify(sessionService).beginMutation(SubjectType.ADMIN, 2L);
         order.verify(mapper).updateStatus(2L, 0);
     }
+
+    @Test
+    @DisplayName("物理删除时先冻结Redis会话再删除数据库记录")
+    void deleteBeginsSessionMutationBeforeDatabaseDelete() {
+        SysAdminUserMapper mapper = mock(SysAdminUserMapper.class);
+        PasswordEncoder passwordEncoder = mock(PasswordEncoder.class);
+        SessionService sessionService = mock(SessionService.class);
+        AdminManagementServiceImpl service = new AdminManagementServiceImpl(
+                mapper, passwordEncoder, sessionService);
+        SysAdminUser target = new SysAdminUser();
+        target.setId(2L);
+        target.setIsSuperAdmin(0);
+        when(mapper.findByIdForUpdate(2L)).thenReturn(target);
+        when(mapper.deleteOrdinaryById(2L)).thenReturn(1);
+        when(sessionService.beginMutation(SubjectType.ADMIN, 2L))
+                .thenReturn(new SessionMutation(SubjectType.ADMIN, 2L, "nonce"));
+        TransactionSynchronizationManager.initSynchronization();
+
+        service.delete(1L, 2L);
+
+        var order = inOrder(sessionService, mapper);
+        order.verify(sessionService).beginMutation(SubjectType.ADMIN, 2L);
+        order.verify(mapper).deleteOrdinaryById(2L);
+    }
 }

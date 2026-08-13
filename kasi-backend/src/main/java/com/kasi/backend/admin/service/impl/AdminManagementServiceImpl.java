@@ -149,6 +149,17 @@ public class AdminManagementServiceImpl implements AdminManagementService {
         registerCompletion(mutation);
     }
 
+    @Override
+    @Transactional
+    public void delete(Long operatorId, Long targetId) {
+        SysAdminUser admin = getMutableOrdinaryAdmin(targetId);
+        SessionMutation mutation = sessionService.beginMutation(SubjectType.ADMIN, targetId);
+        if (sysAdminUserMapper.deleteOrdinaryById(admin.getId()) != 1) {
+            throw new IllegalStateException("管理员删除未生效");
+        }
+        registerCompletion(mutation);
+    }
+
     private SysAdminUser getMutableOrdinaryAdmin(Long targetId) {
         SysAdminUser admin = sysAdminUserMapper.findByIdForUpdate(targetId);
         if (admin == null) {
