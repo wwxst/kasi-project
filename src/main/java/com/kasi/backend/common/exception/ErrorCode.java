@@ -31,6 +31,12 @@ public enum ErrorCode {
     ADMIN_PASSWORD_ERROR(2003, "账号或密码错误"),
     ADMIN_OLD_PASSWORD_ERROR(2004, "原密码错误"),
     ADMIN_NEW_PASSWORD_SAME(2005, "新密码不能与旧密码相同"),
+    ADMIN_MANAGEMENT_NOT_FOUND(2006, "管理员不存在"),
+    ADMIN_USERNAME_DUPLICATE(2007, "登录账号已存在"),
+    ADMIN_MOBILE_DUPLICATE(2008, "手机号已存在"),
+    ADMIN_EMAIL_DUPLICATE(2009, "邮箱已存在"),
+    ADMIN_SUPER_ADMIN_PROTECTED(2010, "不允许对超级管理员执行该操作"),
+    ADMIN_PASSWORD_NOT_MATCH(2011, "两次输入的密码不一致"),
 
     // ========== 用户认证错误 ==========
     USER_NOT_FOUND(3001, "账号或密码错误"),
