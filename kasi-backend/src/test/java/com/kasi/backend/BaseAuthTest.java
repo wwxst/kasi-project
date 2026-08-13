@@ -92,6 +92,11 @@ public abstract class BaseAuthTest {
                 "INSERT INTO sys_admin_user (username, password, real_name, status) VALUES (?, ?, ?, ?)",
                 "disabledadmin", passwordEncoder.encode(ADMIN_PASSWORD), "已禁用管理员", 0);
 
+        // 插入普通管理员
+        jdbcTemplate.update(
+                "INSERT INTO sys_admin_user (username, password, real_name, status, is_super_admin) VALUES (?, ?, ?, ?, ?)",
+                "operator", passwordEncoder.encode(ADMIN_PASSWORD), "运营管理员", 1, 0);
+
         // 插入测试普通用户
         jdbcTemplate.update(
                 "INSERT INTO promotion_user (user_no, username, password, nickname, mobile, email, status) VALUES (?, ?, ?, ?, ?, ?, ?)",

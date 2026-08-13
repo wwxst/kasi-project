@@ -28,6 +28,7 @@ import org.springframework.web.filter.OncePerRequestFilter;
 import tools.jackson.databind.ObjectMapper;
 
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 
@@ -57,16 +58,16 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             if (StringUtils.hasText(token)) {
                 AuthContext authContext = tokenService.parseToken(token);
                 if (hasRequiredClaims(authContext)
-                        && sessionService.isValid(authContext)
-                        && isActiveAccount(authContext)) {
-                    String role = "ROLE_" + authContext.getSubjectType().name();
+                        && sessionService.isValid(authContext)) {
+                    List<SimpleGrantedAuthority> authorities = resolveAuthorities(authContext);
+                    if (!authorities.isEmpty()) {
                     UsernamePasswordAuthenticationToken authentication =
                             new UsernamePasswordAuthenticationToken(
-                                    authContext, null,
-                                    List.of(new SimpleGrantedAuthority(role))
+                                    authContext, null, authorities
                             );
                     SecurityContextHolder.getContext().setAuthentication(authentication);
                     AuthContextHolder.set(authContext);
+                    }
                 }
             }
             filterChain.doFilter(request, response);
@@ -85,16 +86,26 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                 && StringUtils.hasText(context.getSessionVersion());
     }
 
-    private boolean isActiveAccount(AuthContext context) {
+    private List<SimpleGrantedAuthority> resolveAuthorities(AuthContext context) {
         if (context.getSubjectType() == SubjectType.ADMIN) {
             SysAdminUser admin = sysAdminUserMapper.findById(context.getSubjectId());
-            return admin != null && Objects.equals(admin.getStatus(), UserStatus.NORMAL.getCode());
+            if (admin == null || !Objects.equals(admin.getStatus(), UserStatus.NORMAL.getCode())) {
+                return List.of();
+            }
+            List<SimpleGrantedAuthority> authorities = new ArrayList<>();
+            authorities.add(new SimpleGrantedAuthority("ROLE_ADMIN"));
+            if (Objects.equals(admin.getIsSuperAdmin(), 1)) {
+                authorities.add(new SimpleGrantedAuthority("ROLE_SUPER_ADMIN"));
+            }
+            return authorities;
         }
         if (context.getSubjectType() == SubjectType.USER) {
             PromotionUser user = promotionUserMapper.findById(context.getSubjectId());
-            return user != null && Objects.equals(user.getStatus(), UserStatus.NORMAL.getCode());
+            if (user != null && Objects.equals(user.getStatus(), UserStatus.NORMAL.getCode())) {
+                return List.of(new SimpleGrantedAuthority("ROLE_USER"));
+            }
         }
-        return false;
+        return List.of();
     }
 
     private void writeAuthStateUnavailable(HttpServletResponse response) throws IOException {
