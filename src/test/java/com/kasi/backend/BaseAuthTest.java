@@ -49,8 +49,10 @@ public abstract class BaseAuthTest {
     @Autowired
     protected TestVerificationCodeSender testVerificationCodeSender;
 
+    /** 测试超级管理员账号 */
+    protected static final String ADMIN_USERNAME = "kasiadmin";
     /** 测试管理员密码（明文） */
-    protected static final String ADMIN_PASSWORD = "admin123456";
+    protected static final String ADMIN_PASSWORD = "kasi123456";
     /** 测试用户密码（明文） */
     protected static final String USER_PASSWORD = "user123456";
 
@@ -82,13 +84,13 @@ public abstract class BaseAuthTest {
 
         // 插入测试管理员
         jdbcTemplate.update(
-                "INSERT INTO sys_admin_user (username, password, nickname, status, is_super_admin) VALUES (?, ?, ?, ?, ?)",
-                "admin", passwordEncoder.encode(ADMIN_PASSWORD), "超级管理员", 1, 1);
+                "INSERT INTO sys_admin_user (username, password, real_name, status, is_super_admin) VALUES (?, ?, ?, ?, ?)",
+                ADMIN_USERNAME, passwordEncoder.encode(ADMIN_PASSWORD), "系统管理员", 1, 1);
 
         // 插入禁用管理员
         jdbcTemplate.update(
-                "INSERT INTO sys_admin_user (username, password, nickname, status) VALUES (?, ?, ?, ?)",
-                "disabled_admin", passwordEncoder.encode(ADMIN_PASSWORD), "已禁用管理员", 0);
+                "INSERT INTO sys_admin_user (username, password, real_name, status) VALUES (?, ?, ?, ?)",
+                "disabledadmin", passwordEncoder.encode(ADMIN_PASSWORD), "已禁用管理员", 0);
 
         // 插入测试普通用户
         jdbcTemplate.update(
@@ -110,7 +112,7 @@ public abstract class BaseAuthTest {
      * 发送管理员登录请求并返回Token
      */
     protected String loginAsAdmin() throws Exception {
-        return loginAsAdmin("admin", ADMIN_PASSWORD);
+        return loginAsAdmin(ADMIN_USERNAME, ADMIN_PASSWORD);
     }
 
     /**

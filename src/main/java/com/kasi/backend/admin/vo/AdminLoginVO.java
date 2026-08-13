@@ -20,7 +20,7 @@ public class AdminLoginVO {
     public static class AdminInfo {
         private Long id;
         private String username;
-        private String nickname;
+        private String realName;
         private String mobile;
         private String email;
         private String avatarUrl;

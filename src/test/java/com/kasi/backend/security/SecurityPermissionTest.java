@@ -63,7 +63,7 @@ class SecurityPermissionTest extends BaseAuthTest {
         mockMvc.perform(MockMvcRequestBuilders
                         .post("/api/admin/auth/login")
                         .contentType("application/json")
-                        .content("{\"account\":\"admin\",\"password\":\"admin123456\"}"))
+                        .content("{\"account\":\"kasiadmin\",\"password\":\"kasi123456\"}"))
                 .andExpect(status().isOk());
 
         mockMvc.perform(MockMvcRequestBuilders
