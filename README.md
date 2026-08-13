@@ -1,12 +1,12 @@
 # Kasi Backend 开发文档
 
-最后核对时间：2026-08-12
+最后核对时间：2026-08-13
 
 ## 1. 项目定位
 
 这是卡司推广平台的后端仓库，基于 Spring Boot 4.0.7 + MyBatis 4.0.1 + MySQL 8 + JWT 构建。
 
-**第一阶段（已完成）**：实现了管理员（ADMIN）和推广用户（USER）双认证体系，包括登录、注册、密码管理、验证码、密码重置等完整功能。详见 [§6 API、认证与业务边界](#6-api认证与业务边界)。
+**当前已完成**：管理员（ADMIN）和推广用户（USER）双认证体系，以及基于唯一超级管理员的普通管理员账号管理。详见 [§6 API、认证与业务边界](#6-api认证与业务边界)。
 
 ## 2. 当前结构
 
@@ -15,13 +15,17 @@ src/
   main/
     java/com/kasi/backend/
       KasiBackendApplication.java          # 启动入口
-      admin/                                # 管理员认证模块
+      admin/                                # 管理员认证与账号管理模块
         controller/AdminAuthController.java # /api/admin/auth/* 控制器
+        controller/AdminManagementController.java # /api/admin/management/* 控制器
         service/AdminAuthService.java       # 管理员认证服务接口
         service/impl/AdminAuthServiceImpl.java # 管理员认证业务实现
+        service/AdminManagementService.java # 管理员管理服务接口
+        service/impl/AdminManagementServiceImpl.java # 管理员管理业务实现
         entity/SysAdminUser.java            # 管理员实体
         mapper/SysAdminUserMapper.java      # 管理员 MyBatis Mapper
-        dto/                                # 管理员 DTO（登录请求/响应、修改密码等）
+        dto/                                # 管理员请求 DTO
+        vo/                                 # 管理员响应 VO
       user/                                 # 推广用户认证模块
         controller/UserAuthController.java  # /api/user/auth/* 控制器
         service/UserAuthService.java        # 用户认证服务接口
@@ -136,7 +140,7 @@ $env:SPRING_DATASOURCE_PASSWORD = '<database-password>'
 
 | 存储 | 表/Key | 说明 | 核心字段 |
 |------|--------|------|----------|
-| MySQL | `sys_admin_user` | 后台管理员用户 | username, password(BCrypt), nickname, mobile, email, status, is_super_admin |
+| MySQL | `sys_admin_user` | 后台管理员用户 | username, password(BCrypt), real_name, mobile, email, status, is_super_admin |
 | MySQL | `promotion_user` | 推广用户 | user_no(基于自增id生成), username, password(BCrypt), mobile, email, status, register_source |
 | Redis | `vc:*` | 验证码（临时） | 5分钟过期，60秒重发间隔，每日上限10次 |
 | Redis | `pwd:*` | 密码重置 Token（临时） | 10分钟过期，一次性消费后删除 |
@@ -154,6 +158,7 @@ $env:SPRING_DATASOURCE_PASSWORD = '<database-password>'
 | 角色 | 路由前缀 | 权限 | 说明 |
 |------|----------|------|------|
 | ADMIN | `/api/admin/**` | `ROLE_ADMIN` | 管理员，仅可访问 admin 接口 |
+| SUPER_ADMIN | `/api/admin/management/**` | `ROLE_SUPER_ADMIN` | 唯一超级管理员，可管理普通管理员 |
 | USER | `/api/user/**` | `ROLE_USER` | 推广用户，仅可访问 user 接口 |
 
 - ADMIN Token **不可**访问 USER 接口（返回 403）
@@ -161,6 +166,7 @@ $env:SPRING_DATASOURCE_PASSWORD = '<database-password>'
 - 无 Token 访问受保护接口返回 401
 - Redis 不可用时认证安全失败并返回 503，不降级放行；账号会话版本不存在时旧 JWT 直接失效并返回 401。
 - 普通退出仅删除当前 `auth:session:{jti}`；修改密码、密码重置等敏感变更会先切换为 `MUTATING:{nonce}`，数据库成功后生成新的账号版本，使该账号旧 Token 全部失效。
+- `ROLE_SUPER_ADMIN` 每次请求根据数据库中的 `is_super_admin` 派生，不写入或信任 JWT 权限声明；当前是简单超级管理员控制，不是 RBAC。
 
 ### 6.2 管理员认证 API
 
@@ -170,10 +176,25 @@ $env:SPRING_DATASOURCE_PASSWORD = '<database-password>'
 | GET | `/api/admin/auth/me` | 获取当前管理员信息 | ADMIN |
 | POST | `/api/admin/auth/logout` | 退出登录 | ADMIN |
 | PUT | `/api/admin/auth/password` | 修改密码（需旧密码） | ADMIN |
+| PUT | `/api/admin/auth/profile` | 修改本人账号、真实姓名、手机、邮箱和头像 | ADMIN |
 
-当前没有“管理员禁用账号”的 Controller/API；账号状态变更接口属于后续用户管理范围。
+### 6.3 管理员管理 API
 
-### 6.3 推广用户认证 API
+以下端点只允许唯一超级管理员访问；普通管理员和推广用户返回 403。普通管理员不能被提升为超级管理员，管理接口不能编辑、禁用、重置或删除超级管理员本人。
+
+| 方法 | 路径 | 说明 |
+|------|------|------|
+| GET | `/api/admin/management` | 分页和单关键词搜索，默认 `page=1,size=20`，按 `id ASC` |
+| GET | `/api/admin/management/{id}` | 获取管理员详情 |
+| POST | `/api/admin/management` | 新增启用状态的普通管理员 |
+| PUT | `/api/admin/management/{id}` | 编辑普通管理员资料 |
+| PATCH | `/api/admin/management/{id}/status` | 启用或禁用普通管理员 |
+| PUT | `/api/admin/management/{id}/password` | 重置普通管理员密码 |
+| DELETE | `/api/admin/management/{id}` | 物理删除普通管理员 |
+
+管理员只使用必填 `realName`，没有昵称字段。修改账号、手机号、邮箱、状态、密码或删除前，服务先将目标账号 Redis 版本切换为 `MUTATING`；Redis 失败时不执行 MySQL 写入。MySQL 提交成功后恢复新的 `ACTIVE` 版本，使旧 Token 全部失效。物理删除不写 `deleted_at`，原账号、手机号和邮箱可以重新使用。
+
+### 6.4 推广用户认证 API
 
 | 方法 | 路径 | 说明 | 认证 |
 |------|------|------|------|
@@ -187,7 +208,7 @@ $env:SPRING_DATASOURCE_PASSWORD = '<database-password>'
 | POST | `/api/user/auth/password/forgot/verify` | 校验验证码，返回重置 Token | 否 |
 | POST | `/api/user/auth/password/reset` | 使用重置 Token 修改密码 | 否 |
 
-### 6.4 统一响应格式
+### 6.5 统一响应格式
 
 所有接口返回统一结构 `ApiResponse<T>`：
 
@@ -202,7 +223,7 @@ $env:SPRING_DATASOURCE_PASSWORD = '<database-password>'
 - `code=0`：成功
 - `code!=0`：失败（错误码定义见 [ErrorCode.java](src/main/java/com/kasi/backend/common/exception/ErrorCode.java)）
 
-### 6.5 技术实现要点
+### 6.6 技术实现要点
 
 - **密码存储**：BCrypt 哈希，使用 Spring Security `PasswordEncoder`
 - **JWT**：HMAC-SHA256 签名，载荷包含 `userId`、`subjectType`、`username`、`jti`、`sessionVersion`，过期时间 7200 秒；每次受保护请求都校验 Redis 会话状态
@@ -225,7 +246,11 @@ $env:SPRING_DATASOURCE_PASSWORD = '<database-password>'
 
 | 测试类 | 说明 |
 |--------|------|
-| `AdminAuthControllerTest` | 管理员登录、获取信息、退出、修改密码（9 个用例） |
+| `AdminAuthControllerTest` | 管理员登录、本人资料、退出和修改密码（11 个用例） |
+| `AdminManagementPermissionTest` | 超级管理员权限和 401/403 边界 |
+| `AdminManagementQueryTest` | 管理员分页、搜索和详情 |
+| `AdminManagementMutationTest` | 新增、编辑、启禁用、重置密码和物理删除 |
+| `AdminManagementServiceTest` | Redis-first、数据库失败和并发唯一键边界 |
 | `UserAuthControllerTest` | 用户注册、登录、获取信息、退出、修改密码、忘记密码流程（13 个用例） |
 | `SecurityPermissionTest` | 角色隔离：ADMIN/USER Token 不可互访、无 Token 返回 401（5 个用例） |
 | `KasiBackendApplicationTests` | Spring 上下文加载测试 |
@@ -261,7 +286,7 @@ Java 21 下编译会因 `release 25` 失败，必须使用 Java 25。
 
 1. ✅ 使用 BCrypt 密码哈希和可测试的认证流程。
 2. ✅ 定义了角色权限（ROLE_ADMIN / ROLE_USER）、状态规则和 401/403 契约。
-3. ⬜ 明确软删除后的唯一字段复用与恢复策略。
+3. ✅ 管理员采用物理删除，删除后的唯一账号字段可以复用；推广用户软删除策略仍待后续设计。
 4. ⬜ 补齐 `department_id`、`created_by`、`updated_by` 的外键或明确不加外键的理由。
 5. ⬜ 补充审计字段的自动填充（`created_by`、`updated_by`）。
 
