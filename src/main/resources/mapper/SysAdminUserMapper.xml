@@ -120,4 +120,9 @@
         UPDATE sys_admin_user SET status = #{status} WHERE id = #{id}
     </update>
 
+    <delete id="deleteOrdinaryById">
+        DELETE FROM sys_admin_user
+        WHERE id = #{id} AND is_super_admin = 0
+    </delete>
+
 </mapper>

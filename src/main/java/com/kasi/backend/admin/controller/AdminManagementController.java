@@ -20,6 +20,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
+import org.springframework.web.bind.annotation.DeleteMapping;
 
 @RestController
 @RequestMapping("/api/admin/management")
@@ -62,5 +63,11 @@ public class AdminManagementController {
                                            @Valid @RequestBody ResetAdminPasswordDTO request) {
         adminManagementService.resetPassword(AuthContextHolder.getAdminId(), id, request);
         return ApiResponse.successMessage("密码重置成功");
+    }
+
+    @DeleteMapping("/{id}")
+    public ApiResponse<Void> delete(@PathVariable Long id) {
+        adminManagementService.delete(AuthContextHolder.getAdminId(), id);
+        return ApiResponse.successMessage("管理员删除成功");
     }
 }
