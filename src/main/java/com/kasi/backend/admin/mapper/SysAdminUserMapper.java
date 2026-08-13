@@ -5,6 +5,7 @@ import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
 
 import java.time.LocalDateTime;
+import java.util.List;
 
 /**
  * 后台管理员 Mapper
@@ -28,6 +29,12 @@ public interface SysAdminUserMapper {
     SysAdminUser findByAccountForUpdate(@Param("account") String account);
 
     SysAdminUser findByIdForUpdate(@Param("id") Long id);
+
+    long countByKeyword(@Param("keyword") String keyword);
+
+    List<SysAdminUser> findPage(@Param("keyword") String keyword,
+                                @Param("offset") int offset,
+                                @Param("size") int size);
 
     int insert(SysAdminUser user);
 
