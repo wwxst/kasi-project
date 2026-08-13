@@ -25,7 +25,7 @@
 - `src/main/java/com/kasi/backend/admin/dto/UpdateAdminProfileDTO.java` - current administrator profile request.
 - `src/main/java/com/kasi/backend/admin/dto/UpdateAdminStatusDTO.java` - ordinary administrator status request.
 - `src/main/java/com/kasi/backend/admin/dto/ResetAdminPasswordDTO.java` - super-admin password reset request.
-- `src/main/java/com/kasi/backend/admin/dto/AdminChangePasswordDTO.java` - current administrator password change request; separate from the user-facing shared DTO so the administrator whitespace rule does not change user behavior.
+- `src/main/java/com/kasi/backend/admin/dto/AdminChangePasswordDTO.java` - current administrator password change request; separate from the user-facing shared DTO so the administrator ASCII password rule does not change user behavior.
 - `src/main/java/com/kasi/backend/admin/vo/AdminListItemVO.java` - management list item.
 - `src/main/java/com/kasi/backend/admin/vo/AdminDetailVO.java` - management detail response.
 - `src/main/java/com/kasi/backend/admin/vo/AdminPageVO.java` - page response.
@@ -54,9 +54,9 @@
 - `src/main/java/com/kasi/backend/security/filter/JwtAuthenticationFilter.java` - derive `ROLE_SUPER_ADMIN` from the database row.
 - `src/main/java/com/kasi/backend/security/config/SecurityConfig.java` - protect management routes before the general admin matcher.
 - `src/main/java/com/kasi/backend/common/exception/ErrorCode.java` - add management errors `2006..2011`.
-- `src/main/java/com/kasi/backend/admin/dto/AdminLoginDTO.java` - reject administrator passwords containing whitespace.
+- `src/main/java/com/kasi/backend/admin/dto/AdminLoginDTO.java` - restrict administrator login passwords to visible ASCII and 72 characters.
 - `src/test/java/com/kasi/backend/BaseAuthTest.java` - seed real names and an ordinary administrator helper.
-- `src/test/java/com/kasi/backend/admin/controller/AdminAuthControllerTest.java` - real-name response, profile, and admin password whitespace tests.
+- `src/test/java/com/kasi/backend/admin/controller/AdminAuthControllerTest.java` - real-name response, profile, and administrator password character-range tests.
 - `src/test/java/com/kasi/backend/security/SessionAuthenticationTest.java` - retain physical-delete account rejection coverage.
 - `src/test/java/com/kasi/backend/ServiceImplementationStructureTest.java` - verify interface/implementation separation.
 - `README.md` - current API, schema, permissions, and test count.
@@ -80,7 +80,7 @@
 
 - [ ] **Step 1: Write failing structure and response assertions**
 
-Change the administrator seed to use `real_name`, assert `$.data.realName`, and add source/schema assertions that administrator `nickname` is absent while `deleted_at` remains present.
+Change the administrator seed to use `real_name`, rename the invalid test username `disabled_admin` to `disabledadmin`, assert `$.data.realName`, and add source/schema assertions that administrator `nickname` is absent while `deleted_at` remains present.
 
 ```java
 @Test
@@ -163,16 +163,16 @@ git commit -m "refactor: use real names for administrators"
 
 - [ ] **Step 1: Write failing validation tests**
 
-Use the Jakarta `Validator` directly so this task stays green before the management Controller exists. Cover whitespace in username/real name/password, invalid status, page bounds, invalid email/mobile, and valid DTOs. Representative assertion:
+Use the Jakarta `Validator` directly so this task stays green before the management Controller exists. Cover username ASCII alphanumeric rules, real-name whitespace, password visible-ASCII and length rules, invalid status, page bounds, invalid email/mobile, and valid DTOs. Representative assertion:
 
 ```java
 @Test
-@DisplayName("管理员账号真实姓名和密码不允许空白字符")
-void administratorIdentityFieldsRejectWhitespace() {
+@DisplayName("管理员账号和密码拒绝约定范围外字符")
+void administratorIdentityFieldsRejectUnsupportedCharacters() {
     CreateAdminDTO request = new CreateAdminDTO();
-    request.setUsername("new admin");
-    request.setPassword("pass word1");
-    request.setConfirmPassword("pass word1");
+    request.setUsername("new_admin");
+    request.setPassword("密码Admin1");
+    request.setConfirmPassword("密码Admin1");
     request.setRealName("张 三");
 
     Set<String> fields = validator.validate(request).stream()
@@ -197,7 +197,7 @@ Use these exact validation patterns:
 ```java
 @NotBlank(message = "登录账号不能为空")
 @Size(max = 64, message = "登录账号不能超过64位")
-@Pattern(regexp = "^\\S+$", message = "登录账号不能包含空白字符")
+@Pattern(regexp = "^[A-Za-z0-9]+$", message = "登录账号只能包含英文字母和数字")
 private String username;
 
 @NotBlank(message = "真实姓名不能为空")
@@ -206,17 +206,19 @@ private String username;
 private String realName;
 
 @NotBlank(message = "密码不能为空")
-@Size(min = 8, message = "密码长度不能少于8位")
-@Pattern(regexp = "^\\S+$", message = "密码不能包含空白字符")
+@Size(min = 8, max = 72, message = "密码长度必须为8到72位")
+@Pattern(regexp = "^[!-~]+$", message = "密码只能包含ASCII字母、数字和特殊符号")
 @Utf8ByteLength
 private String password;
 ```
 
 Create `@OptionalMobile` and `@OptionalEmail` in the existing `common.validation` package. Their validators return true for null/blank, otherwise trim first, enforce normalized maximum length (`32` and `128`), and match the same mobile/email regexes already used by `PhoneOrEmailValidator`. This preserves the approved rule: surrounding spaces are accepted and normalized later, internal spaces fail validation. Use those annotations on all administrator mobile/email fields; do not use raw `@Email` or a regex that rejects surrounding spaces before normalization.
 
-Use `@Min(1)`, `@Max(100)`, and `@NotNull @Min(0) @Max(1)` for status. Add the whitespace `@Pattern` to `AdminLoginDTO.password`, so every administrator password entry point rejects whitespace with `1006`. Add `ErrorCode` values `2006..2011` exactly as approved.
+Apply the same `^[A-Za-z0-9]+$` username constraint to create, management edit, and self-profile DTOs. Apply `^[!-~]+$` to every administrator password field. Creation/new/confirmation password fields use `@Size(min=8,max=72)`; login and old-password fields use `@Size(max=72)` without introducing a new minimum for credential verification. This allows `admin123`, `Admin@123`, and `12345678`, while rejecting spaces, Chinese, Chinese punctuation, and other non-ASCII characters.
 
-`AdminChangePasswordDTO` duplicates the three administrator password fields intentionally; do not add the whitespace rule to shared `auth.dto.ChangePasswordDTO`.
+Use `@Min(1)`, `@Max(100)`, and `@NotNull @Min(0) @Max(1)` for status. Add the visible-ASCII pattern and 72-character maximum to `AdminLoginDTO.password`, so every administrator password entry point rejects unsupported characters with `1006`. Add `ErrorCode` values `2006..2011` exactly as approved.
+
+`AdminChangePasswordDTO` duplicates the three administrator password fields intentionally; do not add the administrator ASCII character rule to shared `auth.dto.ChangePasswordDTO`.
 
 - [ ] **Step 4: Run DTO compilation and focused validation tests**
 
@@ -418,7 +420,7 @@ git commit -m "feat: query administrator accounts"
 
 - [ ] **Step 1: Write failing creation tests**
 
-Test success, BCrypt storage, `status=1`, `is_super_admin=0`, actor audit IDs, lowercased email, password mismatch `2011`, and duplicate username/mobile/email `2007..2009`.
+Test success, BCrypt storage, `status=1`, `is_super_admin=0`, actor audit IDs, lowercased email, password mismatch `2011`, duplicate username/mobile/email `2007..2009`, username rejection for `_`, `-`, Chinese, and spaces, and password acceptance for letters, digits, and ASCII special symbols without mandatory category mixing.
 
 ```java
 mockMvc.perform(post("/api/admin/management")
@@ -562,7 +564,7 @@ git commit -m "feat: edit administrator profiles"
 
 - [ ] **Step 1: Write failing status/password tests**
 
-Cover disable, re-enable, protected super administrator, reset mismatch, reset success, old/new password login, old Token 401, administrator whitespace rejection on self-change, and Redis-first failures with unchanged MySQL.
+Cover disable, re-enable, protected super administrator, reset mismatch, reset success, old/new password login, old Token 401, password acceptance for visible ASCII, rejection for spaces/non-ASCII, `8..72` length boundaries, and Redis-first failures with unchanged MySQL.
 
 ```java
 mockMvc.perform(patch("/api/admin/management/{id}/status", operatorId)
@@ -769,17 +771,18 @@ Expected: Java `25.0.3`; Maven `BUILD SUCCESS`; zero failures and zero errors.
 
 Expected: `BUILD SUCCESS`.
 
-- [ ] **Step 4: Check whitespace and stale administrator nickname references**
+- [ ] **Step 4: Check diff integrity, stale administrator nickname references, and invalid seeded usernames**
 
 ```powershell
 git diff --check
 rg -n "nickname|getNickname|setNickname" src/main/java/com/kasi/backend/admin src/test/java/com/kasi/backend/admin src/main/resources/mapper/SysAdminUserMapper.xml
+rg -n "disabled_admin" src/test/java/com/kasi/backend/BaseAuthTest.java
 $migrationAdminBlock = (Get-Content -Raw src/main/resources/db/migration/V1__kasi_promotion.sql) -split '-- 推广用户表' | Select-Object -First 1
 $testAdminBlock = (Get-Content -Raw src/test/resources/test-schema.sql) -split 'CREATE TABLE IF NOT EXISTS promotion_user' | Select-Object -First 1
 if ($migrationAdminBlock -match 'nickname' -or $testAdminBlock -match 'nickname') { throw '管理员表仍包含 nickname' }
 ```
 
-Expected: `git diff --check` exits `0`; `rg` has no administrator Java/Mapper nickname hits; both administrator SQL blocks pass. Promotion-user nickname remains allowed.
+Expected: `git diff --check` exits `0`; both `rg` commands have no administrator nickname or invalid seeded-username hits; both administrator SQL blocks pass. Promotion-user nickname and username rules remain outside this scope.
 
 - [ ] **Step 5: Review final commits without publishing**
 
