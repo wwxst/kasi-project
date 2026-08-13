@@ -1,6 +1,7 @@
 package com.kasi.backend.admin.service.impl;
 
 import com.kasi.backend.admin.dto.AdminPageQueryDTO;
+import com.kasi.backend.admin.dto.CreateAdminDTO;
 import com.kasi.backend.admin.entity.SysAdminUser;
 import com.kasi.backend.admin.mapper.SysAdminUserMapper;
 import com.kasi.backend.admin.service.AdminManagementService;
@@ -11,15 +12,19 @@ import com.kasi.backend.common.exception.BusinessException;
 import com.kasi.backend.common.exception.ErrorCode;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
+import org.springframework.dao.DuplicateKeyException;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
+import java.util.Locale;
 
 @Service
 @RequiredArgsConstructor
 public class AdminManagementServiceImpl implements AdminManagementService {
 
     private final SysAdminUserMapper sysAdminUserMapper;
+    private final PasswordEncoder passwordEncoder;
 
     @Override
     @Transactional(readOnly = true)
@@ -46,6 +51,64 @@ public class AdminManagementServiceImpl implements AdminManagementService {
             throw new BusinessException(ErrorCode.ADMIN_MANAGEMENT_NOT_FOUND);
         }
         return toDetailVO(admin);
+    }
+
+    @Override
+    @Transactional
+    public AdminDetailVO create(Long operatorId, CreateAdminDTO request) {
+        if (!request.getPassword().equals(request.getConfirmPassword())) {
+            throw new BusinessException(ErrorCode.ADMIN_PASSWORD_NOT_MATCH);
+        }
+        String mobile = trimToNull(request.getMobile());
+        String email = normalizeEmail(request.getEmail());
+        checkUniqueIdentifiers(request.getUsername(), mobile, email);
+
+        SysAdminUser admin = new SysAdminUser();
+        admin.setUsername(request.getUsername());
+        admin.setPassword(passwordEncoder.encode(request.getPassword()));
+        admin.setRealName(request.getRealName());
+        admin.setMobile(mobile);
+        admin.setEmail(email);
+        admin.setAvatarUrl(request.getAvatarUrl());
+        admin.setDepartmentId(request.getDepartmentId());
+        admin.setRemark(request.getRemark());
+        admin.setStatus(1);
+        admin.setIsSuperAdmin(0);
+        admin.setCreatedBy(operatorId);
+        admin.setUpdatedBy(operatorId);
+        try {
+            if (sysAdminUserMapper.insert(admin) != 1) {
+                throw new IllegalStateException("管理员新增未生效");
+            }
+        } catch (DuplicateKeyException exception) {
+            checkUniqueIdentifiers(request.getUsername(), mobile, email);
+            throw exception;
+        }
+        return toDetailVO(sysAdminUserMapper.findById(admin.getId()));
+    }
+
+    private void checkUniqueIdentifiers(String username, String mobile, String email) {
+        if (sysAdminUserMapper.findByUsername(username) != null) {
+            throw new BusinessException(ErrorCode.ADMIN_USERNAME_DUPLICATE);
+        }
+        if (mobile != null && sysAdminUserMapper.findByMobile(mobile) != null) {
+            throw new BusinessException(ErrorCode.ADMIN_MOBILE_DUPLICATE);
+        }
+        if (email != null && sysAdminUserMapper.findByEmail(email) != null) {
+            throw new BusinessException(ErrorCode.ADMIN_EMAIL_DUPLICATE);
+        }
+    }
+
+    private String trimToNull(String value) {
+        if (value == null || value.trim().isEmpty()) {
+            return null;
+        }
+        return value.trim();
+    }
+
+    private String normalizeEmail(String email) {
+        String normalized = trimToNull(email);
+        return normalized == null ? null : normalized.toLowerCase(Locale.ROOT);
     }
 
     private String normalizeKeyword(String keyword) {
