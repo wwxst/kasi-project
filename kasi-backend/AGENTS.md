@@ -14,7 +14,7 @@
   - `common/` — 统一响应（ApiResponse）、错误码（ErrorCode）、全局异常处理、业务枚举
   - `security/` — JWT 令牌管理、认证过滤器、Redis 会话版本/单会话校验、AuthContext 上下文、Spring Security 配置
   - `admin/` — 管理员认证、本人资料与密码维护，以及超级管理员管理普通管理员账号
-  - `user/` — 推广用户注册、登录、获取当前用户、退出登录、修改密码、忘记密码流程
+  - `user/` — 推广用户注册、登录、获取当前用户、退出登录、修改密码、忘记密码流程，以及管理员可用的推广用户管理 CRUD
   - `auth/` — 可复用的验证码服务和密码重置 Token 机制（Redis 存储，Lua 原子消费/预占，TTL 自动过期）
 - 数据库迁移：`db/migration/V1__kasi_promotion.sql` 定义 `sys_admin_user`、`promotion_user` 两张持久表；验证码和密码重置 Token 等临时数据由 Redis（`vc:*`、`pwd:*` 键）管理，TTL 自动过期。
 - 会话状态由 Redis（`auth:version:{type}:{userId}`、`auth:session:{jti}`）管理。JWT 携带 `jti`、`sessionVersion`，受保护请求必须同时校验签名、账号状态和 Redis 会话；Redis 不可用时安全失败返回 503，不能降级放行。
@@ -22,6 +22,8 @@
 - 当前采用简单的 `is_super_admin` 权限控制，不是 RBAC。数据库只允许一个业务上的超级管理员；`ROLE_SUPER_ADMIN` 由数据库当前记录派生，不信任 JWT 声明。
 - 超级管理员可分页查询、新增、编辑、启禁用、重置密码和物理删除普通管理员；普通管理员不能被提升为超级管理员，管理接口不能操作唯一超级管理员。
 - 管理员只使用必填 `real_name`，不使用 `nickname`。管理员删除执行物理 `DELETE`，不写入 `deleted_at`，删除后账号、手机号和邮箱可以复用。
+- 推广用户不使用独立 `username`，只用手机号或邮箱登录；`user_no` 仅作为内部编号。超级管理员和普通管理员均可通过 `/api/user/management/**` 分页、搜索、新增、编辑、启禁用、重置密码和物理删除推广用户。
+- 推广用户联系方式、状态、密码和删除等敏感管理操作先进入 Redis `MUTATING` 状态；Redis 失败时不得写 MySQL。物理删除后手机号和邮箱可以复用。
 - Git 仓库：`https://github.com/wwxst/kasi-backend.git`，远程 `origin`，分支 `master`。
 - 在文档和代码审查中，请将当前架构与规划架构区分开来。不要将规划中的模块描述为已实现的模块。
 
@@ -126,6 +128,7 @@ java -version
 - 示例：`POST /api/user/auth/register`、`PUT /api/admin/auth/password`
 - 当前认证端点包括：注册验证码 `POST /api/user/auth/register/code`，忘记密码重置 `POST /api/user/auth/password/reset`。
 - 管理员管理端点统一位于 `/api/admin/management/**`，仅 `ROLE_SUPER_ADMIN` 可访问；本人资料使用 `PUT /api/admin/auth/profile`。
+- 推广用户管理端点统一位于 `/api/user/management/**`，超级管理员和普通管理员均以 `ROLE_ADMIN` 访问。
 
 ## 事务管理规范
 

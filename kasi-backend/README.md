@@ -6,7 +6,7 @@
 
 这是卡司推广平台的后端仓库，基于 Spring Boot 4.0.7 + MyBatis 4.0.1 + MySQL 8 + JWT 构建。
 
-**当前已完成**：管理员（ADMIN）和推广用户（USER）双认证体系，以及基于唯一超级管理员的普通管理员账号管理。详见 [§6 API、认证与业务边界](#6-api认证与业务边界)。
+**当前已完成**：管理员（ADMIN）和推广用户（USER）双认证体系、普通管理员账号管理，以及管理员对推广用户的管理 CRUD。详见 [§6 API、认证与业务边界](#6-api认证与业务边界)。
 
 ## 2. 当前结构
 
@@ -26,7 +26,7 @@ src/
         mapper/SysAdminUserMapper.java      # 管理员 MyBatis Mapper
         dto/                                # 管理员请求 DTO
         vo/                                 # 管理员响应 VO
-      user/                                 # 推广用户认证模块
+      user/                                 # 推广用户认证与管理模块
         controller/UserAuthController.java  # /api/user/auth/* 控制器
         service/UserAuthService.java        # 用户认证服务接口
         service/impl/UserAuthServiceImpl.java # 用户认证业务实现
@@ -141,7 +141,7 @@ $env:SPRING_DATASOURCE_PASSWORD = '<database-password>'
 | 存储 | 表/Key | 说明 | 核心字段 |
 |------|--------|------|----------|
 | MySQL | `sys_admin_user` | 后台管理员用户 | username, password(BCrypt), real_name, mobile, email, status, is_super_admin |
-| MySQL | `promotion_user` | 推广用户 | user_no(基于自增id生成), username, password(BCrypt), mobile, email, status, register_source |
+| MySQL | `promotion_user` | 推广用户 | user_no(基于自增id生成), password(BCrypt), nickname, mobile, email, status, register_source |
 | Redis | `vc:*` | 验证码（临时） | 5分钟过期，60秒重发间隔，每日上限10次 |
 | Redis | `pwd:*` | 密码重置 Token（临时） | 10分钟过期，一次性消费后删除 |
 | Redis | `auth:version:*` | 账号会话版本（含 `ACTIVE:*` 或 `MUTATING:*`） | TTL 不超过 JWT 有效期加宽限期 |
@@ -159,6 +159,7 @@ $env:SPRING_DATASOURCE_PASSWORD = '<database-password>'
 |------|----------|------|------|
 | ADMIN | `/api/admin/**` | `ROLE_ADMIN` | 管理员，仅可访问 admin 接口 |
 | SUPER_ADMIN | `/api/admin/management/**` | `ROLE_SUPER_ADMIN` | 唯一超级管理员，可管理普通管理员 |
+| ADMIN | `/api/user/management/**` | `ROLE_ADMIN` | 超级管理员和普通管理员均可管理推广用户 |
 | USER | `/api/user/**` | `ROLE_USER` | 推广用户，仅可访问 user 接口 |
 
 - ADMIN Token **不可**访问 USER 接口（返回 403）
@@ -198,9 +199,9 @@ $env:SPRING_DATASOURCE_PASSWORD = '<database-password>'
 
 | 方法 | 路径 | 说明 | 认证 |
 |------|------|------|------|
-| POST | `/api/user/auth/register` | 用户注册（账号 + 验证码 + 密码） | 否 |
+| POST | `/api/user/auth/register` | 用户注册（手机号或邮箱 + 验证码 + 密码） | 否 |
 | POST | `/api/user/auth/register/code` | 发送注册验证码（场景由后端固定为 `REGISTER`） | 否 |
-| POST | `/api/user/auth/login` | 用户登录（账号/手机号/邮箱 + 密码） | 否 |
+| POST | `/api/user/auth/login` | 用户登录（手机号或邮箱 + 密码） | 否 |
 | GET | `/api/user/auth/me` | 获取当前用户信息 | USER |
 | POST | `/api/user/auth/logout` | 退出登录 | USER |
 | PUT | `/api/user/auth/password` | 修改密码（需旧密码） | USER |
@@ -208,7 +209,25 @@ $env:SPRING_DATASOURCE_PASSWORD = '<database-password>'
 | POST | `/api/user/auth/password/forgot/verify` | 校验验证码，返回重置 Token | 否 |
 | POST | `/api/user/auth/password/reset` | 使用重置 Token 修改密码 | 否 |
 
-### 6.5 统一响应格式
+推广用户没有独立 `username`。`userNo` 仅作为系统内部编号和展示编号，不参与登录；手机号和邮箱至少保留一个，用户同时拥有两者时均可登录。手机号统一 `trim`，邮箱统一 `trim` 后转小写。
+
+### 6.5 推广用户管理 API
+
+以下端点允许超级管理员和普通管理员访问，统一要求 `ROLE_ADMIN`；推广用户返回 403，未登录返回 401。
+
+| 方法 | 路径 | 说明 |
+|------|------|------|
+| GET | `/api/user/management` | 分页和单关键词搜索，默认 `page=1,size=20`，按 `id ASC` |
+| GET | `/api/user/management/{id}` | 获取推广用户详情 |
+| POST | `/api/user/management` | 无需验证码，直接新增启用状态推广用户 |
+| PUT | `/api/user/management/{id}` | 编辑昵称、姓名、联系方式、头像和备注 |
+| PATCH | `/api/user/management/{id}/status` | 启用或禁用推广用户 |
+| PUT | `/api/user/management/{id}/password` | 管理员重置推广用户密码 |
+| DELETE | `/api/user/management/{id}` | 物理删除推广用户 |
+
+联系人、状态、密码或删除等敏感变更会先将 Redis 会话版本切换为 `MUTATING`；Redis 失败时不执行 MySQL 写入，数据库提交成功后生成新的 `ACTIVE` 版本，使全部旧 Token 失效。只修改昵称、姓名、头像或备注不会使会话失效。物理删除后原手机号和邮箱可以复用。
+
+### 6.6 统一响应格式
 
 所有接口返回统一结构 `ApiResponse<T>`：
 
@@ -223,10 +242,10 @@ $env:SPRING_DATASOURCE_PASSWORD = '<database-password>'
 - `code=0`：成功
 - `code!=0`：失败（错误码定义见 [ErrorCode.java](src/main/java/com/kasi/backend/common/exception/ErrorCode.java)）
 
-### 6.6 技术实现要点
+### 6.7 技术实现要点
 
 - **密码存储**：BCrypt 哈希，使用 Spring Security `PasswordEncoder`
-- **JWT**：HMAC-SHA256 签名，载荷包含 `userId`、`subjectType`、`username`、`jti`、`sessionVersion`，过期时间 7200 秒；每次受保护请求都校验 Redis 会话状态
+- **JWT**：HMAC-SHA256 签名，载荷包含 `userId`、`subjectType`、登录标识、`jti`、`sessionVersion`，过期时间 7200 秒；每次受保护请求都校验 Redis 会话状态
 - **验证码**：SHA-256 哈希后存入 Redis（内存不存明文），TTL 5 分钟自动过期，60 秒重发间隔，每日上限 10 次
 - **密码重置**：验证码校验通过后颁发一次性重置 Token（SHA-256 哈希后存入 Redis），同一用户同时只保留一个有效 Token；使用 `READY -> PROCESSING` 原子预占，数据库成功后删除，异常时不自动恢复，TTL 10 分钟
 - **Redis 故障**：验证码、密码重置 Token 和会话状态无法确认时统一安全失败并返回 503
@@ -286,16 +305,15 @@ Java 21 下编译会因 `release 25` 失败，必须使用 Java 25。
 
 1. ✅ 使用 BCrypt 密码哈希和可测试的认证流程。
 2. ✅ 定义了角色权限（ROLE_ADMIN / ROLE_USER）、状态规则和 401/403 契约。
-3. ✅ 管理员采用物理删除，删除后的唯一账号字段可以复用；推广用户软删除策略仍待后续设计。
+3. ✅ 管理员和推广用户管理均采用物理删除，删除后的唯一账号或联系方式可以复用。
 4. ⬜ 补齐 `department_id`、`created_by`、`updated_by` 的外键或明确不加外键的理由。
 5. ⬜ 补充审计字段的自动填充（`created_by`、`updated_by`）。
 
 ### P2：后续规划
 
-1. ⬜ 实现用户管理 CRUD（管理员对推广用户的增删改查）。
-2. ⬜ 接入真实短信/邮件验证码发送（`local` 开发环境当前为 Console 输出）。
-3. ⬜ 实现 Token 刷新机制。
-4. ⬜ 添加操作日志和登录审计。
+1. ⬜ 接入真实短信/邮件验证码发送（`local` 开发环境当前为 Console 输出）。
+2. ⬜ 实现 Token 刷新机制。
+3. ⬜ 添加操作日志和登录审计。
 
 ## 9. Git 与协作
 

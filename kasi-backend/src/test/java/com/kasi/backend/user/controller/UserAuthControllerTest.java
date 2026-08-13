@@ -45,8 +45,11 @@ class UserAuthControllerTest extends BaseAuthTest {
                 "SELECT user_no FROM promotion_user WHERE mobile = '13600136000'", String.class);
         String source = jdbcTemplate.queryForObject(
                 "SELECT register_source FROM promotion_user WHERE mobile = '13600136000'", String.class);
+        String nickname = jdbcTemplate.queryForObject(
+                "SELECT nickname FROM promotion_user WHERE mobile = '13600136000'", String.class);
         org.junit.jupiter.api.Assertions.assertFalse(userNo.startsWith("TMP-"));
         org.junit.jupiter.api.Assertions.assertEquals("MOBILE", source);
+        org.junit.jupiter.api.Assertions.assertEquals("用户" + userNo, nickname);
     }
 
     @Test
@@ -196,11 +199,22 @@ class UserAuthControllerTest extends BaseAuthTest {
                         .post("/api/user/auth/login")
                         .contentType("application/json")
                         .content("""
-                                {"account":"nonexistent","password":"user123456"}
+                                {"account":"13600136000","password":"user123456"}
                                 """))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.code").value(3003))
                 .andExpect(jsonPath("$.message").value("账号或密码错误"));
+    }
+
+    @Test
+    @DisplayName("登录标识必须是手机号或邮箱")
+    void loginRejectsLegacyUsernameFormat() throws Exception {
+        mockMvc.perform(MockMvcRequestBuilders
+                        .post("/api/user/auth/login")
+                        .contentType("application/json")
+                        .content("{\"account\":\"legacy_username\",\"password\":\"user123456\"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(1006));
     }
 
     @Test

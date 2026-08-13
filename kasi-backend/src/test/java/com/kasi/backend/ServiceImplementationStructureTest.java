@@ -14,6 +14,8 @@ import com.kasi.backend.security.service.TokenService;
 import com.kasi.backend.security.service.impl.TokenServiceImpl;
 import com.kasi.backend.user.service.UserAuthService;
 import com.kasi.backend.user.service.impl.UserAuthServiceImpl;
+import com.kasi.backend.user.service.UserManagementService;
+import com.kasi.backend.user.service.impl.UserManagementServiceImpl;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -38,6 +40,9 @@ class ServiceImplementationStructureTest extends BaseAuthTest {
                 .isInstanceOf(AdminManagementServiceImpl.class);
         assertThat(applicationContext.getBean(UserAuthService.class))
                 .isInstanceOf(UserAuthServiceImpl.class);
+        assertThat(UserManagementService.class).isInterface();
+        assertThat(applicationContext.getBean(UserManagementService.class))
+                .isInstanceOf(UserManagementServiceImpl.class);
         assertThat(VerificationCodeService.class).isInterface();
         assertThat(applicationContext.getBean(VerificationCodeService.class))
                 .isInstanceOf(VerificationCodeServiceImpl.class);

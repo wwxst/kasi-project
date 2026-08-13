@@ -56,6 +56,30 @@
         SELECT * FROM promotion_user WHERE id = #{id} AND deleted_at IS NULL FOR UPDATE
     </select>
 
+    <select id="countByKeyword" resultType="long">
+        SELECT COUNT(*) FROM promotion_user
+        WHERE deleted_at IS NULL
+          AND (#{keyword} IS NULL
+            OR user_no LIKE CONCAT('%', #{keyword}, '%')
+            OR mobile LIKE CONCAT('%', #{keyword}, '%')
+            OR email LIKE CONCAT('%', #{keyword}, '%')
+            OR nickname LIKE CONCAT('%', #{keyword}, '%')
+            OR real_name LIKE CONCAT('%', #{keyword}, '%'))
+    </select>
+
+    <select id="findPage" resultMap="BaseResultMap">
+        SELECT * FROM promotion_user
+        WHERE deleted_at IS NULL
+          AND (#{keyword} IS NULL
+            OR user_no LIKE CONCAT('%', #{keyword}, '%')
+            OR mobile LIKE CONCAT('%', #{keyword}, '%')
+            OR email LIKE CONCAT('%', #{keyword}, '%')
+            OR nickname LIKE CONCAT('%', #{keyword}, '%')
+            OR real_name LIKE CONCAT('%', #{keyword}, '%'))
+        ORDER BY id ASC
+        LIMIT #{size} OFFSET #{offset}
+    </select>
+
     <insert id="insert" parameterType="com.kasi.backend.user.entity.PromotionUser" useGeneratedKeys="true" keyProperty="id">
         INSERT INTO promotion_user (user_no, password, nickname, real_name, mobile, email,
                                     avatar_url, status, register_source, remark)
@@ -78,7 +102,20 @@
     </update>
 
     <update id="updateUserNo">
-        UPDATE promotion_user SET user_no = #{userNo} WHERE id = #{id}
+        UPDATE promotion_user
+        SET user_no = #{userNo}, nickname = COALESCE(nickname, #{nickname})
+        WHERE id = #{id}
     </update>
+
+    <update id="updateProfile" parameterType="com.kasi.backend.user.entity.PromotionUser">
+        UPDATE promotion_user
+        SET nickname = #{nickname}, real_name = #{realName}, mobile = #{mobile}, email = #{email},
+            avatar_url = #{avatarUrl}, remark = #{remark}, updated_at = CURRENT_TIMESTAMP
+        WHERE id = #{id}
+    </update>
+
+    <delete id="deleteById">
+        DELETE FROM promotion_user WHERE id = #{id}
+    </delete>
 
 </mapper>
