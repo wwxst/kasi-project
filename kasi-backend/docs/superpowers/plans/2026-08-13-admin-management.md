@@ -55,7 +55,7 @@
 - `src/main/java/com/kasi/backend/security/config/SecurityConfig.java` - protect management routes before the general admin matcher.
 - `src/main/java/com/kasi/backend/common/exception/ErrorCode.java` - add management errors `2006..2011`.
 - `src/main/java/com/kasi/backend/admin/dto/AdminLoginDTO.java` - restrict administrator login passwords to visible ASCII and 72 characters.
-- `src/test/java/com/kasi/backend/BaseAuthTest.java` - seed real names and an ordinary administrator helper.
+- `src/test/java/com/kasi/backend/BaseAuthTest.java` - seed `kasiadmin / kasi123456`, real names, and an ordinary administrator helper.
 - `src/test/java/com/kasi/backend/admin/controller/AdminAuthControllerTest.java` - real-name response, profile, and administrator password character-range tests.
 - `src/test/java/com/kasi/backend/security/SessionAuthenticationTest.java` - retain physical-delete account rejection coverage.
 - `src/test/java/com/kasi/backend/ServiceImplementationStructureTest.java` - verify interface/implementation separation.
@@ -80,7 +80,20 @@
 
 - [ ] **Step 1: Write failing structure and response assertions**
 
-Change the administrator seed to use `real_name`, rename the invalid test username `disabled_admin` to `disabledadmin`, assert `$.data.realName`, and add source/schema assertions that administrator `nickname` is absent while `deleted_at` remains present.
+Change the unique super-administrator seed to `kasiadmin / kasi123456`, use `real_name`, rename the invalid test username `disabled_admin` to `disabledadmin`, assert `$.data.realName`, and add source/schema assertions that administrator `nickname` is absent while `deleted_at` remains present.
+
+Update the shared test constants and helper exactly as follows:
+
+```java
+protected static final String ADMIN_USERNAME = "kasiadmin";
+protected static final String ADMIN_PASSWORD = "kasi123456";
+
+protected String loginAsAdmin() throws Exception {
+    return loginAsAdmin(ADMIN_USERNAME, ADMIN_PASSWORD);
+}
+```
+
+Replace every hard-coded successful administrator credential in `AdminAuthControllerTest` and security tests with these constants or `loginAsAdmin()`. Keep deliberately wrong-password and nonexistent-account inputs unchanged. These credentials are test-only and must not be inserted by `V1__kasi_promotion.sql`.
 
 ```java
 @Test
@@ -90,6 +103,7 @@ void getCurrentAdminReturnsRealNameWithoutNickname() throws Exception {
     mockMvc.perform(get("/api/admin/auth/me")
                     .header("Authorization", "Bearer " + token))
             .andExpect(status().isOk())
+            .andExpect(jsonPath("$.data.username").value("kasiadmin"))
             .andExpect(jsonPath("$.data.realName").value("系统管理员"))
             .andExpect(jsonPath("$.data.nickname").doesNotExist());
 }
