@@ -2,6 +2,7 @@ package com.kasi.backend.admin.service;
 
 import com.kasi.backend.admin.dto.AdminPageQueryDTO;
 import com.kasi.backend.admin.dto.CreateAdminDTO;
+import com.kasi.backend.admin.dto.UpdateAdminDTO;
 import com.kasi.backend.admin.vo.AdminDetailVO;
 import com.kasi.backend.admin.vo.AdminPageVO;
 
@@ -12,4 +13,6 @@ public interface AdminManagementService {
     AdminDetailVO getById(Long id);
 
     AdminDetailVO create(Long operatorId, CreateAdminDTO request);
+
+    AdminDetailVO update(Long operatorId, Long targetId, UpdateAdminDTO request);
 }

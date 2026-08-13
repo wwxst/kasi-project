@@ -2,6 +2,7 @@ package com.kasi.backend.admin.service.impl;
 
 import com.kasi.backend.admin.dto.AdminPageQueryDTO;
 import com.kasi.backend.admin.dto.CreateAdminDTO;
+import com.kasi.backend.admin.dto.UpdateAdminDTO;
 import com.kasi.backend.admin.entity.SysAdminUser;
 import com.kasi.backend.admin.mapper.SysAdminUserMapper;
 import com.kasi.backend.admin.service.AdminManagementService;
@@ -10,11 +11,16 @@ import com.kasi.backend.admin.vo.AdminListItemVO;
 import com.kasi.backend.admin.vo.AdminPageVO;
 import com.kasi.backend.common.exception.BusinessException;
 import com.kasi.backend.common.exception.ErrorCode;
+import com.kasi.backend.common.enums.SubjectType;
+import com.kasi.backend.security.entity.SessionMutation;
+import com.kasi.backend.security.service.SessionService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.dao.DuplicateKeyException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 import java.util.List;
 import java.util.Locale;
@@ -25,6 +31,7 @@ public class AdminManagementServiceImpl implements AdminManagementService {
 
     private final SysAdminUserMapper sysAdminUserMapper;
     private final PasswordEncoder passwordEncoder;
+    private final SessionService sessionService;
 
     @Override
     @Transactional(readOnly = true)
@@ -87,6 +94,32 @@ public class AdminManagementServiceImpl implements AdminManagementService {
         return toDetailVO(sysAdminUserMapper.findById(admin.getId()));
     }
 
+    @Override
+    @Transactional
+    public AdminDetailVO update(Long operatorId, Long targetId, UpdateAdminDTO request) {
+        SysAdminUser admin = sysAdminUserMapper.findByIdForUpdate(targetId);
+        if (admin == null) {
+            throw new BusinessException(ErrorCode.ADMIN_MANAGEMENT_NOT_FOUND);
+        }
+        if (Integer.valueOf(1).equals(admin.getIsSuperAdmin())) {
+            throw new BusinessException(ErrorCode.ADMIN_SUPER_ADMIN_PROTECTED);
+        }
+        String mobile = trimToNull(request.getMobile());
+        String email = normalizeEmail(request.getEmail());
+        checkUniqueIdentifiersForUpdate(targetId, request.getUsername(), mobile, email);
+        boolean identifierChanged = !request.getUsername().equals(admin.getUsername())
+                || !java.util.Objects.equals(mobile, admin.getMobile())
+                || !java.util.Objects.equals(email, admin.getEmail());
+        SessionMutation mutation = identifierChanged
+                ? sessionService.beginMutation(SubjectType.ADMIN, targetId) : null;
+
+        applyProfile(admin, request.getUsername(), request.getRealName(), mobile, email,
+                request.getAvatarUrl(), request.getDepartmentId(), request.getRemark(), operatorId);
+        updateProfile(admin);
+        registerCompletion(mutation);
+        return toDetailVO(sysAdminUserMapper.findById(targetId));
+    }
+
     private void checkUniqueIdentifiers(String username, String mobile, String email) {
         if (sysAdminUserMapper.findByUsername(username) != null) {
             throw new BusinessException(ErrorCode.ADMIN_USERNAME_DUPLICATE);
@@ -97,6 +130,58 @@ public class AdminManagementServiceImpl implements AdminManagementService {
         if (email != null && sysAdminUserMapper.findByEmail(email) != null) {
             throw new BusinessException(ErrorCode.ADMIN_EMAIL_DUPLICATE);
         }
+    }
+
+    private void checkUniqueIdentifiersForUpdate(Long targetId, String username, String mobile, String email) {
+        checkOther(sysAdminUserMapper.findByUsername(username), targetId, ErrorCode.ADMIN_USERNAME_DUPLICATE);
+        if (mobile != null) {
+            checkOther(sysAdminUserMapper.findByMobile(mobile), targetId, ErrorCode.ADMIN_MOBILE_DUPLICATE);
+        }
+        if (email != null) {
+            checkOther(sysAdminUserMapper.findByEmail(email), targetId, ErrorCode.ADMIN_EMAIL_DUPLICATE);
+        }
+    }
+
+    private void checkOther(SysAdminUser existing, Long targetId, ErrorCode errorCode) {
+        if (existing != null && !targetId.equals(existing.getId())) {
+            throw new BusinessException(errorCode);
+        }
+    }
+
+    private void applyProfile(SysAdminUser admin, String username, String realName,
+                              String mobile, String email, String avatarUrl,
+                              Long departmentId, String remark, Long operatorId) {
+        admin.setUsername(username);
+        admin.setRealName(realName);
+        admin.setMobile(mobile);
+        admin.setEmail(email);
+        admin.setAvatarUrl(avatarUrl);
+        admin.setDepartmentId(departmentId);
+        admin.setRemark(remark);
+        admin.setUpdatedBy(operatorId);
+    }
+
+    private void updateProfile(SysAdminUser admin) {
+        try {
+            if (sysAdminUserMapper.updateProfile(admin) != 1) {
+                throw new IllegalStateException("管理员资料更新未生效");
+            }
+        } catch (DuplicateKeyException exception) {
+            checkUniqueIdentifiersForUpdate(admin.getId(), admin.getUsername(), admin.getMobile(), admin.getEmail());
+            throw exception;
+        }
+    }
+
+    private void registerCompletion(SessionMutation mutation) {
+        if (mutation == null) {
+            return;
+        }
+        TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+            @Override
+            public void afterCommit() {
+                sessionService.completeMutation(mutation);
+            }
+        });
     }
 
     private String trimToNull(String value) {
