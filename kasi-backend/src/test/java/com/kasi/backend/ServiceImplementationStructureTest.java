@@ -1,7 +1,9 @@
 package com.kasi.backend;
 
 import com.kasi.backend.admin.service.AdminAuthService;
+import com.kasi.backend.admin.service.AdminManagementService;
 import com.kasi.backend.admin.service.impl.AdminAuthServiceImpl;
+import com.kasi.backend.admin.service.impl.AdminManagementServiceImpl;
 import com.kasi.backend.auth.service.PasswordResetTokenService;
 import com.kasi.backend.auth.service.impl.PasswordResetTokenServiceImpl;
 import com.kasi.backend.auth.service.VerificationCodeService;
@@ -31,6 +33,9 @@ class ServiceImplementationStructureTest extends BaseAuthTest {
         assertThat(UserAuthService.class).isInterface();
         assertThat(applicationContext.getBean(AdminAuthService.class))
                 .isInstanceOf(AdminAuthServiceImpl.class);
+        assertThat(AdminManagementService.class).isInterface();
+        assertThat(applicationContext.getBean(AdminManagementService.class))
+                .isInstanceOf(AdminManagementServiceImpl.class);
         assertThat(applicationContext.getBean(UserAuthService.class))
                 .isInstanceOf(UserAuthServiceImpl.class);
         assertThat(VerificationCodeService.class).isInterface();

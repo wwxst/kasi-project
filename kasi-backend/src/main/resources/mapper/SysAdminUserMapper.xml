@@ -59,6 +59,30 @@
         SELECT * FROM sys_admin_user WHERE id = #{id} AND deleted_at IS NULL FOR UPDATE
     </select>
 
+    <select id="countByKeyword" resultType="long">
+        SELECT COUNT(*)
+        FROM sys_admin_user
+        WHERE deleted_at IS NULL
+          AND (#{keyword} IS NULL
+            OR username LIKE CONCAT('%', #{keyword}, '%')
+            OR real_name LIKE CONCAT('%', #{keyword}, '%')
+            OR mobile LIKE CONCAT('%', #{keyword}, '%')
+            OR email LIKE CONCAT('%', #{keyword}, '%'))
+    </select>
+
+    <select id="findPage" resultMap="BaseResultMap">
+        SELECT *
+        FROM sys_admin_user
+        WHERE deleted_at IS NULL
+          AND (#{keyword} IS NULL
+            OR username LIKE CONCAT('%', #{keyword}, '%')
+            OR real_name LIKE CONCAT('%', #{keyword}, '%')
+            OR mobile LIKE CONCAT('%', #{keyword}, '%')
+            OR email LIKE CONCAT('%', #{keyword}, '%'))
+        ORDER BY id ASC
+        LIMIT #{size} OFFSET #{offset}
+    </select>
+
     <insert id="insert" parameterType="com.kasi.backend.admin.entity.SysAdminUser" useGeneratedKeys="true" keyProperty="id">
         INSERT INTO sys_admin_user (username, password, real_name, mobile, email, avatar_url,
                                     department_id, status, is_super_admin, remark, created_by, updated_by)
