@@ -5,6 +5,7 @@ import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
 
 import java.time.LocalDateTime;
+import java.util.List;
 
 /**
  * 推广用户 Mapper
@@ -29,6 +30,12 @@ public interface PromotionUserMapper {
 
     PromotionUser findByIdForUpdate(@Param("id") Long id);
 
+    long countByKeyword(@Param("keyword") String keyword);
+
+    List<PromotionUser> findPage(@Param("keyword") String keyword,
+                                 @Param("offset") long offset,
+                                 @Param("size") int size);
+
     int insert(PromotionUser user);
 
     int updatePassword(@Param("id") Long id,
@@ -40,5 +47,11 @@ public interface PromotionUserMapper {
 
     int updateStatus(@Param("id") Long id, @Param("status") Integer status);
 
-    int updateUserNo(@Param("id") Long id, @Param("userNo") String userNo);
+    int updateUserNo(@Param("id") Long id,
+                     @Param("userNo") String userNo,
+                     @Param("nickname") String nickname);
+
+    int updateProfile(PromotionUser user);
+
+    int deleteById(@Param("id") Long id);
 }

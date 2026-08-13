@@ -109,7 +109,7 @@ public class UserAuthServiceImpl implements UserAuthService {
         // 根据自增id生成用户编号并回写
         String userNo = "KS" + String.format("%06d", user.getId());
         String nickname = "用户" + userNo;
-        promotionUserMapper.updateUserNo(user.getId(), userNo);
+        promotionUserMapper.updateUserNo(user.getId(), userNo, nickname);
 
         log.info("用户注册成功: userNo={}, account={}", userNo, account);
     }
@@ -151,9 +151,6 @@ public class UserAuthServiceImpl implements UserAuthService {
 
         // 更新最后登录信息
         promotionUserMapper.updateLastLogin(user.getId(), LocalDateTime.now(), clientIp);
-
-        // 确定返回的账号标识
-        String displayAccount = user.getMobile() != null ? user.getMobile() : user.getEmail();
 
         return UserLoginVO.builder()
                 .accessToken(token)

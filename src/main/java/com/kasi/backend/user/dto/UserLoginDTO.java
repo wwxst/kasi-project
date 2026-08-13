@@ -1,6 +1,7 @@
 package com.kasi.backend.user.dto;
 
 import com.kasi.backend.common.validation.Utf8ByteLength;
+import com.kasi.backend.common.validation.PhoneOrEmail;
 import jakarta.validation.constraints.NotBlank;
 import lombok.Data;
 
@@ -11,6 +12,7 @@ import lombok.Data;
 public class UserLoginDTO {
 
     @NotBlank(message = "账号不能为空")
+    @PhoneOrEmail
     private String account;
 
     @NotBlank(message = "密码不能为空")

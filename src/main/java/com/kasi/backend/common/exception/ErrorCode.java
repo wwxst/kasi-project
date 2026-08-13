@@ -46,9 +46,11 @@ public enum ErrorCode {
     USER_NEW_PASSWORD_SAME(3005, "新密码不能与旧密码相同"),
     USER_MOBILE_DUPLICATE(3006, "该手机号已注册"),
     USER_EMAIL_DUPLICATE(3007, "该邮箱已注册"),
-    USER_USERNAME_DUPLICATE(3008, "该用户名已注册"),
     USER_ACCOUNT_REQUIRED(3009, "手机号或邮箱不能同时为空"),
     USER_PASSWORD_NOT_MATCH(3010, "两次输入的密码不一致"),
+    USER_MANAGEMENT_NOT_FOUND(3011, "推广用户不存在"),
+    USER_CONTACT_REQUIRED(3012, "手机号或邮箱不能同时为空"),
+    USER_MANAGEMENT_PASSWORD_NOT_MATCH(3013, "两次输入的密码不一致"),
 
     // ========== 验证码错误 ==========
     VERIFICATION_CODE_ERROR(4001, "验证码错误"),
