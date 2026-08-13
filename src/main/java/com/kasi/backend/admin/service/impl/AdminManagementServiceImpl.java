@@ -41,7 +41,7 @@ public class AdminManagementServiceImpl implements AdminManagementService {
     public AdminPageVO getPage(AdminPageQueryDTO query) {
         String keyword = normalizeKeyword(query.getKeyword());
         long total = sysAdminUserMapper.countByKeyword(keyword);
-        int offset = (query.getPage() - 1) * query.getSize();
+        long offset = ((long) query.getPage() - 1) * query.getSize();
         List<AdminListItemVO> list = sysAdminUserMapper.findPage(keyword, offset, query.getSize()).stream()
                 .map(this::toListItemVO)
                 .toList();
