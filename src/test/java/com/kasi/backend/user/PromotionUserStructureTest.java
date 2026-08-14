@@ -31,7 +31,8 @@ class PromotionUserStructureTest extends BaseAuthTest {
     void promotionUserSchemaAndMapperDoNotDeclareRemovedFields() throws Exception {
         String migration = Files.readString(
                 Path.of("src/main/resources/db/migration/V1__kasi_promotion.sql"), StandardCharsets.UTF_8);
-        String promotionBlock = migration.substring(migration.indexOf("-- 推广用户表"));
+        String promotionBlock = migration.substring(
+                migration.indexOf("-- 推广用户表"), migration.indexOf("-- 初始超级管理员"));
         String testSchema = Files.readString(
                 Path.of("src/test/resources/test-schema.sql"), StandardCharsets.UTF_8);
         String testPromotionBlock = testSchema.substring(testSchema.indexOf("CREATE TABLE IF NOT EXISTS promotion_user"));
