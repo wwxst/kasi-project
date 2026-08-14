@@ -16,7 +16,8 @@
   - `admin/` — 管理员认证、本人资料与密码维护，以及超级管理员管理普通管理员账号
   - `user/` — 推广用户注册、登录、获取当前用户、退出登录、修改密码、忘记密码流程，以及管理员可用的推广用户管理 CRUD
   - `auth/` — 可复用的验证码服务和密码重置 Token 机制（Redis 存储，Lua 原子消费/预占，TTL 自动过期）
-- 数据库迁移：`db/migration/V1__kasi_promotion.sql` 定义 `sys_admin_user`、`promotion_user` 两张持久表；验证码和密码重置 Token 等临时数据由 Redis（`vc:*`、`pwd:*` 键）管理，TTL 自动过期。
+- 数据库迁移：`db/migration/V1__kasi_promotion.sql` 定义 `sys_admin_user`、`promotion_user` 两张持久表，并植入唯一初始超级管理员 `kasiadmin / kasi123456`（数据库仅保存 BCrypt 哈希，`status=1`、`is_super_admin=1`）；验证码和密码重置 Token 等临时数据由 Redis（`vc:*`、`pwd:*` 键）管理，TTL 自动过期。
+- 项目当前仍处于开发阶段，数据库可以删除重建；修改已执行的 `V1` 后必须重建开发数据库。未来生产首次建库也使用同一 `V1` 初始化账号，不新增运行时账号植入器。
 - 会话状态由 Redis（`auth:version:{type}:{userId}`、`auth:session:{jti}`）管理。JWT 携带 `jti`、`sessionVersion`，受保护请求必须同时校验签名、账号状态和 Redis 会话；Redis 不可用时安全失败返回 503，不能降级放行。
 - 修改密码、密码重置等敏感 MySQL 状态变更会先将账号版本切换为 `MUTATING:{nonce}`，数据库成功后再恢复新的 `ACTIVE:*` 版本，使旧 Token 失效。普通 logout 只撤销当前 `jti` 会话。
 - 当前采用简单的 `is_super_admin` 权限控制，不是 RBAC。数据库只允许一个业务上的超级管理员；`ROLE_SUPER_ADMIN` 由数据库当前记录派生，不信任 JWT 声明。
@@ -112,6 +113,7 @@ java -version
 ## 测试编写规范
 
 - 认证模块测试**必须继承** [BaseAuthTest.java](src/test/java/com/kasi/backend/BaseAuthTest.java)，它提供了 H2 数据库初始化、测试数据准备和登录辅助方法。
+- 数据库迁移测试不属于认证接口测试，可以不继承 `BaseAuthTest`；应使用隔离的 H2 MySQL 模式数据库实际执行生产迁移。
 - 每个测试方法使用 `@DisplayName` 注解写中文描述。
 - 测试命名采用 `{方法名}_{场景}_{预期结果}` 驼峰格式（如 `loginWithWrongPassword`）。
 - 调用受保护接口时，通过 `loginAsAdmin()` / `loginAsUser()` 获取 Token，不要手动构造 JWT。
@@ -142,6 +144,7 @@ java -version
 
 - 仅引入 Security Starter 并不构成一个认证设计方案。在暴露账号端点之前，请先定义登录机制、会话或令牌生命周期、密码哈希、角色以及 401/403 行为。
 - 切勿比较或持久化原始密码。使用强 `PasswordEncoder`，并同时测试认证成功和被拒绝的路径。
+- 固定初始超级管理员凭据是当前明确的建库契约；不得把明文密码写入数据库、日志或 API 响应，并应在首次登录后立即修改默认密码。
 - 将 `is_super_admin` 和 `status` 视为领域规则，而非受信任的请求字段。
 - 验证码发送器按 profile 隔离：`local` 仅使用 `ConsoleVerificationCodeSender`，`test` 使用测试 sender；生产环境必须提供真实 sender，不能以 Console 输出代替实际投递。
 
