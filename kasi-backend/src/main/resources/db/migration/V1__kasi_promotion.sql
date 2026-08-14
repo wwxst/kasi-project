@@ -63,3 +63,11 @@ CREATE TABLE `promotion_user`
     KEY `idx_created_at` (`created_at`)
 ) ENGINE = InnoDB
   DEFAULT CHARSET = utf8mb4 COMMENT ='推广用户';
+
+-- 初始超级管理员（首次登录后应立即修改默认密码）
+INSERT INTO `sys_admin_user` (`username`, `password`, `real_name`, `status`, `is_super_admin`)
+VALUES ('kasiadmin',
+        '$2a$10$mROjhwtfAn0JbImE7Cp4M.u3cBPvWwXGDesSyrBvB69jON/DwzeKm',
+        '系统管理员',
+        1,
+        1);
