@@ -21,10 +21,10 @@
 - 修改密码、密码重置等敏感 MySQL 状态变更会先将账号版本切换为 `MUTATING:{nonce}`，数据库成功后再恢复新的 `ACTIVE:*` 版本，使旧 Token 失效。普通 logout 只撤销当前 `jti` 会话。
 - 当前采用简单的 `is_super_admin` 权限控制，不是 RBAC。数据库只允许一个业务上的超级管理员；`ROLE_SUPER_ADMIN` 由数据库当前记录派生，不信任 JWT 声明。
 - 超级管理员可分页查询、新增、编辑、启禁用、重置密码和物理删除普通管理员；普通管理员不能被提升为超级管理员，管理接口不能操作唯一超级管理员。
-- 管理员只使用必填 `real_name`，不使用 `nickname`。管理员删除执行物理 `DELETE`，不写入 `deleted_at`，删除后账号、手机号和邮箱可以复用。
+- 管理员只使用必填 `real_name`，不使用 `nickname`。`sys_admin_user` 不保留 `deleted_at`；管理员删除只执行物理 `DELETE`，删除后账号、手机号和邮箱可以复用。
 - 推广用户不使用独立 `username`，只用手机号或邮箱登录；`user_no` 仅作为内部编号。超级管理员和普通管理员均可通过 `/api/user/management/**` 分页、搜索、新增、编辑、启禁用、重置密码和物理删除推广用户。
 - 推广用户联系方式、状态、密码和删除等敏感管理操作先进入 Redis `MUTATING` 状态；Redis 失败时不得写 MySQL。物理删除后手机号和邮箱可以复用。
-- `promotion_user` 不保留 `deleted_at`；推广用户删除只使用物理 `DELETE`。`sys_admin_user.deleted_at` 仍保留，不在本规则范围内。
+- `sys_admin_user` 和 `promotion_user` 均不保留 `deleted_at`；两类账号删除都只使用物理 `DELETE`。
 - Git 仓库：`https://github.com/wwxst/kasi-backend.git`，远程 `origin`，分支 `master`。
 - 在文档和代码审查中，请将当前架构与规划架构区分开来。不要将规划中的模块描述为已实现的模块。
 
@@ -64,6 +64,7 @@ java -version
 ## 数据库与 Flyway
 
 - Flyway 版本化迁移使用默认命名格式 `V{version}__{description}.sql`。当前首个迁移文件为 `V1__kasi_promotion.sql`，后续新增迁移请遵循此标准。
+- 当前不启用 `baseline-on-migrate`。没有 Flyway 历史表的非空数据库必须明确失败，禁止为兼容旧库而静默跳过 V1。
 - 迁移脚本必须针对已选定的 schema。不要在应用迁移脚本中放置针对固定本地数据库的 `CREATE DATABASE` 或 `USE` 语句。
 - 迁移中修改的会话设置（包括 `FOREIGN_KEY_CHECKS`），若确实需要，应在迁移完成后恢复。
 - 慎重添加外键和约束。`department_id`、`created_by` 和 `updated_by` 目前没有对应的引用表或约束。
@@ -105,6 +106,7 @@ java -version
 
 - [ErrorCode.java](src/main/java/com/kasi/backend/common/exception/ErrorCode.java) 是所有错误码的**唯一真理源**。
 - 新增错误码必须遵循分段规则：`1xxx`通用、`2xxx`管理员、`3xxx`用户、`4xxx`验证码、`5xxx`密码重置。
+- 只保留当前业务路径能够实际返回的错误码；不要为尚未实现或无法区分的状态预留不可达枚举值。
 - 不要硬编码数字错误码 —— 始终使用 `ErrorCode` 枚举引用。
 - 不要在 Controller 中直接构造错误码字符串 —— 通过 `throw new BusinessException(ErrorCode.XXX)` 交给全局异常处理器。
 - 对外暴露的错误信息要兼顾安全（登录失败不区分"用户不存在"和"密码错误"，统一返回"账号或密码错误"）。

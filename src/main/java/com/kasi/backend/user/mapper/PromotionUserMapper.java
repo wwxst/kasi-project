@@ -19,8 +19,6 @@ public interface PromotionUserMapper {
 
     PromotionUser findByEmail(@Param("email") String email);
 
-    PromotionUser findByUserNo(@Param("userNo") String userNo);
-
     /**
      * 根据 account 匹配手机号或邮箱
      */

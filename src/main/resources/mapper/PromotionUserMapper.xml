@@ -32,10 +32,6 @@
         SELECT * FROM promotion_user WHERE email = #{email}
     </select>
 
-    <select id="findByUserNo" resultMap="BaseResultMap">
-        SELECT * FROM promotion_user WHERE user_no = #{userNo}
-    </select>
-
     <select id="findByAccount" resultMap="BaseResultMap">
         SELECT * FROM promotion_user
         WHERE mobile = #{account} OR email = #{account}

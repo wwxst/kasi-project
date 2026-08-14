@@ -1,6 +1,6 @@
 # Kasi Backend 开发文档
 
-最后核对时间：2026-08-13
+最后核对时间：2026-08-14
 
 ## 1. 项目定位
 
@@ -107,7 +107,7 @@ $env:Path = "$env:JAVA_HOME\bin;$env:Path"
 | 配置项 | 说明 |
 |--------|------|
 | 数据源 | MySQL，必须通过环境变量 `SPRING_DATASOURCE_URL/USERNAME/PASSWORD` 注入，**字符编码统一 UTF-8** |
-| Flyway | 启用，迁移脚本路径 `classpath:db/migration`，`baseline-on-migrate=true` |
+| Flyway | 启用，迁移脚本路径 `classpath:db/migration`；不对无 Flyway 历史的非空数据库自动建立基线 |
 | MyBatis | Mapper XML 路径 `classpath:mapper/*.xml`，开启驼峰自动映射 |
 | JWT | 密钥通过 `JWT_SECRET` 环境变量注入，过期时间 7200 秒；登录会话依赖 Redis |
 | 验证码 | 过期 300 秒，重发间隔 60 秒，每日上限 10 次 |
@@ -193,7 +193,7 @@ $env:SPRING_DATASOURCE_PASSWORD = '<database-password>'
 | PUT | `/api/admin/management/{id}/password` | 重置普通管理员密码 |
 | DELETE | `/api/admin/management/{id}` | 物理删除普通管理员 |
 
-管理员只使用必填 `realName`，没有昵称字段。修改账号、手机号、邮箱、状态、密码或删除前，服务先将目标账号 Redis 版本切换为 `MUTATING`；Redis 失败时不执行 MySQL 写入。MySQL 提交成功后恢复新的 `ACTIVE` 版本，使旧 Token 全部失效。物理删除不写 `deleted_at`，原账号、手机号和邮箱可以重新使用。
+管理员只使用必填 `realName`，没有昵称字段；`sys_admin_user` 不保留 `deleted_at`。修改账号、手机号、邮箱、状态、密码或删除前，服务先将目标账号 Redis 版本切换为 `MUTATING`；Redis 失败时不执行 MySQL 写入。MySQL 提交成功后恢复新的 `ACTIVE` 版本，使旧 Token 全部失效。物理删除后原账号、手机号和邮箱可以重新使用。
 
 ### 6.4 推广用户认证 API
 
@@ -270,6 +270,8 @@ $env:SPRING_DATASOURCE_PASSWORD = '<database-password>'
 | `AdminManagementQueryTest` | 管理员分页、搜索和详情 |
 | `AdminManagementMutationTest` | 新增、编辑、启禁用、重置密码和物理删除 |
 | `AdminManagementServiceTest` | Redis-first、数据库失败和并发唯一键边界 |
+| `SysAdminUserStructureTest` | 管理员表、Entity 和 Mapper 不保留软删除字段 |
+| `HistoricalCompatibilityStructureTest` | 认证接口、Mapper、错误码和 Flyway 配置不保留无调用的历史兼容残留 |
 | `UserAuthControllerTest` | 用户注册、登录、获取信息、退出、修改密码、忘记密码流程（13 个用例） |
 | `SecurityPermissionTest` | 角色隔离：ADMIN/USER Token 不可互访、无 Token 返回 401（5 个用例） |
 | `KasiBackendApplicationTests` | Spring 上下文加载测试 |

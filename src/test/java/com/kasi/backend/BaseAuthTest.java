@@ -133,7 +133,7 @@ public abstract class BaseAuthTest {
         ).andReturn();
 
         String responseBody = result.getResponse().getContentAsString();
-        return objectMapper.readTree(responseBody).get("data").get("accessToken").asText();
+        return objectMapper.readTree(responseBody).get("data").get("accessToken").stringValue();
     }
 
     /**
@@ -156,6 +156,6 @@ public abstract class BaseAuthTest {
         ).andReturn();
 
         String responseBody = result.getResponse().getContentAsString();
-        return objectMapper.readTree(responseBody).get("data").get("accessToken").asText();
+        return objectMapper.readTree(responseBody).get("data").get("accessToken").stringValue();
     }
 }

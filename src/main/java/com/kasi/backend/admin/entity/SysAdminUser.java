@@ -28,5 +28,4 @@ public class SysAdminUser {
     private Long updatedBy;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
-    private LocalDateTime deletedAt;
 }
