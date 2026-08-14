@@ -29,7 +29,6 @@ CREATE TABLE `sys_admin_user`
     `updated_by`          BIGINT UNSIGNED          DEFAULT NULL COMMENT '更新人',
     `created_at`          DATETIME        NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
     `updated_at`          DATETIME        NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
-    `deleted_at`          DATETIME                 DEFAULT NULL COMMENT '软删除时间',
     PRIMARY KEY (`id`),
     UNIQUE KEY `uk_admin_username` (`username`),
     UNIQUE KEY `uk_admin_mobile` (`mobile`),

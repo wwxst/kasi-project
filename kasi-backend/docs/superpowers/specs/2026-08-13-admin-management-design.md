@@ -329,11 +329,11 @@ admin/
 
 - 删除 `sys_admin_user.nickname`。
 - 将 `sys_admin_user.real_name` 改为 `NOT NULL`。
-- 保留管理员表已有的 `deleted_at` 字段，但本期管理员 CRUD 不读写该字段，也不以它实现软删除。
-- 保留推广用户表的 `nickname` 和 `deleted_at`，本期不修改推广用户领域。
+- 管理员表删除 `deleted_at` 字段，删除操作只执行物理 `DELETE`。
+- 推广用户表保留 `nickname`，但不保留 `deleted_at`；推广用户删除同样使用物理 `DELETE`。
 - 同步修改 `test-schema.sql`。
 
-`SysAdminUser`、Mapper XML、VO、登录响应和测试数据必须同步删除管理员 `nickname`。`deletedAt` 继续作为表字段映射保留，但管理员管理业务不得使用它代替物理删除。
+`SysAdminUser`、Mapper XML、VO、登录响应和测试数据必须同步删除管理员 `nickname`；Entity、Mapper XML 和查询 SQL 同步删除 `deletedAt`/`deleted_at` 映射与过滤条件。
 
 Mapper 增加最小必要能力：
 
@@ -342,9 +342,9 @@ Mapper 增加最小必要能力：
 - 更新资料和审计字段。
 - 物理删除指定普通管理员。
 
-现有管理员查询 SQL 保持兼容当前表结构；物理删除接口必须执行 `DELETE`，不能更新 `deleted_at`。所有 SQL 继续使用 MyBatis 参数绑定。
+现有管理员查询 SQL 不包含软删除过滤；物理删除接口必须直接执行 `DELETE`。所有 SQL 继续使用 MyBatis 参数绑定。
 
-由于直接修改 V1，本地已有旧表的开发数据库需要重新建库，或由开发者手动删除 `nickname` 并补齐 `real_name` 后再运行新代码。
+由于直接修改 V1，本地已有旧表的开发数据库需要重新建库，或由开发者手动删除 `nickname`、`deleted_at` 并补齐 `real_name` 后再运行新代码。
 
 ## 12. 错误码
 
@@ -427,7 +427,7 @@ Mapper 增加最小必要能力：
 
 - `AdminManagementService` 是接口，Spring 实现位于 `service.impl.AdminManagementServiceImpl`。
 - Controller 不直接依赖 Mapper。
-- 管理员 Entity、DTO、VO、SQL 和测试结构中不再存在 `nickname`；删除接口使用物理 `DELETE`，不写入 `deleted_at`。
+- 管理员 Entity、DTO、VO、SQL 和测试结构中不再存在 `nickname` 或软删除字段；删除接口使用物理 `DELETE`。
 - 现有管理员登录、退出、本人信息和密码修改测试继续通过。
 - 现有用户认证与 Redis 安全测试继续通过。
 

@@ -43,7 +43,7 @@
 
 - `src/main/resources/db/migration/V1__kasi_promotion.sql` - remove administrator `nickname`, require `real_name`.
 - `src/test/resources/test-schema.sql` - mirror the administrator schema.
-- `src/main/java/com/kasi/backend/admin/entity/SysAdminUser.java` - remove `nickname` only; retain `deletedAt` mapping.
+- `src/main/java/com/kasi/backend/admin/entity/SysAdminUser.java` - remove `nickname` and `deletedAt` mappings.
 - `src/main/java/com/kasi/backend/admin/mapper/SysAdminUserMapper.java` - page, update, delete operations.
 - `src/main/resources/mapper/SysAdminUserMapper.xml` - SQL for the new mapper operations.
 - `src/main/java/com/kasi/backend/admin/controller/AdminAuthController.java` - add profile endpoint and use administrator-specific password DTO.
@@ -80,7 +80,7 @@
 
 - [ ] **Step 1: Write failing structure and response assertions**
 
-Change the unique super-administrator seed to `kasiadmin / kasi123456`, use `real_name`, rename the invalid test username `disabled_admin` to `disabledadmin`, assert `$.data.realName`, and add source/schema assertions that administrator `nickname` is absent while `deleted_at` remains present.
+Change the unique super-administrator seed to `kasiadmin / kasi123456`, use `real_name`, rename the invalid test username `disabled_admin` to `disabledadmin`, assert `$.data.realName`, and add source/schema assertions that administrator `nickname` and `deleted_at` are absent.
 
 Update the shared test constants and helper exactly as follows:
 
@@ -128,11 +128,10 @@ username VARCHAR(64) NOT NULL,
 password VARCHAR(255) NOT NULL,
 real_name VARCHAR(64) NOT NULL,
 mobile VARCHAR(32) DEFAULT NULL,
-email VARCHAR(128) DEFAULT NULL,
-deleted_at TIMESTAMP DEFAULT NULL
+email VARCHAR(128) DEFAULT NULL
 ```
 
-Delete only the administrator `nickname` property/result/insert column. Keep `deletedAt` and existing `deleted_at IS NULL` reads. Build authentication VOs with `realName`:
+Delete the administrator `nickname` and `deletedAt` properties/result mappings, and remove existing `deleted_at IS NULL` reads. Build authentication VOs with `realName`:
 
 ```java
 .realName(admin.getRealName())
@@ -391,8 +390,7 @@ List<SysAdminUser> findPage(@Param("keyword") String keyword,
 SQL must use one parenthesized keyword predicate and stable ordering:
 
 ```sql
-WHERE deleted_at IS NULL
-  AND (#{keyword} IS NULL
+WHERE (#{keyword} IS NULL
        OR username LIKE CONCAT('%', #{keyword}, '%')
        OR real_name LIKE CONCAT('%', #{keyword}, '%')
        OR mobile LIKE CONCAT('%', #{keyword}, '%')
@@ -670,7 +668,7 @@ DELETE FROM sys_admin_user
 WHERE id = #{id} AND is_super_admin = 0
 ```
 
-Service sequence: lock and validate target, reject the unique super administrator, call `beginMutation`, execute `DELETE`, require count `1`, register `completeMutation` after commit. Do not write `deleted_at`.
+Service sequence: lock and validate target, reject the unique super administrator, call `beginMutation`, execute `DELETE`, require count `1`, register `completeMutation` after commit. The administrator table does not contain a soft-delete field.
 
 - [ ] **Step 4: Run delete and management regression tests**
 

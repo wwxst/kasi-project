@@ -17,7 +17,6 @@ import org.springframework.stereotype.Component;
 import javax.crypto.SecretKey;
 import java.nio.charset.StandardCharsets;
 import java.util.Date;
-import java.util.UUID;
 
 /**
  * JWT Token服务，负责Token的生成、解析和验证
@@ -34,21 +33,6 @@ public class TokenServiceImpl implements TokenService {
             @Value("${app.jwt.expiration}") long expiration) {
         this.secretKey = Keys.hmacShaKeyFor(secret.getBytes(StandardCharsets.UTF_8));
         this.expiration = expiration;
-    }
-
-    /**
-     * 生成JWT Token
-     *
-     * @param subjectId   主体ID
-     * @param subjectType 主体类型
-     * @param username    用户名
-     * @return JWT Token字符串
-     */
-    @Deprecated
-    @Override
-    public String generateToken(Long subjectId, SubjectType subjectType, String username) {
-        return generateToken(subjectId, subjectType, username,
-                UUID.randomUUID().toString(), UUID.randomUUID().toString());
     }
 
     @Override
@@ -100,11 +84,4 @@ public class TokenServiceImpl implements TokenService {
         }
     }
 
-    /**
-     * 验证Token是否有效
-     */
-    @Override
-    public boolean validateToken(String token) {
-        return parseToken(token) != null;
-    }
 }

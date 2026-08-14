@@ -19,7 +19,6 @@ CREATE TABLE IF NOT EXISTS sys_admin_user (
     updated_by BIGINT DEFAULT NULL,
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    deleted_at TIMESTAMP DEFAULT NULL,
     UNIQUE (username),
     UNIQUE (mobile),
     UNIQUE (email)
