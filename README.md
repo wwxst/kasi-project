@@ -1,6 +1,6 @@
 # Kasi Backend 开发文档
 
-最后核对时间：2026-08-13
+最后核对时间：2026-08-14
 
 ## 1. 项目定位
 
@@ -58,11 +58,12 @@ src/
     resources/
       application.properties                # 数据源、Flyway、MyBatis、JWT、验证码配置
       db/migration/
-        V1__kasi_promotion.sql              # 数据库迁移脚本（2张表）
+        V1__kasi_promotion.sql              # 数据库迁移脚本（2张表 + 默认超级管理员）
       mapper/                               # 2个 MyBatis XML 映射文件
   test/
     java/com/kasi/backend/
       BaseAuthTest.java                     # 测试基类（H2 + 数据初始化）
+      DefaultSuperAdminMigrationTest.java   # 生产迁移初始化验证
       admin/controller/AdminAuthControllerTest.java
       user/controller/UserAuthControllerTest.java
       security/SecurityPermissionTest.java
@@ -128,7 +129,12 @@ $env:SPRING_DATASOURCE_PASSWORD = '<database-password>'
 .\mvnw.cmd spring-boot:run
 ```
 
-首次启动时 Flyway 会扫描 `db/migration/` 下的 `V1__kasi_promotion.sql` 创建所需表。
+首次启动时 Flyway 会扫描 `db/migration/` 下的 `V1__kasi_promotion.sql`，创建所需表并植入唯一的初始超级管理员：
+
+- 账号：`kasiadmin`
+- 初始密码：`kasi123456`
+
+密码在数据库中保存为 BCrypt 哈希。首次登录后应立即通过 `PUT /api/admin/auth/password` 修改默认密码。项目当前仍处于可重建数据库的开发阶段；如果开发数据库已经执行过旧版 `V1`，应删除并重新创建数据库，不能在保留旧 Flyway 校验和的情况下直接替换迁移脚本。
 
 测试环境使用 H2 内存数据库（MySQL 兼容模式），通过 `@ActiveProfiles("test")` 激活 [application-test.properties](src/test/resources/application-test.properties)，无需本地 MySQL。
 
@@ -146,6 +152,8 @@ $env:SPRING_DATASOURCE_PASSWORD = '<database-password>'
 | Redis | `pwd:*` | 密码重置 Token（临时） | 10分钟过期，一次性消费后删除 |
 | Redis | `auth:version:*` | 账号会话版本（含 `ACTIVE:*` 或 `MUTATING:*`） | TTL 不超过 JWT 有效期加宽限期 |
 | Redis | `auth:session:*` | 单个 JWT 会话（按 `jti`） | TTL 与 JWT 有效期一致，退出时删除 |
+
+`V1__kasi_promotion.sql` 在建表后直接插入 `kasiadmin`，并固定写入 `status=1`、`is_super_admin=1`。该初始化同时用于开发环境重建和未来生产环境首次建库，不会在应用每次启动时重复执行。
 
 > **说明**：`sys_sequence` 表已移除，`user_no` 改为基于 `promotion_user` 自增主键生成。`auth_verification_code` 和 `auth_password_reset_token` 表已移除，改用 Redis 存储（更高效、自动过期）。
 
@@ -265,6 +273,7 @@ $env:SPRING_DATASOURCE_PASSWORD = '<database-password>'
 
 | 测试类 | 说明 |
 |--------|------|
+| `DefaultSuperAdminMigrationTest` | 使用 Flyway + H2 MySQL 模式验证生产 V1 初始化账号、权限字段和 BCrypt 密码 |
 | `AdminAuthControllerTest` | 管理员登录、本人资料、退出和修改密码（11 个用例） |
 | `AdminManagementPermissionTest` | 超级管理员权限和 401/403 边界 |
 | `AdminManagementQueryTest` | 管理员分页、搜索和详情 |
