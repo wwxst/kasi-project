@@ -26,7 +26,6 @@ public enum ErrorCode {
     ADMIN_NOT_FOUND(2001, "账号或密码错误"),
     ADMIN_DISABLED(2002, "账号已被禁用"),
     ADMIN_PASSWORD_ERROR(2003, "账号或密码错误"),
-    ADMIN_OLD_PASSWORD_ERROR(2004, "原密码错误"),
     ADMIN_NEW_PASSWORD_SAME(2005, "新密码不能与旧密码相同"),
     ADMIN_MANAGEMENT_NOT_FOUND(2006, "管理员不存在"),
     ADMIN_USERNAME_DUPLICATE(2007, "登录账号已存在"),

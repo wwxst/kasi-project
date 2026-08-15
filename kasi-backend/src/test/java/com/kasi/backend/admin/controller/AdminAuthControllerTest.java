@@ -181,7 +181,7 @@ class AdminAuthControllerTest extends BaseAuthTest {
                         .header("Authorization", "Bearer " + token)
                         .contentType("application/json")
                         .content("""
-                                {"oldPassword":"kasi123456","newPassword":"newpass123","confirmPassword":"newpass123"}
+                                {"newPassword":"newpass123","confirmPassword":"newpass123"}
                                 """))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.code").value(0));
@@ -198,18 +198,18 @@ class AdminAuthControllerTest extends BaseAuthTest {
     }
 
     @Test
-    @DisplayName("旧密码错误时修改密码失败")
-    void changePasswordWithWrongOldPassword() throws Exception {
+    @DisplayName("不提交原密码也能修改密码")
+    void changePasswordWithoutOldPassword() throws Exception {
         String token = loginAsAdmin();
         mockMvc.perform(MockMvcRequestBuilders
                         .put("/api/admin/auth/password")
                         .header("Authorization", "Bearer " + token)
                         .contentType("application/json")
                         .content("""
-                                {"oldPassword":"wrongoldpass","newPassword":"newpass123","confirmPassword":"newpass123"}
+                                {"newPassword":"newpass123","confirmPassword":"newpass123"}
                                 """))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.code").value(2004));
+                .andExpect(jsonPath("$.code").value(0));
     }
 
     @Test
@@ -221,7 +221,7 @@ class AdminAuthControllerTest extends BaseAuthTest {
                         .header("Authorization", "Bearer " + token)
                         .contentType("application/json")
                         .content("""
-                                {"oldPassword":"kasi123456","newPassword":"kasi123456","confirmPassword":"kasi123456"}
+                                {"newPassword":"kasi123456","confirmPassword":"kasi123456"}
                                 """))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.code").value(2005));
