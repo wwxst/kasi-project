@@ -132,11 +132,6 @@ public class AdminAuthServiceImpl implements AdminAuthService {
             throw new BusinessException(ErrorCode.ADMIN_NOT_FOUND);
         }
 
-        // 验证旧密码
-        if (!passwordEncoder.matches(request.getOldPassword(), admin.getPassword())) {
-            throw new BusinessException(ErrorCode.ADMIN_OLD_PASSWORD_ERROR);
-        }
-
         // 新密码不能与旧密码相同
         if (passwordEncoder.matches(request.getNewPassword(), admin.getPassword())) {
             throw new BusinessException(ErrorCode.ADMIN_NEW_PASSWORD_SAME);

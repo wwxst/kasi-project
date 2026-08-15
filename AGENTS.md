@@ -20,6 +20,7 @@
 - 项目当前仍处于开发阶段，数据库可以删除重建；修改已执行的 `V1` 后必须重建开发数据库。未来生产首次建库也使用同一 `V1` 初始化账号，不新增运行时账号植入器。
 - 会话状态由 Redis（`auth:version:{type}:{userId}`、`auth:session:{jti}`）管理。JWT 携带 `jti`、`sessionVersion`，受保护请求必须同时校验签名、账号状态和 Redis 会话；Redis 不可用时安全失败返回 503，不能降级放行。
 - 修改密码、密码重置等敏感 MySQL 状态变更会先将账号版本切换为 `MUTATING:{nonce}`，数据库成功后再恢复新的 `ACTIVE:*` 版本，使旧 Token 失效。普通 logout 只撤销当前 `jti` 会话。
+- 管理员本人通过 `PUT /api/admin/auth/password` 修改密码时只提交新密码和确认密码，不要求原密码；成功后当前账号的旧 Token 全部失效。推广用户本人改密仍要求原密码。
 - 当前采用简单的 `is_super_admin` 权限控制，不是 RBAC。数据库只允许一个业务上的超级管理员；`ROLE_SUPER_ADMIN` 由数据库当前记录派生，不信任 JWT 声明。
 - 超级管理员可分页查询、新增、编辑、启禁用、重置密码和物理删除普通管理员；普通管理员不能被提升为超级管理员，管理接口不能操作唯一超级管理员。
 - 管理员只使用必填 `real_name`，不使用 `nickname`。`sys_admin_user` 不保留 `deleted_at`；管理员删除只执行物理 `DELETE`，删除后账号、手机号和邮箱可以复用。

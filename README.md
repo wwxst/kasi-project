@@ -184,7 +184,7 @@ $env:SPRING_DATASOURCE_PASSWORD = '<database-password>'
 | POST | `/api/admin/auth/login` | 管理员登录（账号/手机号/邮箱 + 密码） | 否 |
 | GET | `/api/admin/auth/me` | 获取当前管理员信息 | ADMIN |
 | POST | `/api/admin/auth/logout` | 退出登录 | ADMIN |
-| PUT | `/api/admin/auth/password` | 修改密码（需旧密码） | ADMIN |
+| PUT | `/api/admin/auth/password` | 修改本人密码（新密码 + 确认密码，无需原密码；成功后旧 Token 失效） | ADMIN |
 | PUT | `/api/admin/auth/profile` | 修改本人账号、真实姓名、手机、邮箱和头像 | ADMIN |
 
 ### 6.3 管理员管理 API
@@ -274,7 +274,7 @@ $env:SPRING_DATASOURCE_PASSWORD = '<database-password>'
 | 测试类 | 说明 |
 |--------|------|
 | `DefaultSuperAdminMigrationTest` | 使用 Flyway + H2 MySQL 模式验证生产 V1 初始化账号、权限字段和 BCrypt 密码 |
-| `AdminAuthControllerTest` | 管理员登录、本人资料、退出和修改密码（11 个用例） |
+| `AdminAuthControllerTest` | 管理员登录、本人资料、退出和无需原密码的本人改密（13 个用例） |
 | `AdminManagementPermissionTest` | 超级管理员权限和 401/403 边界 |
 | `AdminManagementQueryTest` | 管理员分页、搜索和详情 |
 | `AdminManagementMutationTest` | 新增、编辑、启禁用、重置密码和物理删除 |

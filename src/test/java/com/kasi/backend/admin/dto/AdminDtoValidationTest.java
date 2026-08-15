@@ -65,6 +65,16 @@ class AdminDtoValidationTest {
         assertThat(fields(status)).contains("status");
     }
 
+    @Test
+    @DisplayName("管理员修改本人密码不要求原密码")
+    void changePasswordDoesNotRequireOldPassword() {
+        AdminChangePasswordDTO request = new AdminChangePasswordDTO();
+        request.setNewPassword("NewPassword1!");
+        request.setConfirmPassword("NewPassword1!");
+
+        assertThat(fields(request)).isEmpty();
+    }
+
     private CreateAdminDTO create(String username, String password, String realName) {
         CreateAdminDTO request = new CreateAdminDTO();
         request.setUsername(username);
