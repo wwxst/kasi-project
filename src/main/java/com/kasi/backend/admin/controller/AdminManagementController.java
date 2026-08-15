@@ -21,6 +21,8 @@ import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.DeleteMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.multipart.MultipartFile;
 
 @RestController
 @RequestMapping("/api/admin/management")
@@ -63,6 +65,13 @@ public class AdminManagementController {
                                            @Valid @RequestBody ResetAdminPasswordDTO request) {
         adminManagementService.resetPassword(AuthContextHolder.getAdminId(), id, request);
         return ApiResponse.successMessage("密码重置成功");
+    }
+
+    @PutMapping("/{id}/avatar")
+    public ApiResponse<AdminDetailVO> updateAvatar(@PathVariable Long id,
+                                                    @RequestParam("file") MultipartFile file) {
+        return ApiResponse.success(adminManagementService.updateAvatar(
+                AuthContextHolder.getAdminId(), id, file));
     }
 
     @DeleteMapping("/{id}")

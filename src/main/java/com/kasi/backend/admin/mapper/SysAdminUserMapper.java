@@ -50,5 +50,9 @@ public interface SysAdminUserMapper {
 
     int updateStatus(@Param("id") Long id, @Param("status") Integer status);
 
+    int updateAvatar(@Param("id") Long id,
+                     @Param("avatarUrl") String avatarUrl,
+                     @Param("updatedBy") Long updatedBy);
+
     int deleteOrdinaryById(@Param("id") Long id);
 }

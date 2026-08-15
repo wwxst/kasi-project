@@ -13,6 +13,7 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 
 /**
  * 管理员认证控制器
@@ -69,5 +70,10 @@ public class AdminAuthController {
     @PutMapping("/profile")
     public ApiResponse<CurrentAdminVO> updateProfile(@Valid @RequestBody UpdateAdminProfileDTO request) {
         return ApiResponse.success(adminAuthService.updateProfile(AuthContextHolder.getAdminId(), request));
+    }
+
+    @PutMapping("/avatar")
+    public ApiResponse<CurrentAdminVO> updateAvatar(@RequestParam("file") MultipartFile file) {
+        return ApiResponse.success(adminAuthService.updateAvatar(AuthContextHolder.getAdminId(), file));
     }
 }

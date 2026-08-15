@@ -10,6 +10,7 @@ import org.springframework.validation.FieldError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.multipart.MaxUploadSizeExceededException;
 
 import java.util.stream.Collectors;
 
@@ -39,6 +40,13 @@ public class GlobalExceptionHandler {
                 .collect(Collectors.joining("; "));
         log.warn("参数校验失败: {}", message);
         return ResponseEntity.ok(ApiResponse.error(ErrorCode.VALIDATION_ERROR.getCode(), message));
+    }
+
+    @ExceptionHandler(MaxUploadSizeExceededException.class)
+    public ResponseEntity<ApiResponse<Void>> handleMaxUploadSizeExceeded(MaxUploadSizeExceededException e) {
+        return ResponseEntity.ok(ApiResponse.error(
+                ErrorCode.ADMIN_AVATAR_TOO_LARGE.getCode(),
+                ErrorCode.ADMIN_AVATAR_TOO_LARGE.getMessage()));
     }
 
     /**

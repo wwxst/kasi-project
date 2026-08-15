@@ -114,6 +114,7 @@ $env:Path = "$env:JAVA_HOME\bin;$env:Path"
 | 验证码 | 过期 300 秒，重发间隔 60 秒，每日上限 10 次 |
 | 密码重置 Token | 过期 600 秒 |
 | 验证码发送器 | `local` profile 使用 Console sender；`test` profile 使用测试 sender；生产环境需提供真实实现 |
+| 管理员头像 | JPG/PNG/WebP，最大 2 MB；默认保存到 `./data/uploads/admin-avatars`，可通过 `APP_UPLOAD_DIR` 修改根目录 |
 
 应用要连接 MySQL，至少需要提供：
 
@@ -185,7 +186,8 @@ $env:SPRING_DATASOURCE_PASSWORD = '<database-password>'
 | GET | `/api/admin/auth/me` | 获取当前管理员信息 | ADMIN |
 | POST | `/api/admin/auth/logout` | 退出登录 | ADMIN |
 | PUT | `/api/admin/auth/password` | 修改本人密码（新密码 + 确认密码，无需原密码；成功后旧 Token 失效） | ADMIN |
-| PUT | `/api/admin/auth/profile` | 修改本人账号、真实姓名、手机、邮箱和头像 | ADMIN |
+| PUT | `/api/admin/auth/profile` | 修改本人账号、真实姓名、手机和邮箱 | ADMIN |
+| PUT | `/api/admin/auth/avatar` | 上传并修改本人头像（multipart 字段 `file`） | ADMIN |
 
 ### 6.3 管理员管理 API
 
@@ -199,9 +201,10 @@ $env:SPRING_DATASOURCE_PASSWORD = '<database-password>'
 | PUT | `/api/admin/management/{id}` | 编辑普通管理员资料 |
 | PATCH | `/api/admin/management/{id}/status` | 启用或禁用普通管理员 |
 | PUT | `/api/admin/management/{id}/password` | 重置普通管理员密码 |
+| PUT | `/api/admin/management/{id}/avatar` | 上传并修改普通管理员头像（multipart 字段 `file`） |
 | DELETE | `/api/admin/management/{id}` | 物理删除普通管理员 |
 
-管理员只使用必填 `realName`，没有昵称字段；`sys_admin_user` 不保留 `deleted_at`。修改账号、手机号、邮箱、状态、密码或删除前，服务先将目标账号 Redis 版本切换为 `MUTATING`；Redis 失败时不执行 MySQL 写入。MySQL 提交成功后恢复新的 `ACTIVE` 版本，使旧 Token 全部失效。物理删除后原账号、手机号和邮箱可以重新使用。
+管理员只使用必填 `realName`，没有昵称字段；`sys_admin_user` 不保留 `deleted_at`。新增和资料编辑接口不接收头像 URL，头像只能通过上传端点修改。上传文件使用服务端 UUID 文件名，公开读取路径为 `/uploads/admin-avatars/**`；替换成功后清理旧的本地头像。修改账号、手机号、邮箱、状态、密码或删除前，服务先将目标账号 Redis 版本切换为 `MUTATING`；Redis 失败时不执行 MySQL 写入。MySQL 提交成功后恢复新的 `ACTIVE` 版本，使旧 Token 全部失效。物理删除后原账号、手机号和邮箱可以重新使用。
 
 ### 6.4 推广用户认证 API
 
@@ -274,11 +277,12 @@ $env:SPRING_DATASOURCE_PASSWORD = '<database-password>'
 | 测试类 | 说明 |
 |--------|------|
 | `DefaultSuperAdminMigrationTest` | 使用 Flyway + H2 MySQL 模式验证生产 V1 初始化账号、权限字段和 BCrypt 密码 |
-| `AdminAuthControllerTest` | 管理员登录、本人资料、退出和无需原密码的本人改密（13 个用例） |
+| `AdminAuthControllerTest` | 管理员登录、本人资料、本人头像上传、退出和无需原密码的本人改密（15 个用例） |
 | `AdminManagementPermissionTest` | 超级管理员权限和 401/403 边界 |
 | `AdminManagementQueryTest` | 管理员分页、搜索和详情 |
 | `AdminManagementMutationTest` | 新增、编辑、启禁用、重置密码和物理删除 |
 | `AdminManagementServiceTest` | Redis-first、数据库失败和并发唯一键边界 |
+| `AdminAvatarStorageServiceTest` | 头像格式、大小、服务端文件名和安全清理边界 |
 | `SysAdminUserStructureTest` | 管理员表、Entity 和 Mapper 不保留软删除字段 |
 | `HistoricalCompatibilityStructureTest` | 认证接口、Mapper、错误码和 Flyway 配置不保留无调用的历史兼容残留 |
 | `UserAuthControllerTest` | 用户注册、登录、获取信息、退出、修改密码、忘记密码流程（13 个用例） |

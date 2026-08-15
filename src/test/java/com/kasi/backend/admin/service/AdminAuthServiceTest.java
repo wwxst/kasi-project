@@ -29,7 +29,8 @@ class AdminAuthServiceTest {
         TokenService tokenService = mock(TokenService.class);
         SessionService sessionService = mock(SessionService.class);
         AdminAuthServiceImpl service = new AdminAuthServiceImpl(
-                mapper, passwordEncoder, tokenService, sessionService);
+                mapper, passwordEncoder, tokenService, sessionService,
+                mock(AdminAvatarStorageService.class));
         SysAdminUser current = new SysAdminUser();
         current.setId(1L);
         current.setUsername("kasiadmin");

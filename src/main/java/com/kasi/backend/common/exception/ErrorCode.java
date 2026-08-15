@@ -33,6 +33,8 @@ public enum ErrorCode {
     ADMIN_EMAIL_DUPLICATE(2009, "邮箱已存在"),
     ADMIN_SUPER_ADMIN_PROTECTED(2010, "不允许对超级管理员执行该操作"),
     ADMIN_PASSWORD_NOT_MATCH(2011, "两次输入的密码不一致"),
+    ADMIN_AVATAR_INVALID(2012, "头像文件格式不正确"),
+    ADMIN_AVATAR_TOO_LARGE(2013, "头像文件不能超过2MB"),
 
     // ========== 用户认证错误 ==========
     USER_NOT_FOUND(3001, "账号或密码错误"),
