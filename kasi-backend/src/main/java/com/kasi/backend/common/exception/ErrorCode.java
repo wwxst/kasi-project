@@ -11,6 +11,7 @@ import lombok.Getter;
  * 3xxx - 用户认证错误
  * 4xxx - 验证码错误
  * 5xxx - 密码重置错误
+ * 6xxx - 短剧平台接入错误
  */
 @Getter
 public enum ErrorCode {
@@ -54,6 +55,14 @@ public enum ErrorCode {
 
     // ========== 密码重置错误 ==========
     RESET_TOKEN_INVALID(5001, "重置凭证无效"),
+
+    // ========== 短剧平台接入错误 ==========
+    PROVIDER_NOT_FOUND(6001, "短剧平台不存在"),
+    PROVIDER_CONNECTION_NOT_FOUND(6002, "平台接入账号未配置"),
+    PROVIDER_CONNECTION_INVALID(6003, "平台接入账号配置不完整"),
+    PROVIDER_CREDENTIAL_UNAVAILABLE(6004, "平台密钥不可用"),
+    PROVIDER_REMOTE_UNAVAILABLE(6005, "短剧平台暂时不可用"),
+    PROVIDER_REMOTE_REJECTED(6006, "短剧平台拒绝请求"),
 
     ;
 
