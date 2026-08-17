@@ -31,7 +31,7 @@ class UserManagementMutationTest extends BaseAuthTest {
         var stored = jdbcTemplate.queryForMap("SELECT * FROM promotion_user WHERE mobile = '13600136000'");
         assertThat(stored.get("register_source")).isEqualTo("ADMIN");
         assertThat(passwordEncoder.matches("newpass123!", (String) stored.get("password"))).isTrue();
-        assertThat(stored.get("user_no").toString()).startsWith("KS");
+        assertThat(stored.get("user_no").toString()).matches("[1-9][0-9]{11}");
     }
 
     @Test

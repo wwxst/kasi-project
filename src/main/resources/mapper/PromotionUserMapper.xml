@@ -92,12 +92,6 @@
         UPDATE promotion_user SET status = #{status} WHERE id = #{id}
     </update>
 
-    <update id="updateUserNo">
-        UPDATE promotion_user
-        SET user_no = #{userNo}, nickname = COALESCE(nickname, #{nickname})
-        WHERE id = #{id}
-    </update>
-
     <update id="updateProfile" parameterType="com.kasi.backend.user.entity.PromotionUser">
         UPDATE promotion_user
         SET nickname = #{nickname}, real_name = #{realName}, mobile = #{mobile}, email = #{email},

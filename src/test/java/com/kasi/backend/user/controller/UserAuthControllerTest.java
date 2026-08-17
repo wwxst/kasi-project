@@ -7,6 +7,7 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.test.web.servlet.request.MockMvcRequestBuilders;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
 /**
@@ -47,7 +48,8 @@ class UserAuthControllerTest extends BaseAuthTest {
                 "SELECT register_source FROM promotion_user WHERE mobile = '13600136000'", String.class);
         String nickname = jdbcTemplate.queryForObject(
                 "SELECT nickname FROM promotion_user WHERE mobile = '13600136000'", String.class);
-        org.junit.jupiter.api.Assertions.assertFalse(userNo.startsWith("TMP-"));
+        assertThat(userNo).matches("[1-9][0-9]{11}");
+        assertThat(userNo).doesNotStartWith("TMP-");
         org.junit.jupiter.api.Assertions.assertEquals("MOBILE", source);
         org.junit.jupiter.api.Assertions.assertEquals("用户" + userNo, nickname);
     }
