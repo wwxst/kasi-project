@@ -1,6 +1,6 @@
 # Kasi Backend 开发文档
 
-最后核对时间：2026-08-14
+最后核对时间：2026-08-17
 
 ## 1. 项目定位
 
@@ -147,7 +147,7 @@ $env:SPRING_DATASOURCE_PASSWORD = '<database-password>'
 | 存储 | 表/Key | 说明 | 核心字段 |
 |------|--------|------|----------|
 | MySQL | `sys_admin_user` | 后台管理员用户 | username, password(BCrypt), real_name, mobile, email, status, is_super_admin |
-| MySQL | `promotion_user` | 推广用户 | user_no(基于自增id生成), password(BCrypt), nickname, mobile, email, status, register_source |
+| MySQL | `promotion_user` | 推广用户 | user_no(12位随机数字字符串), password(BCrypt), nickname, mobile, email, status, register_source |
 | Redis | `vc:*` | 验证码（临时） | 5分钟过期，60秒重发间隔，每日上限10次 |
 | Redis | `pwd:*` | 密码重置 Token（临时） | 10分钟过期，一次性消费后删除 |
 | Redis | `auth:version:*` | 账号会话版本（含 `ACTIVE:*` 或 `MUTATING:*`） | TTL 不超过 JWT 有效期加宽限期 |
@@ -155,7 +155,7 @@ $env:SPRING_DATASOURCE_PASSWORD = '<database-password>'
 
 `V1__kasi_promotion.sql` 在建表后直接插入 `kasiadmin`，并固定写入 `status=1`、`is_super_admin=1`。该初始化同时用于开发环境重建和未来生产环境首次建库，不会在应用每次启动时重复执行。
 
-> **说明**：`sys_sequence` 表已移除，`user_no` 改为基于 `promotion_user` 自增主键生成。`auth_verification_code` 和 `auth_password_reset_token` 表已移除，改用 Redis 存储（更高效、自动过期）。
+> **说明**：`sys_sequence` 表已移除，`user_no` 由后端在插入前随机生成；`promotion_user.id` 继续作为自增内部主键。`auth_verification_code` 和 `auth_password_reset_token` 表已移除，改用 Redis 存储（更高效、自动过期）。
 
 ## 6. API、认证与业务边界
 
@@ -217,7 +217,7 @@ $env:SPRING_DATASOURCE_PASSWORD = '<database-password>'
 | POST | `/api/user/auth/password/forgot/verify` | 校验验证码，返回重置 Token | 否 |
 | POST | `/api/user/auth/password/reset` | 使用重置 Token 修改密码 | 否 |
 
-推广用户没有独立 `username`。`userNo` 仅作为系统内部编号和展示编号，不参与登录；手机号和邮箱至少保留一个，用户同时拥有两者时均可登录。手机号统一 `trim`，邮箱统一 `trim` 后转小写。
+推广用户没有独立 `username`。`userNo` 是 12 位随机数字展示编号，不参与登录、鉴权或数据库关联；内部关联继续使用自增 `id`。普通用户登录和 `/api/user/auth/me` 的 JSON 不返回内部 `id`，但 JWT `sub` 仍按现有认证契约保存内部 `id`。手机号和邮箱至少保留一个，用户同时拥有两者时均可登录。手机号统一 `trim`，邮箱统一 `trim` 后转小写。
 
 ### 6.5 推广用户管理 API
 
@@ -258,7 +258,7 @@ $env:SPRING_DATASOURCE_PASSWORD = '<database-password>'
 - **密码重置**：验证码校验通过后颁发一次性重置 Token（SHA-256 哈希后存入 Redis），同一用户同时只保留一个有效 Token；使用 `READY -> PROCESSING` 原子预占，数据库成功后删除，异常时不自动恢复，TTL 10 分钟
 - **Redis 故障**：验证码、密码重置 Token 和会话状态无法确认时统一安全失败并返回 503
 - **验证码发送**：仅 `local` profile 输出 Console；`test` profile 使用测试捕获 sender；生产环境未配置真实 sender 时不允许启动为可发送状态
-- **用户编号**：基于 `promotion_user` 自增主键格式化生成（如 KS000001），插入后回写
+- **用户编号**：使用长期复用的 `SecureRandom` 在插入前生成首位非零的 12 位数字字符串；唯一索引冲突时最多重试 3 次
 
 ## 7. 测试现状
 

@@ -30,7 +30,7 @@
 - 推广用户角色、权限点、部门权限或 RBAC。
 - 用户分组、批量导入导出、批量操作和多设备管理页面。
 - 软删除、回收站或恢复站。删除统一使用物理 `DELETE`。
-- 修改推广用户 `userNo`。它是系统内部稳定编号，不是登录账号。
+- 允许管理员或推广用户自行修改 `userNo`。它由后端生成，是公开展示编号，不是登录账号或内部关联键。
 - 修改管理员认证和管理员表结构。
 
 ## 3. 核心业务规则
@@ -38,7 +38,7 @@
 ### 3.1 登录标识
 
 - `username` 从推广用户实体、数据库表、Mapper、DTO、VO、认证 Service 和测试中移除。
-- `userNo` 继续保留，用于内部识别和展示，不参与登录。
+- `userNo` 继续保留为公开展示编号，不参与登录、鉴权或数据库关联；内部关联使用自增 `id`。
 - `mobile` 和 `email` 都是可选登录标识，但至少一个必须存在。
 - 用户可以同时填写手机号和邮箱；手机号和邮箱分别全局唯一。
 - 登录请求输入手机号或邮箱，后端按对应字段匹配；不再按 `username` 匹配。
@@ -59,7 +59,7 @@
 
 - `status = 1`
 - `register_source = ADMIN`
-- `userNo` 由后端根据插入后的自增 ID 生成
+- `userNo` 由后端在插入前生成首位非零的 12 位随机数字字符串
 - `password` 使用 BCrypt 保存
 - `mobile`、`email` 至少一个非空
 
@@ -126,7 +126,7 @@ user/
 - `POST /api/user/auth/register`：根据手机号或邮箱注册，只写对应联系方式。
 - `POST /api/user/auth/register/code`：继续由后端固定 `REGISTER` 场景。
 - `POST /api/user/auth/login`：只接受手机号或邮箱作为 `account`。
-- `GET /api/user/auth/me`：返回 `userNo`、联系方式和用户资料，不返回 `username`。
+- `GET /api/user/auth/me`：返回 `userNo`、联系方式和用户资料，不返回内部 `id` 或 `username`。
 - 忘记密码和重置密码继续使用手机号或邮箱及 Redis 重置 Token。
 
 公开注册一次仍只提交一个联系方式；管理员新增可以同时提交手机号和邮箱。
@@ -167,7 +167,7 @@ user/
 - 手机号和邮箱首尾空格被规范化；邮箱整体转小写；中间空白字符导致校验失败。
 - 新增和编辑必须保证手机号、邮箱至少一个非空。
 - `nickname`、`realName`、`avatarUrl`、`remark` 的长度不能超过数据库列长度；昵称不能为空且不允许只由空白组成。
-- `userNo` 由后端生成，格式继续使用 `KS` 加六位自增 ID，例如 `KS000001`。
+- `userNo` 由后端使用 `SecureRandom` 生成，格式为首位非零的 12 位数字字符串。
 - 删除后不保留唯一值占位记录，因此联系方式可以复用。
 
 建议错误码：`3011 USER_MANAGEMENT_NOT_FOUND`、`3012 USER_CONTACT_REQUIRED`、`3013 USER_PASSWORD_NOT_MATCH`。已有 `3006`、`3007`、`3002`、`3003` 继续复用；`USER_USERNAME_DUPLICATE(3008)` 随 `username` 字段移除并清理。
