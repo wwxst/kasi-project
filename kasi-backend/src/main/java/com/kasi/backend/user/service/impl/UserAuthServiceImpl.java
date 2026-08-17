@@ -150,7 +150,6 @@ public class UserAuthServiceImpl implements UserAuthService {
                 .tokenType("Bearer")
                 .expiresIn(jwtExpiration)
                 .user(UserLoginVO.UserInfo.builder()
-                        .id(user.getId())
                         .userNo(user.getUserNo())
                         .nickname(user.getNickname())
                         .mobile(user.getMobile())
@@ -171,7 +170,6 @@ public class UserAuthServiceImpl implements UserAuthService {
         }
 
         return CurrentUserVO.builder()
-                .id(user.getId())
                 .userNo(user.getUserNo())
                 .nickname(user.getNickname())
                 .realName(user.getRealName())

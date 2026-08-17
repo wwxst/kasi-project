@@ -136,6 +136,7 @@ class UserAuthControllerTest extends BaseAuthTest {
                 .andExpect(jsonPath("$.code").value(0))
                 .andExpect(jsonPath("$.data.accessToken").isNotEmpty())
                 .andExpect(jsonPath("$.data.tokenType").value("Bearer"))
+                .andExpect(jsonPath("$.data.user.id").doesNotExist())
                 .andExpect(jsonPath("$.data.user.userNo").value("KS000001"));
     }
 
@@ -265,6 +266,7 @@ class UserAuthControllerTest extends BaseAuthTest {
                         .header("Authorization", "Bearer " + token))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.code").value(0))
+                .andExpect(jsonPath("$.data.id").doesNotExist())
                 .andExpect(jsonPath("$.data.userNo").value("KS000001"));
     }
 

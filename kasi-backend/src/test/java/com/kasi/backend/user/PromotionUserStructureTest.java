@@ -23,8 +23,8 @@ class PromotionUserStructureTest extends BaseAuthTest {
     @DisplayName("实体不保留用户名或软删除字段且认证响应不暴露用户名")
     void promotionUserModelsDoNotExposeRemovedFields() {
         assertThat(fieldNames(PromotionUser.class)).doesNotContain("username", "deletedAt");
-        assertThat(fieldNames(CurrentUserVO.class)).doesNotContain("username");
-        assertThat(fieldNames(UserLoginVO.UserInfo.class)).doesNotContain("username");
+        assertThat(fieldNames(CurrentUserVO.class)).doesNotContain("id", "username");
+        assertThat(fieldNames(UserLoginVO.UserInfo.class)).doesNotContain("id", "username");
     }
 
     @Test
