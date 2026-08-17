@@ -2,6 +2,7 @@ package com.kasi.backend.user;
 
 import com.kasi.backend.BaseAuthTest;
 import com.kasi.backend.user.entity.PromotionUser;
+import com.kasi.backend.user.mapper.PromotionUserMapper;
 import com.kasi.backend.user.vo.CurrentUserVO;
 import com.kasi.backend.user.vo.UserLoginVO;
 import org.junit.jupiter.api.DisplayName;
@@ -42,6 +43,10 @@ class PromotionUserStructureTest extends BaseAuthTest {
         assertThat(promotionBlock).doesNotContain("username", "deleted_at");
         assertThat(testPromotionBlock).doesNotContain("username", "deleted_at");
         assertThat(mapper).doesNotContain("username", "deleted_at");
+        assertThat(Arrays.stream(PromotionUserMapper.class.getDeclaredMethods())
+                .map(java.lang.reflect.Method::getName))
+                .doesNotContain("updateUserNo");
+        assertThat(mapper).doesNotContain("updateUserNo");
     }
 
     private static java.util.List<String> fieldNames(Class<?> type) {

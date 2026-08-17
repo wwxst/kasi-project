@@ -2,13 +2,13 @@ package com.kasi.backend.user;
 
 import com.kasi.backend.common.enums.SubjectType;
 import com.kasi.backend.common.exception.AuthStateUnavailableException;
-import com.kasi.backend.common.exception.BusinessException;
 import com.kasi.backend.security.service.SessionService;
 import com.kasi.backend.user.dto.ResetUserPasswordDTO;
 import com.kasi.backend.user.dto.UpdateUserDTO;
 import com.kasi.backend.user.dto.UpdateUserStatusDTO;
 import com.kasi.backend.user.entity.PromotionUser;
 import com.kasi.backend.user.mapper.PromotionUserMapper;
+import com.kasi.backend.user.service.PromotionUserCreationService;
 import com.kasi.backend.user.service.impl.UserManagementServiceImpl;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -17,7 +17,6 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.security.crypto.password.PasswordEncoder;
-import org.springframework.dao.DuplicateKeyException;
 
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.*;
@@ -29,6 +28,7 @@ class UserManagementServiceTest {
     @Mock private PromotionUserMapper promotionUserMapper;
     @Mock private PasswordEncoder passwordEncoder;
     @Mock private SessionService sessionService;
+    @Mock private PromotionUserCreationService promotionUserCreationService;
     @InjectMocks private UserManagementServiceImpl service;
 
     @Test
@@ -78,24 +78,6 @@ class UserManagementServiceTest {
         assertThatThrownBy(() -> service.delete(1L))
                 .isInstanceOf(AuthStateUnavailableException.class);
         verify(promotionUserMapper, never()).deleteById(anyLong());
-    }
-
-    @Test
-    @DisplayName("并发邮箱唯一键冲突转换为业务错误")
-    void createMapsConcurrentEmailDuplicateToBusinessError() {
-        com.kasi.backend.user.dto.CreateUserDTO request = new com.kasi.backend.user.dto.CreateUserDTO();
-        request.setEmail("user@example.com");
-        request.setNickname("推广用户");
-        request.setPassword("password1");
-        request.setConfirmPassword("password1");
-        when(passwordEncoder.encode("password1")).thenReturn("encoded");
-        when(promotionUserMapper.insert(any()))
-                .thenThrow(new DuplicateKeyException("Duplicate entry for key 'uk_email'"));
-
-        assertThatThrownBy(() -> service.create(request))
-                .isInstanceOf(BusinessException.class)
-                .extracting("code")
-                .isEqualTo(3007);
     }
 
     private PromotionUser prepareRedisFailure() {

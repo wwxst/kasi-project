@@ -45,10 +45,6 @@ public interface PromotionUserMapper {
 
     int updateStatus(@Param("id") Long id, @Param("status") Integer status);
 
-    int updateUserNo(@Param("id") Long id,
-                     @Param("userNo") String userNo,
-                     @Param("nickname") String nickname);
-
     int updateProfile(PromotionUser user);
 
     int deleteById(@Param("id") Long id);

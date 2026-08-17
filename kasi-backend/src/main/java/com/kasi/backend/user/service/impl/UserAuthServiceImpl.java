@@ -17,6 +17,7 @@ import com.kasi.backend.user.dto.*;
 import com.kasi.backend.user.vo.*;
 import com.kasi.backend.user.entity.PromotionUser;
 import com.kasi.backend.user.mapper.PromotionUserMapper;
+import com.kasi.backend.user.service.PromotionUserCreationService;
 import com.kasi.backend.user.service.UserAuthService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -29,7 +30,6 @@ import org.springframework.transaction.support.TransactionSynchronizationManager
 
 import java.time.LocalDateTime;
 import java.util.Locale;
-import java.util.UUID;
 
 /**
  * 推广用户认证服务
@@ -45,6 +45,7 @@ public class UserAuthServiceImpl implements UserAuthService {
     private final VerificationCodeService verificationCodeService;
     private final PasswordResetTokenService passwordResetTokenService;
     private final SessionService sessionService;
+    private final PromotionUserCreationService promotionUserCreationService;
 
     @Value("${app.jwt.expiration:7200}")
     private long jwtExpiration;
@@ -91,9 +92,7 @@ public class UserAuthServiceImpl implements UserAuthService {
             }
         }
 
-        // 构建用户实体（先用占位编号，插入后根据自增id生成最终编号）
         PromotionUser user = new PromotionUser();
-        user.setUserNo("TMP-" + UUID.randomUUID().toString().replace("-", "").substring(0, 28));
         if (isEmail(account)) {
             user.setEmail(account);
         } else {
@@ -103,14 +102,8 @@ public class UserAuthServiceImpl implements UserAuthService {
         user.setStatus(UserStatus.NORMAL.getCode());
         user.setRegisterSource(isEmail(account) ? "EMAIL" : "MOBILE");
 
-        // 插入后 user.getId() 即为自增主键
-        promotionUserMapper.insert(user);
-
-        // 根据自增id生成用户编号并回写
-        String userNo = "KS" + String.format("%06d", user.getId());
-        String nickname = "用户" + userNo;
-        promotionUserMapper.updateUserNo(user.getId(), userNo, nickname);
-
+        promotionUserCreationService.create(user);
+        String userNo = user.getUserNo();
         log.info("用户注册成功: userNo={}, account={}", userNo, account);
     }
 

@@ -8,6 +8,7 @@ import com.kasi.backend.security.service.SessionService;
 import com.kasi.backend.user.dto.*;
 import com.kasi.backend.user.entity.PromotionUser;
 import com.kasi.backend.user.mapper.PromotionUserMapper;
+import com.kasi.backend.user.service.PromotionUserCreationService;
 import com.kasi.backend.user.service.UserManagementService;
 import com.kasi.backend.user.vo.UserDetailVO;
 import com.kasi.backend.user.vo.UserListItemVO;
@@ -23,7 +24,6 @@ import org.springframework.transaction.support.TransactionSynchronizationManager
 import java.util.List;
 import java.util.Locale;
 import java.util.Objects;
-import java.util.UUID;
 
 @Service
 @RequiredArgsConstructor
@@ -32,6 +32,7 @@ public class UserManagementServiceImpl implements UserManagementService {
     private final PromotionUserMapper promotionUserMapper;
     private final PasswordEncoder passwordEncoder;
     private final SessionService sessionService;
+    private final PromotionUserCreationService promotionUserCreationService;
 
     @Override
     @Transactional(readOnly = true)
@@ -63,7 +64,6 @@ public class UserManagementServiceImpl implements UserManagementService {
         checkUniqueContacts(mobile, email, null);
 
         PromotionUser user = new PromotionUser();
-        user.setUserNo(temporaryUserNo());
         user.setPassword(passwordEncoder.encode(request.getPassword()));
         user.setNickname(request.getNickname().trim());
         user.setRealName(trimToNull(request.getRealName()));
@@ -73,17 +73,7 @@ public class UserManagementServiceImpl implements UserManagementService {
         user.setRemark(trimToNull(request.getRemark()));
         user.setStatus(1);
         user.setRegisterSource("ADMIN");
-        try {
-            if (promotionUserMapper.insert(user) != 1) {
-                throw new IllegalStateException("推广用户新增未生效");
-            }
-        } catch (DuplicateKeyException exception) {
-            throw mapDuplicateContact(exception, mobile, email, null);
-        }
-        String userNo = "KS" + String.format("%06d", user.getId());
-        if (promotionUserMapper.updateUserNo(user.getId(), userNo, user.getNickname()) != 1) {
-            throw new IllegalStateException("推广用户编号更新未生效");
-        }
+        promotionUserCreationService.create(user);
         return toDetailVO(promotionUserMapper.findById(user.getId()));
     }
 
@@ -193,10 +183,6 @@ public class UserManagementServiceImpl implements UserManagementService {
         TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
             @Override public void afterCommit() { sessionService.completeMutation(mutation); }
         });
-    }
-
-    private String temporaryUserNo() {
-        return "TMP-" + UUID.randomUUID().toString().replace("-", "").substring(0, 28);
     }
 
     private String trimToNull(String value) {
