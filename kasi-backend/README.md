@@ -50,6 +50,7 @@ src/
         service/impl/TokenServiceImpl.java  # JWT 生成与解析实现
         service/impl/SessionServiceImpl.java # Redis 账号版本与单会话状态实现
       provider/                             # 短剧平台定义和接入账号内部管理
+        controller/                         # /api/admin/drama/providers 管理接口
         entity/                             # 平台与接入账号持久化实体
         mapper/                             # 平台与接入账号单表 Mapper
         enums/                              # 平台能力枚举
@@ -171,7 +172,7 @@ $env:SPRING_DATASOURCE_PASSWORD = '<database-password>'
 
 `V1__kasi_promotion.sql` 在建表后直接插入 `kasiadmin`，并固定写入 `status=1`、`is_super_admin=1`。该初始化同时用于开发环境重建和未来生产环境首次建库，不会在应用每次启动时重复执行。V2 只植入启用的 `GOODSHORT` 平台定义，不植入任何平台接入密钥。
 
-当前已完成平台定义与接入账号持久层、AES-GCM 密钥加密、不暴露密钥的内部管理服务，以及 GoodShort 签名和连接探测适配器；尚未暴露管理员 HTTP API。媒体账号绑定 API、GoodShort 报备提交/查询任务、报备状态接口和推广用户删除时的稳定业务错误仍属于后续实现，不应视为已完成的业务模块。
+当前已完成平台定义与接入账号持久层、AES-GCM 密钥加密、不暴露密钥的管理服务和管理员 API，以及 GoodShort 签名和连接探测适配器。媒体账号绑定 API、GoodShort 报备提交/查询任务、报备状态接口和推广用户删除时的稳定业务错误仍属于后续实现，不应视为已完成的业务模块。
 
 > **说明**：`sys_sequence` 表已移除，`user_no` 由后端在插入前随机生成；`promotion_user.id` 继续作为自增内部主键。`auth_verification_code` 和 `auth_password_reset_token` 表已移除，改用 Redis 存储（更高效、自动过期）。
 
@@ -253,7 +254,17 @@ $env:SPRING_DATASOURCE_PASSWORD = '<database-password>'
 
 联系人、状态、密码或删除等敏感变更会先将 Redis 会话版本切换为 `MUTATING`；Redis 失败时不执行 MySQL 写入，数据库提交成功后生成新的 `ACTIVE` 版本，使全部旧 Token 失效。只修改昵称、姓名、头像或备注不会使会话失效。`promotion_user` 不保留 `deleted_at`，物理删除后原手机号和邮箱可以复用。
 
-### 6.6 统一响应格式
+### 6.6 短剧平台接入管理 API
+
+平台配置查询允许普通管理员和超级管理员访问；写入平台凭据与连接探测只允许超级管理员。所有响应只返回 `credentialConfigured`，不会返回明文密钥、密文或掩码片段。
+
+| 方法 | 路径 | 权限 | 说明 |
+|------|------|------|------|
+| GET | `/api/admin/drama/providers` | ADMIN | 查询平台、能力声明和接入账号非敏感资料 |
+| PUT | `/api/admin/drama/providers/{providerId}/connection` | SUPER_ADMIN | 新增或更新平台接入账号；更新时可省略密钥以保留原密文 |
+| POST | `/api/admin/drama/providers/{providerId}/connection/test` | SUPER_ADMIN | 解密现有凭据并执行 GoodShort 最小连接探测，不保存返回短剧 |
+
+### 6.7 统一响应格式
 
 所有接口返回统一结构 `ApiResponse<T>`：
 
@@ -268,7 +279,7 @@ $env:SPRING_DATASOURCE_PASSWORD = '<database-password>'
 - `code=0`：成功
 - `code!=0`：失败（错误码定义见 [ErrorCode.java](src/main/java/com/kasi/backend/common/exception/ErrorCode.java)）
 
-### 6.7 技术实现要点
+### 6.8 技术实现要点
 
 - **密码存储**：BCrypt 哈希，使用 Spring Security `PasswordEncoder`
 - **JWT**：HMAC-SHA256 签名，载荷包含 `userId`、`subjectType`、登录标识、`jti`、`sessionVersion`，过期时间 7200 秒；每次受保护请求都校验 Redis 会话状态
