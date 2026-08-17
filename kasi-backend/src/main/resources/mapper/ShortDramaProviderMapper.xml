@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.kasi.backend.provider.mapper.ShortDramaProviderMapper">
+
+    <select id="findAll" resultType="com.kasi.backend.provider.entity.ShortDramaProvider">
+        SELECT * FROM short_drama_provider ORDER BY id ASC
+    </select>
+
+    <select id="findById" resultType="com.kasi.backend.provider.entity.ShortDramaProvider">
+        SELECT * FROM short_drama_provider WHERE id = #{id}
+    </select>
+
+    <select id="findByCode" resultType="com.kasi.backend.provider.entity.ShortDramaProvider">
+        SELECT * FROM short_drama_provider WHERE provider_code = #{providerCode}
+    </select>
+
+</mapper>
