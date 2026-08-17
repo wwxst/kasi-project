@@ -16,8 +16,8 @@
   - `admin/` — 管理员认证、本人资料与密码维护，以及超级管理员管理普通管理员账号
   - `user/` — 推广用户注册、登录、获取当前用户、退出登录、修改密码、忘记密码流程，以及管理员可用的推广用户管理 CRUD
   - `auth/` — 可复用的验证码服务和密码重置 Token 机制（Redis 存储，Lua 原子消费/预占，TTL 自动过期）
-- 数据库迁移：`db/migration/V1__kasi_promotion.sql` 定义 `sys_admin_user`、`promotion_user` 两张持久表，并植入唯一初始超级管理员 `kasiadmin / kasi123456`（数据库仅保存 BCrypt 哈希，`status=1`、`is_super_admin=1`）；验证码和密码重置 Token 等临时数据由 Redis（`vc:*`、`pwd:*` 键）管理，TTL 自动过期。
-- 项目当前仍处于开发阶段，数据库可以删除重建；修改已执行的 `V1` 后必须重建开发数据库。未来生产首次建库也使用同一 `V1` 初始化账号，不新增运行时账号植入器。
+- 数据库迁移：`db/migration/V1__kasi_promotion.sql` 定义账号表并植入唯一初始超级管理员，`V2__media_account_filing.sql` 定义短剧平台、平台接入账号、推广用户媒体账号和平台报备表；V2 仅植入 `GOODSHORT` 平台定义，不植入接入密钥。验证码和密码重置 Token 等临时数据由 Redis（`vc:*`、`pwd:*` 键）管理，TTL 自动过期。
+- 项目当前仍处于开发阶段，数据库可以删除重建；修改已执行的迁移后应重建开发数据库。未来生产首次建库也按 Flyway 版本顺序执行并植入初始账号，不新增运行时账号植入器。
 - 会话状态由 Redis（`auth:version:{type}:{userId}`、`auth:session:{jti}`）管理。JWT 携带 `jti`、`sessionVersion`，受保护请求必须同时校验签名、账号状态和 Redis 会话；Redis 不可用时安全失败返回 503，不能降级放行。
 - 修改密码、密码重置等敏感 MySQL 状态变更会先将账号版本切换为 `MUTATING:{nonce}`，数据库成功后再恢复新的 `ACTIVE:*` 版本，使旧 Token 失效。普通 logout 只撤销当前 `jti` 会话。
 - 管理员本人通过 `PUT /api/admin/auth/password` 修改密码时只提交新密码和确认密码，不要求原密码；成功后当前账号的旧 Token 全部失效。推广用户本人改密仍要求原密码。
@@ -25,8 +25,8 @@
 - 超级管理员可分页查询、新增、编辑、启禁用、重置密码和物理删除普通管理员；普通管理员不能被提升为超级管理员，管理接口不能操作唯一超级管理员。
 - 管理员只使用必填 `real_name`，不使用 `nickname`。`sys_admin_user` 不保留 `deleted_at`；管理员删除只执行物理 `DELETE`，删除后账号、手机号和邮箱可以复用。
 - 推广用户不使用独立 `username`，只用手机号或邮箱登录；`user_no` 是后端生成的 12 位随机数字展示编号，内部关联继续使用自增 `id`。普通用户登录和本人信息 JSON 不返回内部 `id`，JWT `sub` 仍按现有认证契约保存内部 `id`。超级管理员和普通管理员均可通过 `/api/user/management/**` 分页、搜索、新增、编辑、启禁用、重置密码和物理删除推广用户。
-- 推广用户联系方式、状态、密码和删除等敏感管理操作先进入 Redis `MUTATING` 状态；Redis 失败时不得写 MySQL。物理删除后手机号和邮箱可以复用。
-- `sys_admin_user` 和 `promotion_user` 均不保留 `deleted_at`；两类账号删除都只使用物理 `DELETE`。
+- 推广用户联系方式、状态、密码和删除等敏感管理操作先进入 Redis `MUTATING` 状态；Redis 失败时不得写 MySQL。当前删除服务仍是物理删除；V2 外键已经阻止存在媒体账号的推广用户被数据库删除，稳定业务错误和“只能禁用”接口规则待媒体账号服务实现。
+- `sys_admin_user` 和 `promotion_user` 均不保留 `deleted_at`；媒体账号表同样不保留 `deleted_at`，媒体账号不提供物理删除。
 - Git 仓库：`https://github.com/wwxst/kasi-backend.git`，远程 `origin`，分支 `master`。
 - 在文档和代码审查中，请将当前架构与规划架构区分开来。不要将规划中的模块描述为已实现的模块。
 
@@ -65,7 +65,7 @@ java -version
 
 ## 数据库与 Flyway
 
-- Flyway 版本化迁移使用默认命名格式 `V{version}__{description}.sql`。当前首个迁移文件为 `V1__kasi_promotion.sql`，后续新增迁移请遵循此标准。
+- Flyway 版本化迁移使用默认命名格式 `V{version}__{description}.sql`。当前迁移文件为 `V1__kasi_promotion.sql` 和 `V2__media_account_filing.sql`，后续新增迁移请遵循此标准。
 - 当前不启用 `baseline-on-migrate`。没有 Flyway 历史表的非空数据库必须明确失败，禁止为兼容旧库而静默跳过 V1。
 - 迁移脚本必须针对已选定的 schema。不要在应用迁移脚本中放置针对固定本地数据库的 `CREATE DATABASE` 或 `USE` 语句。
 - 迁移中修改的会话设置（包括 `FOREIGN_KEY_CHECKS`），若确实需要，应在迁移完成后恢复。

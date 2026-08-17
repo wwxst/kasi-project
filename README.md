@@ -58,7 +58,8 @@ src/
     resources/
       application.properties                # 数据源、Flyway、MyBatis、JWT、验证码配置
       db/migration/
-        V1__kasi_promotion.sql              # 数据库迁移脚本（2张表 + 默认超级管理员）
+        V1__kasi_promotion.sql              # 基础账号表和默认超级管理员
+        V2__media_account_filing.sql       # 平台接入、媒体账号和通用报备表
       mapper/                               # 2个 MyBatis XML 映射文件
   test/
     java/com/kasi/backend/
@@ -129,7 +130,7 @@ $env:SPRING_DATASOURCE_PASSWORD = '<database-password>'
 .\mvnw.cmd spring-boot:run
 ```
 
-首次启动时 Flyway 会扫描 `db/migration/` 下的 `V1__kasi_promotion.sql`，创建所需表并植入唯一的初始超级管理员：
+首次启动时 Flyway 会按版本扫描 `db/migration/`，执行 V1 和 V2，创建账号、平台接入、媒体账号和通用报备表，并由 V1 植入唯一的初始超级管理员：
 
 - 账号：`kasiadmin`
 - 初始密码：`kasi123456`
@@ -140,20 +141,26 @@ $env:SPRING_DATASOURCE_PASSWORD = '<database-password>'
 
 ## 5. 数据库现状
 
-### 已实现的表结构（V1__kasi_promotion.sql）
+### 已实现的表结构（V1、V2）
 
-迁移脚本 `V1__kasi_promotion.sql` 定义 2 张持久表，验证码和密码重置 Token 等临时数据由 Redis 管理：
+迁移脚本 V1、V2 定义当前数据库持久表，验证码和密码重置 Token 等临时数据由 Redis 管理：
 
 | 存储 | 表/Key | 说明 | 核心字段 |
 |------|--------|------|----------|
 | MySQL | `sys_admin_user` | 后台管理员用户 | username, password(BCrypt), real_name, mobile, email, status, is_super_admin |
 | MySQL | `promotion_user` | 推广用户 | user_no(12位随机数字字符串), password(BCrypt), nickname, mobile, email, status, register_source |
+| MySQL | `short_drama_provider` | 短剧平台定义 | provider_code, provider_name, status |
+| MySQL | `short_drama_connection` | 平台机构接入账号（仅保存密钥密文） | provider_id, partner_id, api_key_ciphertext, currency, status |
+| MySQL | `promotion_media_account` | 推广用户绑定的媒体账号（不可物理删除） | user_id, media_type, external_account_id, account_name, account_link, status, data_version |
+| MySQL | `provider_media_filing` | 媒体账号按平台保存的报备状态和任务信息 | connection_id, media_account_id, status, next_action, retry_count |
 | Redis | `vc:*` | 验证码（临时） | 5分钟过期，60秒重发间隔，每日上限10次 |
 | Redis | `pwd:*` | 密码重置 Token（临时） | 10分钟过期，一次性消费后删除 |
 | Redis | `auth:version:*` | 账号会话版本（含 `ACTIVE:*` 或 `MUTATING:*`） | TTL 不超过 JWT 有效期加宽限期 |
 | Redis | `auth:session:*` | 单个 JWT 会话（按 `jti`） | TTL 与 JWT 有效期一致，退出时删除 |
 
-`V1__kasi_promotion.sql` 在建表后直接插入 `kasiadmin`，并固定写入 `status=1`、`is_super_admin=1`。该初始化同时用于开发环境重建和未来生产环境首次建库，不会在应用每次启动时重复执行。
+`V1__kasi_promotion.sql` 在建表后直接插入 `kasiadmin`，并固定写入 `status=1`、`is_super_admin=1`。该初始化同时用于开发环境重建和未来生产环境首次建库，不会在应用每次启动时重复执行。V2 只植入启用的 `GOODSHORT` 平台定义，不植入任何平台接入密钥。
+
+当前只完成数据库结构。媒体账号绑定 API、GoodShort 报备提交/查询任务、报备状态接口和推广用户删除时的稳定业务错误仍属于后续实现，不应视为已完成的业务模块。
 
 > **说明**：`sys_sequence` 表已移除，`user_no` 由后端在插入前随机生成；`promotion_user.id` 继续作为自增内部主键。`auth_verification_code` 和 `auth_password_reset_token` 表已移除，改用 Redis 存储（更高效、自动过期）。
 
