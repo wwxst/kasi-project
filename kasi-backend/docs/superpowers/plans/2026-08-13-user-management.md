@@ -30,7 +30,7 @@
 
 - [ ] 写失败测试：手机号注册只写 mobile；邮箱注册只写 email；同时拥有两者的用户可用两种方式登录；me 不返回 username。
 - [ ] 运行 `mvnw.cmd '-Dtest=UserAuthControllerTest,UserAuthServiceTest' test`，确认 RED。
-- [ ] 将 `findByAccount`/`findByAccountForUpdate` 改为 `mobile OR email`；注册按 target 写入对应联系方式，不写 username；插入后只回写 `userNo` 和昵称。
+- [ ] 将 `findByAccount`/`findByAccountForUpdate` 改为 `mobile OR email`；注册按 target 写入对应联系方式，不写 username；插入前生成最终 `userNo` 和默认昵称。
 - [ ] 保留手机号 trim、邮箱 trim + lowercase；登录、验证码、忘记密码统一使用规范化 target；清理 `USER_USERNAME_DUPLICATE` 新引用。
 - [ ] 运行 `mvnw.cmd '-Dtest=UserAuthControllerTest,UserAuthServiceTest,UserPasswordResetServiceTest' test`。
 - [ ] 提交：`refactor: authenticate promotion users by contact`。
@@ -59,9 +59,9 @@
 
 **文件：** `UserManagementService/Impl`、`UserManagementController`、`PromotionUserMapper.java/xml`、`ErrorCode.java`、`UserManagementMutationTest.java`。
 
-- [ ] 写失败测试：普通/超级管理员均可新增；只填手机号、只填邮箱、同时填写；邮箱小写和联系方式 trim；固定 `status=1`、`registerSource=ADMIN`、KS userNo；BCrypt；重复联系方式、同时为空、密码不一致错误。
+- [ ] 写失败测试：普通/超级管理员均可新增；只填手机号、只填邮箱、同时填写；邮箱小写和联系方式 trim；固定 `status=1`、`registerSource=ADMIN`、12 位随机数字 userNo；BCrypt；重复联系方式、同时为空、密码不一致错误。
 - [ ] 运行 `mvnw.cmd '-Dtest=UserManagementMutationTest' test`，确认 RED。
-- [ ] 新增 `create` Service：规范化、至少一个联系方式、唯一性、BCrypt、固定字段、临时唯一 userNo、插入后回写 `KS%06d`；并发 `DuplicateKeyException` 转 3006/3007，密码不一致新增 3013。
+- [ ] 新增 `create` Service：规范化、至少一个联系方式、唯一性、BCrypt、固定字段、插入前生成 12 位随机数字 userNo；并发 `DuplicateKeyException` 转 3006/3007，密码不一致新增 3013。
 - [ ] 运行创建和 DTO 定向测试并提交：`feat: create promotion users`。
 
 ### Task 6：实现资料和联系方式编辑

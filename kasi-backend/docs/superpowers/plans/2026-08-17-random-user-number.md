@@ -754,7 +754,7 @@ git commit -m "refactor: enforce random promotion user number schema"
 Before editing, run this stale-contract scan and record the current matches:
 
 ```powershell
-rg -n 'KS000001|KS%06d|基于.*自增.*user_no|user_no.*自增' AGENTS.md README.md docs/superpowers/specs docs/superpowers/plans
+rg -n 'KS000001|KS%06d|user_no\(基于自增|user_no.*改为基于' AGENTS.md README.md docs/superpowers/specs docs/superpowers/plans
 ```
 
 Expected before the edit: matches exist in README, the 2026-08-13 specification, and its implementation plan. The current AGENTS line does not name the old format but still requires the new public/internal identifier boundary wording.
@@ -783,7 +783,7 @@ Replace the old user-management spec and plan statements that say `KS` plus a si
 - [ ] **Step 3: Verify documentation consistency**
 
 ```powershell
-rg -n 'KS000001|KS%06d|基于.*自增.*user_no|user_no.*自增' AGENTS.md README.md docs/superpowers/specs/2026-08-13-user-management-design.md docs/superpowers/plans/2026-08-13-user-management.md
+rg -n 'KS000001|KS%06d|user_no\(基于自增|user_no.*改为基于' AGENTS.md README.md docs/superpowers/specs/2026-08-13-user-management-design.md docs/superpowers/plans/2026-08-13-user-management.md
 git diff --check
 ```
 
