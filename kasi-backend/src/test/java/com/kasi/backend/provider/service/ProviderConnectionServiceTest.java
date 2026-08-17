@@ -4,17 +4,21 @@ import com.kasi.backend.common.exception.BusinessException;
 import com.kasi.backend.provider.dto.UpsertProviderConnectionDTO;
 import com.kasi.backend.provider.entity.ShortDramaConnection;
 import com.kasi.backend.provider.entity.ShortDramaProvider;
+import com.kasi.backend.provider.enums.ProviderCapability;
 import com.kasi.backend.provider.mapper.ShortDramaConnectionMapper;
 import com.kasi.backend.provider.mapper.ShortDramaProviderMapper;
 import com.kasi.backend.provider.service.impl.ProviderConnectionServiceImpl;
+import com.kasi.backend.provider.spi.ProviderAdapter;
+import com.kasi.backend.provider.spi.ProviderConnectionSecret;
+import com.kasi.backend.provider.vo.ProviderConnectionTestVO;
 import com.kasi.backend.provider.vo.ProviderVO;
 import jakarta.validation.Validation;
 import jakarta.validation.Validator;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
-import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
@@ -35,18 +39,30 @@ class ProviderConnectionServiceTest {
     @Mock private ShortDramaProviderMapper providerMapper;
     @Mock private ShortDramaConnectionMapper connectionMapper;
     @Mock private ProviderCredentialCipher credentialCipher;
-    @InjectMocks private ProviderConnectionServiceImpl service;
+    @Mock private ProviderAdapter adapter;
+    private ProviderConnectionServiceImpl service;
+
+    @BeforeEach
+    void setUp() {
+        service = new ProviderConnectionServiceImpl(
+                providerMapper, connectionMapper, credentialCipher, List.of(adapter));
+    }
 
     @Test
     @DisplayName("查询接入账号只返回是否配置密钥")
     void listDoesNotExposeCredential() {
         when(providerMapper.findAll()).thenReturn(List.of(provider()));
         when(connectionMapper.findByProviderId(1L)).thenReturn(connection("v1:secret-ciphertext"));
+        when(adapter.providerCode()).thenReturn("GOODSHORT");
+        when(adapter.capabilities()).thenReturn(java.util.Set.of(
+                ProviderCapability.ACCOUNT_FILING, ProviderCapability.ORDER_SYNC));
 
         ProviderVO result = service.getProviders().getFirst();
 
         assertThat(result.getConnection().isCredentialConfigured()).isTrue();
         assertThat(result.getConnection().toString()).doesNotContain("secret-ciphertext");
+        assertThat(result.getCapabilities())
+                .containsExactlyInAnyOrder(ProviderCapability.ACCOUNT_FILING, ProviderCapability.ORDER_SYNC);
     }
 
     @Test
@@ -140,6 +156,99 @@ class ProviderConnectionServiceTest {
         request.setStatus(2);
         assertThat(validator.validate(request)).extracting(violation -> violation.getPropertyPath().toString())
                 .contains("status");
+    }
+
+    @Test
+    @DisplayName("连接测试解密密钥后按平台编码调用适配器")
+    void testConnectionDecryptsAndDelegatesToMatchingAdapter() {
+        ShortDramaConnection connection = connection("v1:ciphertext");
+        when(adapter.providerCode()).thenReturn("GOODSHORT");
+        when(providerMapper.findById(1L)).thenReturn(provider());
+        when(connectionMapper.findByProviderId(1L)).thenReturn(connection);
+        when(credentialCipher.decrypt("v1:ciphertext")).thenReturn("plain-secret");
+        ProviderConnectionTestVO expected = ProviderConnectionTestVO.builder()
+                .reachable(true)
+                .message("success")
+                .build();
+        when(adapter.testConnection(any())).thenReturn(expected);
+
+        assertThat(service.testConnection(1L)).isSameAs(expected);
+
+        ArgumentCaptor<ProviderConnectionSecret> secretCaptor =
+                ArgumentCaptor.forClass(ProviderConnectionSecret.class);
+        verify(adapter).testConnection(secretCaptor.capture());
+        assertThat(secretCaptor.getValue().getPartnerId()).isEqualTo("partner-1");
+        assertThat(secretCaptor.getValue().getApiKey()).isEqualTo("plain-secret");
+        assertThat(secretCaptor.getValue().getCurrency()).isEqualTo("USD");
+        assertThat(secretCaptor.getValue().toString()).doesNotContain("plain-secret");
+    }
+
+    @Test
+    @DisplayName("连接未配置时不调用平台适配器")
+    void testConnectionRejectsMissingConnectionBeforeNetwork() {
+        when(providerMapper.findById(1L)).thenReturn(provider());
+        when(connectionMapper.findByProviderId(1L)).thenReturn(null);
+
+        assertThatThrownBy(() -> service.testConnection(1L))
+                .isInstanceOfSatisfying(BusinessException.class,
+                        exception -> assertThat(exception.getCode()).isEqualTo(6002));
+        verify(adapter, never()).testConnection(any());
+    }
+
+    @Test
+    @DisplayName("平台或接入账号禁用时不调用平台适配器")
+    void testConnectionRejectsDisabledConfigurationBeforeNetwork() {
+        ShortDramaProvider provider = provider();
+        provider.setStatus(0);
+        when(providerMapper.findById(1L)).thenReturn(provider);
+
+        assertThatThrownBy(() -> service.testConnection(1L))
+                .isInstanceOfSatisfying(BusinessException.class,
+                        exception -> assertThat(exception.getCode()).isEqualTo(6003));
+        verify(adapter, never()).testConnection(any());
+    }
+
+    @Test
+    @DisplayName("接入账号禁用时不调用平台适配器")
+    void testConnectionRejectsDisabledConnectionBeforeNetwork() {
+        ShortDramaConnection connection = connection("v1:ciphertext");
+        connection.setStatus(0);
+        when(providerMapper.findById(1L)).thenReturn(provider());
+        when(connectionMapper.findByProviderId(1L)).thenReturn(connection);
+
+        assertThatThrownBy(() -> service.testConnection(1L))
+                .isInstanceOfSatisfying(BusinessException.class,
+                        exception -> assertThat(exception.getCode()).isEqualTo(6003));
+        verify(credentialCipher, never()).decrypt(any());
+        verify(adapter, never()).testConnection(any());
+    }
+
+    @Test
+    @DisplayName("接入账号资料不完整时不解密也不调用平台")
+    void testConnectionRejectsIncompleteConnectionBeforeNetwork() {
+        ShortDramaConnection connection = connection("v1:ciphertext");
+        connection.setPartnerId("  ");
+        when(providerMapper.findById(1L)).thenReturn(provider());
+        when(connectionMapper.findByProviderId(1L)).thenReturn(connection);
+
+        assertThatThrownBy(() -> service.testConnection(1L))
+                .isInstanceOfSatisfying(BusinessException.class,
+                        exception -> assertThat(exception.getCode()).isEqualTo(6003));
+        verify(credentialCipher, never()).decrypt(any());
+        verify(adapter, never()).testConnection(any());
+    }
+
+    @Test
+    @DisplayName("密钥无法解密时返回凭据不可用且不调用平台")
+    void testConnectionMapsDecryptionFailureWithoutNetwork() {
+        when(providerMapper.findById(1L)).thenReturn(provider());
+        when(connectionMapper.findByProviderId(1L)).thenReturn(connection("v1:bad"));
+        when(credentialCipher.decrypt("v1:bad")).thenThrow(new IllegalStateException("平台密钥无法解密"));
+
+        assertThatThrownBy(() -> service.testConnection(1L))
+                .isInstanceOfSatisfying(BusinessException.class,
+                        exception -> assertThat(exception.getCode()).isEqualTo(6004));
+        verify(adapter, never()).testConnection(any());
     }
 
     private ShortDramaProvider provider() {
