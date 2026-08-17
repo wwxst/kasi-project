@@ -85,7 +85,10 @@ class ProviderConnectionServiceTest {
         when(credentialCipher.encrypt("secret-key")).thenReturn("v1:encrypted");
         when(connectionMapper.insert(any())).thenReturn(1);
 
-        var result = service.upsert(9L, 1L, request("secret-key", 0));
+        UpsertProviderConnectionDTO request = request("secret-key", 0);
+        assertThat(request.toString()).doesNotContain("secret-key");
+
+        var result = service.upsert(9L, 1L, request);
 
         ArgumentCaptor<ShortDramaConnection> captor = ArgumentCaptor.forClass(ShortDramaConnection.class);
         verify(connectionMapper).insert(captor.capture());

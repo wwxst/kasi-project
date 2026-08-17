@@ -7,6 +7,7 @@ import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
 import lombok.Data;
+import lombok.ToString;
 
 @Data
 public class UpsertProviderConnectionDTO {
@@ -20,6 +21,7 @@ public class UpsertProviderConnectionDTO {
     private String partnerId;
 
     @Size(max = 256)
+    @ToString.Exclude
     private String apiKey;
 
     @NotBlank
