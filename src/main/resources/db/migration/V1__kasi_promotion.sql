@@ -41,7 +41,7 @@ CREATE TABLE `sys_admin_user`
 CREATE TABLE `promotion_user`
 (
     `id`              BIGINT UNSIGNED NOT NULL AUTO_INCREMENT COMMENT '主键ID',
-    `user_no`         VARCHAR(32)     NOT NULL COMMENT '业务用户编号，如KS000001',
+    `user_no`         CHAR(12)        NOT NULL COMMENT '12位随机数字业务用户编号',
     `password`        VARCHAR(255)    NOT NULL COMMENT '密码（BCrypt加密）',
     `nickname`        VARCHAR(64)              DEFAULT NULL COMMENT '昵称',
     `real_name`       VARCHAR(64)              DEFAULT NULL COMMENT '真实姓名',

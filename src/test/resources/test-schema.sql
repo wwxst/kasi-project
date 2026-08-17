@@ -26,7 +26,7 @@ CREATE TABLE IF NOT EXISTS sys_admin_user (
 
 CREATE TABLE IF NOT EXISTS promotion_user (
     id BIGINT AUTO_INCREMENT PRIMARY KEY,
-    user_no VARCHAR(32) NOT NULL,
+    user_no CHAR(12) NOT NULL,
     password VARCHAR(255) NOT NULL,
     nickname VARCHAR(64) DEFAULT NULL,
     real_name VARCHAR(64) DEFAULT NULL,

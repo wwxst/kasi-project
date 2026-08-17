@@ -23,7 +23,7 @@ class UserManagementQueryTest extends BaseAuthTest {
                 .andExpect(jsonPath("$.data.total").value(3))
                 .andExpect(jsonPath("$.data.list.length()").value(2))
                 .andExpect(jsonPath("$.data.list[0].id").isNumber())
-                .andExpect(jsonPath("$.data.list[0].userNo").value("KS000001"))
+                .andExpect(jsonPath("$.data.list[0].userNo").value(PRIMARY_USER_NO))
                 .andExpect(jsonPath("$.data.list[0].password").doesNotExist());
     }
 
@@ -35,7 +35,7 @@ class UserManagementQueryTest extends BaseAuthTest {
                         .param("keyword", "test@example.com")
                         .header("Authorization", "Bearer " + token))
                 .andExpect(jsonPath("$.data.total").value(1))
-                .andExpect(jsonPath("$.data.list[0].userNo").value("KS000001"));
+                .andExpect(jsonPath("$.data.list[0].userNo").value(PRIMARY_USER_NO));
     }
 
     @Test
@@ -43,7 +43,7 @@ class UserManagementQueryTest extends BaseAuthTest {
     void getDetailReturnsUserWithoutPassword() throws Exception {
         String token = loginAsAdmin();
         Long id = jdbcTemplate.queryForObject(
-                "SELECT id FROM promotion_user WHERE user_no = 'KS000001'", Long.class);
+                "SELECT id FROM promotion_user WHERE user_no = ?", Long.class, PRIMARY_USER_NO);
         mockMvc.perform(MockMvcRequestBuilders.get("/api/user/management/{id}", id)
                         .header("Authorization", "Bearer " + token))
                 .andExpect(jsonPath("$.code").value(0))
