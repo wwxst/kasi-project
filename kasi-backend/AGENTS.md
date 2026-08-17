@@ -55,6 +55,7 @@ java -version
 
 - 若仅做编译检查，在 Java 25 环境下运行 `./mvnw.cmd -DskipTests compile`。
 - 运行完整测试套件，执行 `./mvnw.cmd test`。测试使用 H2 内存数据库（MySQL 兼容模式），通过 `application-test.properties` 配置，不依赖本地 MySQL。
+- 平台接入模块聚焦校验：`./mvnw.cmd -Dtest=MediaAccountFilingMigrationTest,ProviderCredentialCipherTest,ProviderPersistenceTest,ProviderConnectionServiceTest,GoodShortSignerTest,GoodShortAdapterTest,ProviderAdminControllerTest test`。
 - 提交更改前运行 `git diff --check`。
 - 在没有显示零错误的最新输出之前，不要宣称测试套件是健康的。
 - 每新增一个控制器、服务、映射器、迁移脚本或安全规则，都应添加针对性的测试。优先使用可复现的测试数据库，而非开发人员本机数据库。

@@ -6,7 +6,7 @@
 
 这是卡司推广平台的后端仓库，基于 Spring Boot 4.0.7 + MyBatis 4.0.1 + MySQL 8 + JWT 构建。
 
-**当前已完成**：管理员（ADMIN）和推广用户（USER）双认证体系、普通管理员账号管理，以及管理员对推广用户的管理 CRUD。详见 [§6 API、认证与业务边界](#6-api认证与业务边界)。
+**当前已完成**：管理员（ADMIN）和推广用户（USER）双认证体系、两类账号管理 CRUD，以及短剧平台接入账号管理与 GoodShort 连接探测基础。详见 [§6 API、认证与业务边界](#6-api认证与业务边界)。
 
 ## 2. 当前结构
 
@@ -126,6 +126,7 @@ $env:Path = "$env:JAVA_HOME\bin;$env:Path"
 | 验证码 | 过期 300 秒，重发间隔 60 秒，每日上限 10 次 |
 | 密码重置 Token | 过期 600 秒 |
 | 验证码发送器 | `local` profile 使用 Console sender；`test` profile 使用测试 sender；生产环境需提供真实实现 |
+| 平台密钥主密钥 | 必须通过 `PROVIDER_CREDENTIAL_MASTER_KEY` 注入 Base64 编码的 32 字节密钥；不得提交到仓库或写入日志 |
 | GoodShort 探测 | `app.providers.goodshort.base-url`、连接超时 3 秒、读取超时 10 秒；平台密钥从数据库密文解密后仅在适配器调用链内使用 |
 
 应用要连接 MySQL，至少需要提供：
@@ -173,6 +174,8 @@ $env:SPRING_DATASOURCE_PASSWORD = '<database-password>'
 `V1__kasi_promotion.sql` 在建表后直接插入 `kasiadmin`，并固定写入 `status=1`、`is_super_admin=1`。该初始化同时用于开发环境重建和未来生产环境首次建库，不会在应用每次启动时重复执行。V2 只植入启用的 `GOODSHORT` 平台定义，不植入任何平台接入密钥。
 
 当前已完成平台定义与接入账号持久层、AES-GCM 密钥加密、不暴露密钥的管理服务和管理员 API，以及 GoodShort 签名和连接探测适配器。媒体账号绑定 API、GoodShort 报备提交/查询任务、报备状态接口和推广用户删除时的稳定业务错误仍属于后续实现，不应视为已完成的业务模块。
+
+短剧目录与同步、媒体账号绑定与报备、推广链接、订单、佣金计算、导出和转化分析均仍是规划能力，本模块没有实现这些业务。
 
 > **说明**：`sys_sequence` 表已移除，`user_no` 由后端在插入前随机生成；`promotion_user.id` 继续作为自增内部主键。`auth_verification_code` 和 `auth_password_reset_token` 表已移除，改用 Redis 存储（更高效、自动过期）。
 
