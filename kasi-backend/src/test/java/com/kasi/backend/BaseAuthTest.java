@@ -84,9 +84,17 @@ public abstract class BaseAuthTest {
             redisTemplate.delete(redisKeys);
         }
 
-        // 清理数据库表
+        // 按外键依赖从子表到父表清理数据库表
+        jdbcTemplate.execute("DELETE FROM provider_media_filing");
+        jdbcTemplate.execute("DELETE FROM promotion_media_account");
+        jdbcTemplate.execute("DELETE FROM short_drama_connection");
+        jdbcTemplate.execute("DELETE FROM short_drama_provider");
         jdbcTemplate.execute("DELETE FROM promotion_user");
         jdbcTemplate.execute("DELETE FROM sys_admin_user");
+
+        jdbcTemplate.update(
+                "INSERT INTO short_drama_provider (provider_code, provider_name, status) VALUES (?, ?, ?)",
+                "GOODSHORT", "GoodShort", 1);
 
         // 插入测试管理员
         jdbcTemplate.update(

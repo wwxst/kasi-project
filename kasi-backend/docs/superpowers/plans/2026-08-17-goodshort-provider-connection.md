@@ -8,6 +8,8 @@
 
 **Tech Stack:** Java 25, Spring Boot 4.0.7, Spring MVC `RestClient`, Spring Security, Jakarta Validation, MyBatis, MySQL 8, H2, JUnit 5, AssertJ, MockMvc, `MockRestServiceServer`.
 
+> **Current repository note (2026-08-17):** `V2__media_account_filing.sql` now creates `short_drama_provider` and `short_drama_connection` and seeds the `GOODSHORT` provider as a prerequisite for media filing. When executing this plan, treat Task 1's table-creation instructions as superseded: verify and reuse V2, do not modify V1 or create the two tables again. Provider entities, Mappers, credential encryption, administration APIs and connection probes remain unimplemented.
+
 ---
 
 ## Module Boundary
