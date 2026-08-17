@@ -8,6 +8,7 @@ import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.http.HttpMethod;
 import org.springframework.http.MediaType;
 import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
@@ -76,6 +77,11 @@ public class SecurityConfig {
                         // 管理员管理接口：仅超级管理员可访问
                         .requestMatchers("/api/admin/management/**").hasRole("SUPER_ADMIN")
                         .requestMatchers("/api/user/management/**").hasRole("ADMIN")
+                        .requestMatchers(HttpMethod.PUT,
+                                "/api/admin/drama/providers/*/connection").hasRole("SUPER_ADMIN")
+                        .requestMatchers(HttpMethod.POST,
+                                "/api/admin/drama/providers/*/connection/test").hasRole("SUPER_ADMIN")
+                        .requestMatchers("/api/admin/drama/**").hasRole("ADMIN")
                         // 管理员接口：仅ADMIN角色可访问
                         .requestMatchers("/api/admin/**").hasRole("ADMIN")
                         // 用户接口：仅USER角色可访问
