@@ -22,6 +22,7 @@ class UserManagementQueryTest extends BaseAuthTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.total").value(3))
                 .andExpect(jsonPath("$.data.list.length()").value(2))
+                .andExpect(jsonPath("$.data.list[0].id").isNumber())
                 .andExpect(jsonPath("$.data.list[0].userNo").value("KS000001"))
                 .andExpect(jsonPath("$.data.list[0].password").doesNotExist());
     }

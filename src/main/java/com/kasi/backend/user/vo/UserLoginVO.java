@@ -18,7 +18,6 @@ public class UserLoginVO {
     @Data
     @Builder
     public static class UserInfo {
-        private Long id;
         private String userNo;
         private String nickname;
         private String mobile;

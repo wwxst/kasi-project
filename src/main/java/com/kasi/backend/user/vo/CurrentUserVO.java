@@ -12,7 +12,6 @@ import java.time.LocalDateTime;
 @Builder
 public class CurrentUserVO {
 
-    private Long id;
     private String userNo;
     private String nickname;
     private String realName;
