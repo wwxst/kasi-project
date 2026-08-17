@@ -49,6 +49,13 @@ src/
         service/SessionService.java         # 会话服务接口
         service/impl/TokenServiceImpl.java  # JWT 生成与解析实现
         service/impl/SessionServiceImpl.java # Redis 账号版本与单会话状态实现
+      provider/                             # 短剧平台定义和接入账号内部管理
+        entity/                             # 平台与接入账号持久化实体
+        mapper/                             # 平台与接入账号单表 Mapper
+        dto/                                # 接入账号配置请求 DTO
+        vo/                                 # 不含平台密钥的管理响应 VO
+        service/                            # 密钥加密与接入账号管理服务接口
+        service/impl/                       # AES-GCM 与接入账号管理实现
       common/                               # 公共组件
         response/ApiResponse.java           # 统一响应体
         exception/ErrorCode.java            # 错误码枚举
@@ -160,7 +167,7 @@ $env:SPRING_DATASOURCE_PASSWORD = '<database-password>'
 
 `V1__kasi_promotion.sql` 在建表后直接插入 `kasiadmin`，并固定写入 `status=1`、`is_super_admin=1`。该初始化同时用于开发环境重建和未来生产环境首次建库，不会在应用每次启动时重复执行。V2 只植入启用的 `GOODSHORT` 平台定义，不植入任何平台接入密钥。
 
-当前只完成数据库结构。媒体账号绑定 API、GoodShort 报备提交/查询任务、报备状态接口和推广用户删除时的稳定业务错误仍属于后续实现，不应视为已完成的业务模块。
+当前已完成平台定义与接入账号持久层、AES-GCM 密钥加密以及不暴露密钥的内部管理服务，尚未暴露管理员 HTTP API。平台连接探测、媒体账号绑定 API、GoodShort 报备提交/查询任务、报备状态接口和推广用户删除时的稳定业务错误仍属于后续实现，不应视为已完成的业务模块。
 
 > **说明**：`sys_sequence` 表已移除，`user_no` 由后端在插入前随机生成；`promotion_user.id` 继续作为自增内部主键。`auth_verification_code` 和 `auth_password_reset_token` 表已移除，改用 Redis 存储（更高效、自动过期）。
 
