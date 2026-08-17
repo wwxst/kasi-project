@@ -55,6 +55,12 @@ public abstract class BaseAuthTest {
     protected static final String ADMIN_PASSWORD = "kasi123456";
     /** 测试用户密码（明文） */
     protected static final String USER_PASSWORD = "user123456";
+    /** 测试普通用户编号 */
+    protected static final String PRIMARY_USER_NO = "583104726918";
+    /** 测试手机用户编号 */
+    protected static final String MOBILE_USER_NO = "731000000042";
+    /** 测试禁用用户编号 */
+    protected static final String DISABLED_USER_NO = "904275816330";
 
     @BeforeEach
     void baseSetUp() {
@@ -100,17 +106,17 @@ public abstract class BaseAuthTest {
         // 插入测试普通用户
         jdbcTemplate.update(
                 "INSERT INTO promotion_user (user_no, password, nickname, mobile, email, status) VALUES (?, ?, ?, ?, ?, ?)",
-                "KS000001", passwordEncoder.encode(USER_PASSWORD), "测试用户", "13800138000", "test@example.com", 1);
+                PRIMARY_USER_NO, passwordEncoder.encode(USER_PASSWORD), "测试用户", "13800138000", "test@example.com", 1);
 
         // 插入一个仅有手机号的用户（用于忘记密码测试）
         jdbcTemplate.update(
                 "INSERT INTO promotion_user (user_no, password, nickname, mobile, status) VALUES (?, ?, ?, ?, ?)",
-                "KS000002", passwordEncoder.encode(USER_PASSWORD), "手机用户", "13900139000", 1);
+                MOBILE_USER_NO, passwordEncoder.encode(USER_PASSWORD), "手机用户", "13900139000", 1);
 
         // 插入禁用用户
         jdbcTemplate.update(
                 "INSERT INTO promotion_user (user_no, password, nickname, mobile, status) VALUES (?, ?, ?, ?, ?)",
-                "KS000003", passwordEncoder.encode(USER_PASSWORD), "已禁用用户", "13700137000", 0);
+                DISABLED_USER_NO, passwordEncoder.encode(USER_PASSWORD), "已禁用用户", "13700137000", 0);
     }
 
     /**

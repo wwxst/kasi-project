@@ -43,6 +43,10 @@ class PromotionUserStructureTest extends BaseAuthTest {
         assertThat(promotionBlock).doesNotContain("username", "deleted_at");
         assertThat(testPromotionBlock).doesNotContain("username", "deleted_at");
         assertThat(mapper).doesNotContain("username", "deleted_at");
+        assertThat(promotionBlock)
+                .contains("`user_no`         CHAR(12)", "UNIQUE KEY `uk_user_no` (`user_no`)");
+        assertThat(testPromotionBlock)
+                .contains("user_no CHAR(12) NOT NULL", "UNIQUE (user_no)");
         assertThat(Arrays.stream(PromotionUserMapper.class.getDeclaredMethods())
                 .map(java.lang.reflect.Method::getName))
                 .doesNotContain("updateUserNo");

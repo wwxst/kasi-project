@@ -58,7 +58,8 @@ class UserManagementMutationTest extends BaseAuthTest {
     @DisplayName("禁用启用推广用户并旋转会话版本")
     void updateStatusControlsLoginAndInvalidatesToken() throws Exception {
         String userToken = loginAsUser();
-        Long id = jdbcTemplate.queryForObject("SELECT id FROM promotion_user WHERE user_no = 'KS000001'", Long.class);
+        Long id = jdbcTemplate.queryForObject(
+                "SELECT id FROM promotion_user WHERE user_no = ?", Long.class, PRIMARY_USER_NO);
         String adminToken = loginAsAdmin();
         mockMvc.perform(MockMvcRequestBuilders.patch("/api/user/management/{id}/status", id)
                         .header("Authorization", "Bearer " + adminToken)
@@ -82,7 +83,8 @@ class UserManagementMutationTest extends BaseAuthTest {
     @DisplayName("重置密码后旧凭据和旧会话失效")
     void resetPasswordInvalidatesOldCredentials() throws Exception {
         String userToken = loginAsUser();
-        Long id = jdbcTemplate.queryForObject("SELECT id FROM promotion_user WHERE user_no = 'KS000001'", Long.class);
+        Long id = jdbcTemplate.queryForObject(
+                "SELECT id FROM promotion_user WHERE user_no = ?", Long.class, PRIMARY_USER_NO);
         String adminToken = loginAsAdmin();
         mockMvc.perform(MockMvcRequestBuilders.put("/api/user/management/{id}/password", id)
                         .header("Authorization", "Bearer " + adminToken)
@@ -100,7 +102,8 @@ class UserManagementMutationTest extends BaseAuthTest {
     @Test
     @DisplayName("物理删除后记录消失且联系方式可复用")
     void deletePhysicallyRemovesUserAndReusesContact() throws Exception {
-        Long id = jdbcTemplate.queryForObject("SELECT id FROM promotion_user WHERE user_no = 'KS000002'", Long.class);
+        Long id = jdbcTemplate.queryForObject(
+                "SELECT id FROM promotion_user WHERE user_no = ?", Long.class, MOBILE_USER_NO);
         String adminToken = loginAsAdmin();
         mockMvc.perform(MockMvcRequestBuilders.delete("/api/user/management/{id}", id)
                         .header("Authorization", "Bearer " + adminToken))
