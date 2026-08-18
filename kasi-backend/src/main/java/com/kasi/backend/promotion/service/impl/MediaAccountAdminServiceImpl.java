@@ -3,6 +3,7 @@ package com.kasi.backend.promotion.service.impl;
 import com.kasi.backend.common.exception.BusinessException;
 import com.kasi.backend.common.exception.ErrorCode;
 import com.kasi.backend.promotion.dto.AdminMediaAccountPageQueryDTO;
+import com.kasi.backend.promotion.dto.AdminUpdateMediaAccountDTO;
 import com.kasi.backend.promotion.entity.PromotionMediaAccount;
 import com.kasi.backend.promotion.entity.ProviderMediaFiling;
 import com.kasi.backend.promotion.mapper.PromotionMediaAccountMapper;
@@ -53,6 +54,13 @@ public class MediaAccountAdminServiceImpl implements MediaAccountAdminService {
         if (user == null) throw new BusinessException(ErrorCode.MEDIA_ACCOUNT_NOT_FOUND);
         return AdminMediaAccountDetailVO.builder().id(id).userNo(user.getUserNo()).nickname(user.getNickname())
                 .realName(user.getRealName()).mediaAccount(mediaAccountService.getMineById(user.getId(), id)).build();
+    }
+
+    @Override
+    @Transactional
+    public AdminMediaAccountDetailVO update(Long id, AdminUpdateMediaAccountDTO request) {
+        mediaAccountService.updateByAdmin(id, request);
+        return getById(id);
     }
 
     @Override
