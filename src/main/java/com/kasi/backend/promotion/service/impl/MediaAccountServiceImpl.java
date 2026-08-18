@@ -3,6 +3,7 @@ package com.kasi.backend.promotion.service.impl;
 import com.kasi.backend.common.exception.BusinessException;
 import com.kasi.backend.common.exception.ErrorCode;
 import com.kasi.backend.promotion.dto.CreateMediaAccountDTO;
+import com.kasi.backend.promotion.dto.AdminUpdateMediaAccountDTO;
 import com.kasi.backend.promotion.dto.UpdateMediaAccountDTO;
 import com.kasi.backend.promotion.dto.UpdateMediaAccountStatusDTO;
 import com.kasi.backend.promotion.entity.PromotionMediaAccount;
@@ -107,32 +108,23 @@ public class MediaAccountServiceImpl implements MediaAccountService {
     public com.kasi.backend.promotion.vo.MediaAccountDetailVO update(Long userId, Long id, UpdateMediaAccountDTO request) {
         PromotionMediaAccount account = requireOwnedForUpdate(id, userId);
         if (!Integer.valueOf(1).equals(account.getStatus())) throw new BusinessException(ErrorCode.MEDIA_ACCOUNT_DISABLED);
-        List<ProviderMediaFiling> filings = filings(id);
-        String externalId = requiredTrim(request.getExternalAccountId());
-        boolean identityChanged = request.getMediaType() != account.getMediaType()
-                || !externalId.equals(account.getExternalAccountId());
-        if (identityChanged && filings.stream().anyMatch(f -> f.getStatus() == FilingStatus.APPROVED)) {
-            throw new BusinessException(ErrorCode.MEDIA_ACCOUNT_IDENTITY_LOCKED);
-        }
-        boolean detailsChanged = identityChanged
-                || !Objects.equals(trimToNull(request.getAccountName()), account.getAccountName())
-                || !Objects.equals(trimToNull(request.getAccountLink()), account.getAccountLink());
-        if (!detailsChanged) return getMineById(userId, id);
-        if (identityChanged) resolveExistingProviderMedia(request.getMediaType(), filings);
-        int previousVersion = account.getDataVersion();
-        account.setMediaType(request.getMediaType());
-        account.setExternalAccountId(externalId);
-        account.setAccountName(trimToNull(request.getAccountName()));
-        account.setAccountLink(trimToNull(request.getAccountLink()));
-        account.setDataVersion(previousVersion + 1);
-        mediaMapper.updateDetails(account);
-        for (ProviderMediaFiling filing : filings) {
-            FilingStatus nextStatus = filing.getStatus() == FilingStatus.APPROVED && !identityChanged
-                    ? FilingStatus.APPROVED : FilingStatus.PENDING;
-            filingMapper.reschedule(filing.getId(), nextStatus, FilingAction.SUBMIT,
-                    filing.getTaskDataVersion(), account.getDataVersion(), LocalDateTime.now());
-        }
+        applyDetailsUpdate(account, request.getMediaType(), request.getExternalAccountId(),
+                request.getAccountName(), request.getAccountLink());
         return getMineById(userId, id);
+    }
+
+    @Override
+    @Transactional
+    public com.kasi.backend.promotion.vo.MediaAccountDetailVO updateByAdmin(Long id,
+                                                                              AdminUpdateMediaAccountDTO request) {
+        PromotionMediaAccount account = mediaMapper.findByIdForUpdate(id);
+        if (account == null) throw new BusinessException(ErrorCode.MEDIA_ACCOUNT_NOT_FOUND);
+        applyDetailsUpdate(account, request.getMediaType(), request.getExternalAccountId(),
+                request.getAccountName(), request.getAccountLink());
+        if (mediaMapper.updateStatus(id, request.getStatus()) != 1) {
+            throw new IllegalStateException("媒体账号状态更新未生效");
+        }
+        return toDetailVO(mediaMapper.findById(id));
     }
 
     @Override
@@ -184,6 +176,41 @@ public class MediaAccountServiceImpl implements MediaAccountService {
             ShortDramaConnection connection = connectionMapper == null ? null : connectionMapper.findById(filing.getConnectionId());
             if (connection == null) continue;
             resolve(providerMapper.findById(connection.getProviderId()).getId(), mediaType);
+        }
+    }
+
+    private void applyDetailsUpdate(PromotionMediaAccount account, MediaType mediaType,
+                                    String externalAccountId, String accountName, String accountLink) {
+        List<ProviderMediaFiling> filings = filings(account.getId());
+        String externalId = requiredTrim(externalAccountId);
+        boolean identityChanged = mediaType != account.getMediaType()
+                || !externalId.equals(account.getExternalAccountId());
+        if (identityChanged && filings.stream().anyMatch(f -> f.getStatus() == FilingStatus.APPROVED)) {
+            throw new BusinessException(ErrorCode.MEDIA_ACCOUNT_IDENTITY_LOCKED);
+        }
+        if (identityChanged) {
+            PromotionMediaAccount duplicate = mediaMapper.findByIdentity(mediaType, externalId);
+            if (duplicate != null && !Objects.equals(duplicate.getId(), account.getId())) {
+                throw new BusinessException(ErrorCode.MEDIA_ACCOUNT_DUPLICATE);
+            }
+            resolveExistingProviderMedia(mediaType, filings);
+        }
+        boolean detailsChanged = identityChanged
+                || !Objects.equals(trimToNull(accountName), account.getAccountName())
+                || !Objects.equals(trimToNull(accountLink), account.getAccountLink());
+        if (!detailsChanged) return;
+        int previousVersion = account.getDataVersion();
+        account.setMediaType(mediaType);
+        account.setExternalAccountId(externalId);
+        account.setAccountName(trimToNull(accountName));
+        account.setAccountLink(trimToNull(accountLink));
+        account.setDataVersion(previousVersion + 1);
+        mediaMapper.updateDetails(account);
+        for (ProviderMediaFiling filing : filings) {
+            FilingStatus nextStatus = filing.getStatus() == FilingStatus.APPROVED && !identityChanged
+                    ? FilingStatus.APPROVED : FilingStatus.PENDING;
+            filingMapper.reschedule(filing.getId(), nextStatus, FilingAction.SUBMIT,
+                    filing.getTaskDataVersion(), account.getDataVersion(), LocalDateTime.now());
         }
     }
 

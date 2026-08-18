@@ -57,4 +57,40 @@ class AdminMediaAccountControllerTest extends BaseAuthTest {
                         .header("Authorization", "Bearer " + loginAsUser()))
                 .andExpect(status().isForbidden());
     }
+
+    @Test
+    @DisplayName("绠＄悊鍛樺彲缂栬緫濯掍綋璐﹀彿浣嗙敤鎴蜂笉鑳借闂")
+    void adminCanUpdateMediaAccount() throws Exception {
+        jdbcTemplate.update(
+                "INSERT INTO promotion_media_account " +
+                        "(user_id, media_type, external_account_id, account_name, account_link, status, data_version) " +
+                        "VALUES ((SELECT id FROM promotion_user WHERE user_no = ?), ?, ?, ?, ?, ?, ?)",
+                PRIMARY_USER_NO, "TIKTOK", "creator-update", "旧名称",
+                "https://www.tiktok.com/@creator-update", 1, 1);
+        long mediaAccountId = jdbcTemplate.queryForObject(
+                "SELECT id FROM promotion_media_account WHERE external_account_id = 'creator-update'", Long.class);
+        String adminToken = loginAsAdmin("operator", ADMIN_PASSWORD);
+        String body = """
+                {
+                  "mediaType":"TIKTOK",
+                  "externalAccountId":"creator-update",
+                  "accountName":"新名称",
+                  "accountLink":"https://www.tiktok.com/@creator-update",
+                  "status":1
+                }
+                """;
+
+        mockMvc.perform(put("/api/admin/promotion/media-accounts/{id}", mediaAccountId)
+                        .header("Authorization", "Bearer " + adminToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(body))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.mediaAccount.accountName").value("新名称"));
+
+        mockMvc.perform(put("/api/admin/promotion/media-accounts/{id}", mediaAccountId)
+                        .header("Authorization", "Bearer " + loginAsUser())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(body))
+                .andExpect(status().isForbidden());
+    }
 }
