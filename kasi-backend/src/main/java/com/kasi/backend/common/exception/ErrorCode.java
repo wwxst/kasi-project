@@ -47,6 +47,7 @@ public enum ErrorCode {
     USER_MANAGEMENT_NOT_FOUND(3011, "推广用户不存在"),
     USER_CONTACT_REQUIRED(3012, "手机号或邮箱不能同时为空"),
     USER_MANAGEMENT_PASSWORD_NOT_MATCH(3013, "两次输入的密码不一致"),
+    USER_MEDIA_ACCOUNT_BOUND(3014, "该推广用户已绑定媒体账号，只能禁用"),
 
     // ========== 验证码错误 ==========
     VERIFICATION_CODE_ERROR(4001, "验证码错误"),
@@ -63,6 +64,16 @@ public enum ErrorCode {
     PROVIDER_CREDENTIAL_UNAVAILABLE(6004, "平台密钥不可用"),
     PROVIDER_REMOTE_UNAVAILABLE(6005, "短剧平台暂时不可用"),
     PROVIDER_REMOTE_REJECTED(6006, "短剧平台拒绝请求"),
+    PROVIDER_CAPABILITY_UNSUPPORTED(6007, "短剧平台不支持该能力"),
+
+    // ========== 推广媒体与报备错误 ==========
+    MEDIA_ACCOUNT_NOT_FOUND(7001, "媒体账号不存在"),
+    MEDIA_ACCOUNT_DUPLICATE(7002, "该媒体账号已被绑定"),
+    MEDIA_ACCOUNT_IDENTITY_LOCKED(7003, "已加白账号的平台和账号ID不能修改"),
+    MEDIA_ACCOUNT_DISABLED(7004, "媒体账号已停用"),
+    MEDIA_TYPE_UNSUPPORTED(7005, "当前平台不支持该媒体类型"),
+    MEDIA_FILING_NOT_FOUND(7006, "平台报备不存在"),
+    MEDIA_FILING_APPROVED(7007, "已加白报备不需要重试"),
 
     ;
 

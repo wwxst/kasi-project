@@ -78,6 +78,56 @@ class ProviderAdminControllerTest extends BaseAuthTest {
     }
 
     @Test
+    @DisplayName("瓒呯骇绠＄悊鍛樺彲淇敼鎶ョ櫧鏂瑰紡锛屾櫘閫氱鐞嗗憳鍙兘鏌ョ湅")
+    void filingModeIsRestrictedToSuperAdmin() throws Exception {
+        Long providerId = providerId();
+        String superToken = loginAsAdmin();
+        configure(providerId, superToken);
+
+        mockMvc.perform(put("/api/admin/drama/providers/{providerId}/filing-mode", providerId)
+                        .header("Authorization", "Bearer " + superToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"filingMode\":\"MANUAL\"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(0))
+                .andExpect(jsonPath("$.data.providerName").value("GoodShort"))
+                .andExpect(jsonPath("$.data.filingMode").value("MANUAL"));
+
+        String ordinaryToken = loginAsAdmin("operator", ADMIN_PASSWORD);
+        mockMvc.perform(get("/api/admin/drama/providers/{providerId}/filing-mode", providerId)
+                        .header("Authorization", "Bearer " + ordinaryToken))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.filingMode").value("MANUAL"));
+        mockMvc.perform(put("/api/admin/drama/providers/{providerId}/filing-mode", providerId)
+                        .header("Authorization", "Bearer " + ordinaryToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"filingMode\":\"API\"}"))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.code").value(1003));
+    }
+
+    @Test
+    @DisplayName("鎶ョ櫧鏂瑰紡涓嶅厑璁哥┖鍊兼垨闈炴硶鍊?")
+    void filingModeValidationReturnsValidationError() throws Exception {
+        Long providerId = providerId();
+        String token = loginAsAdmin();
+        configure(providerId, token);
+
+        mockMvc.perform(put("/api/admin/drama/providers/{providerId}/filing-mode", providerId)
+                        .header("Authorization", "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(1006));
+                mockMvc.perform(put("/api/admin/drama/providers/{providerId}/filing-mode", providerId)
+                        .header("Authorization", "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"filingMode\":\"UNKNOWN\"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(1006));
+    }
+
+    @Test
     @DisplayName("超级管理员可以配置接入账号且响应不泄露密钥")
     void superAdminCanUpsertWithoutSecretExposure() throws Exception {
         Long providerId = providerId();
@@ -89,6 +139,7 @@ class ProviderAdminControllerTest extends BaseAuthTest {
                         .content(validRequest()))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.code").value(0))
+                .andExpect(jsonPath("$.data.baseUrl").value("https://api.goodshort.test/creek"))
                 .andExpect(jsonPath("$.data.credentialConfigured").value(true))
                 .andExpect(jsonPath("$.data.apiKey").doesNotExist())
                 .andExpect(jsonPath("$.data.apiKeyCiphertext").doesNotExist())
@@ -132,16 +183,23 @@ class ProviderAdminControllerTest extends BaseAuthTest {
 
         assertValidationError(token, providerId, Map.of(
                 "connectionName", "GoodShort", "partnerId", "partner-1",
-                "apiKey", PLAINTEXT_KEY, "currency", "usd", "status", 1));
+                "baseUrl", "https://api.goodshort.test/creek", "apiKey", PLAINTEXT_KEY,
+                "currency", "usd", "status", 1));
+        assertValidationError(token, providerId, Map.of(
+                "partnerId", "partner-1", "baseUrl", "not-a-url",
+                "apiKey", PLAINTEXT_KEY, "status", 1));
         assertValidationError(token, providerId, Map.of(
                 "connectionName", "GoodShort", "partnerId", "partner-1",
-                "apiKey", PLAINTEXT_KEY, "currency", "USD", "status", 2));
+                "baseUrl", "https://api.goodshort.test/creek", "apiKey", PLAINTEXT_KEY,
+                "currency", "USD", "status", 2));
         assertValidationError(token, providerId, Map.of(
                 "connectionName", "GoodShort", "partnerId", " ",
-                "apiKey", PLAINTEXT_KEY, "currency", "USD", "status", 1));
+                "baseUrl", "https://api.goodshort.test/creek", "apiKey", PLAINTEXT_KEY,
+                "currency", "USD", "status", 1));
         assertValidationError(token, providerId, Map.of(
                 "connectionName", "x".repeat(65), "partnerId", "partner-1",
-                "apiKey", PLAINTEXT_KEY, "currency", "USD", "status", 1));
+                "baseUrl", "https://api.goodshort.test/creek", "apiKey", PLAINTEXT_KEY,
+                "currency", "USD", "status", 1));
     }
 
     private void assertValidationError(String token, Long providerId, Map<String, Object> request)
@@ -165,6 +223,7 @@ class ProviderAdminControllerTest extends BaseAuthTest {
     private String validRequest() {
         return """
                 {
+                  "baseUrl": "https://api.goodshort.test/creek",
                   "connectionName": "GoodShort默认账号",
                   "partnerId": "partner-1",
                   "apiKey": "goodshort-secret-key",

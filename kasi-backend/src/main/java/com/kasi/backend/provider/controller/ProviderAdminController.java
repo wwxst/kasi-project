@@ -2,10 +2,12 @@ package com.kasi.backend.provider.controller;
 
 import com.kasi.backend.common.response.ApiResponse;
 import com.kasi.backend.provider.dto.UpsertProviderConnectionDTO;
+import com.kasi.backend.provider.dto.UpdateProviderFilingModeDTO;
 import com.kasi.backend.provider.service.ProviderConnectionService;
 import com.kasi.backend.provider.vo.ProviderConnectionTestVO;
 import com.kasi.backend.provider.vo.ProviderConnectionVO;
 import com.kasi.backend.provider.vo.ProviderVO;
+import com.kasi.backend.provider.vo.ProviderFilingModeVO;
 import com.kasi.backend.security.context.AuthContextHolder;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -42,5 +44,18 @@ public class ProviderAdminController {
     @PostMapping("/{providerId}/connection/test")
     public ApiResponse<ProviderConnectionTestVO> testConnection(@PathVariable Long providerId) {
         return ApiResponse.success(providerConnectionService.testConnection(providerId));
+    }
+
+    @GetMapping("/{providerId}/filing-mode")
+    public ApiResponse<ProviderFilingModeVO> getFilingMode(@PathVariable Long providerId) {
+        return ApiResponse.success(providerConnectionService.getFilingMode(providerId));
+    }
+
+    @PutMapping("/{providerId}/filing-mode")
+    public ApiResponse<ProviderFilingModeVO> updateFilingMode(
+            @PathVariable Long providerId,
+            @Valid @RequestBody UpdateProviderFilingModeDTO request) {
+        return ApiResponse.success(providerConnectionService.updateFilingMode(
+                AuthContextHolder.getAdminId(), providerId, request));
     }
 }

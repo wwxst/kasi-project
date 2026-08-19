@@ -8,4 +8,5 @@ public class GoodShortResponse {
     private Integer status;
     private Boolean success;
     private String message;
+    private GoodShortFilingData data;
 }

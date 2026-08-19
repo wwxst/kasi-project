@@ -10,6 +10,7 @@ import com.kasi.backend.user.entity.PromotionUser;
 import com.kasi.backend.user.mapper.PromotionUserMapper;
 import com.kasi.backend.user.service.PromotionUserCreationService;
 import com.kasi.backend.user.service.UserManagementService;
+import com.kasi.backend.promotion.service.MediaAccountOwnershipService;
 import com.kasi.backend.user.vo.UserDetailVO;
 import com.kasi.backend.user.vo.UserListItemVO;
 import com.kasi.backend.user.vo.UserPageVO;
@@ -33,6 +34,7 @@ public class UserManagementServiceImpl implements UserManagementService {
     private final PasswordEncoder passwordEncoder;
     private final SessionService sessionService;
     private final PromotionUserCreationService promotionUserCreationService;
+    private final MediaAccountOwnershipService mediaAccountOwnershipService;
 
     @Override
     @Transactional(readOnly = true)
@@ -133,6 +135,9 @@ public class UserManagementServiceImpl implements UserManagementService {
     @Transactional
     public void delete(Long id) {
         requireUserForUpdate(id);
+        if (mediaAccountOwnershipService != null && mediaAccountOwnershipService.hasBoundAccount(id)) {
+            throw new BusinessException(ErrorCode.USER_MEDIA_ACCOUNT_BOUND);
+        }
         SessionMutation mutation = sessionService.beginMutation(SubjectType.USER, id);
         if (promotionUserMapper.deleteById(id) != 1) {
             throw new IllegalStateException("推广用户删除未生效");

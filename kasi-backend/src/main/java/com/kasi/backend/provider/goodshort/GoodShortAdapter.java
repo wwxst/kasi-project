@@ -2,14 +2,21 @@ package com.kasi.backend.provider.goodshort;
 
 import com.kasi.backend.common.exception.BusinessException;
 import com.kasi.backend.common.exception.ErrorCode;
+import com.kasi.backend.promotion.enums.FilingStatus;
+import com.kasi.backend.promotion.enums.MediaType;
 import com.kasi.backend.provider.enums.ProviderCapability;
+import com.kasi.backend.provider.exception.ProviderRemoteRejectedException;
+import com.kasi.backend.provider.exception.ProviderTransientException;
 import com.kasi.backend.provider.goodshort.dto.GoodShortConnectionProbeRequest;
+import com.kasi.backend.provider.goodshort.dto.GoodShortFilingData;
 import com.kasi.backend.provider.goodshort.dto.GoodShortResponse;
-import com.kasi.backend.provider.spi.ProviderAdapter;
+import com.kasi.backend.provider.spi.AccountFilingProviderAdapter;
+import com.kasi.backend.provider.spi.AccountFilingQuery;
+import com.kasi.backend.provider.spi.AccountFilingResult;
+import com.kasi.backend.provider.spi.AccountFilingSubmission;
 import com.kasi.backend.provider.spi.ProviderConnectionSecret;
 import com.kasi.backend.provider.vo.ProviderConnectionTestVO;
 import org.springframework.beans.factory.annotation.Qualifier;
-import org.springframework.http.MediaType;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.ResourceAccessException;
 import org.springframework.web.client.RestClient;
@@ -17,15 +24,20 @@ import org.springframework.web.client.RestClientResponseException;
 
 import java.time.Clock;
 import java.time.Instant;
+import java.time.LocalDateTime;
+import java.time.OffsetDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Set;
 
 @Component
-public class GoodShortAdapter implements ProviderAdapter {
+public class GoodShortAdapter implements AccountFilingProviderAdapter {
 
     private static final String PROVIDER_CODE = "GOODSHORT";
     private static final String CONNECTION_PROBE_PATH = "/open/book/initBooks";
+    private static final String FILING_REPORT_PATH = "/open/filing/report";
+    private static final String FILING_QUERY_PATH = "/open/filing/query";
     private static final Set<ProviderCapability> CAPABILITIES = Set.of(
             ProviderCapability.FULL_DRAMA_SYNC,
             ProviderCapability.INCREMENTAL_DRAMA_SYNC,
@@ -38,6 +50,8 @@ public class GoodShortAdapter implements ProviderAdapter {
             ProviderCapability.PROMOTION_CODE,
             ProviderCapability.ORDER_SYNC,
             ProviderCapability.ANALYTICS_SYNC);
+    private static final DateTimeFormatter REMOTE_DATE_FORMAT =
+            DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss.SSSZ");
 
     private final RestClient restClient;
     private final GoodShortSigner signer;
@@ -51,36 +65,28 @@ public class GoodShortAdapter implements ProviderAdapter {
     }
 
     @Override
-    public String providerCode() {
-        return PROVIDER_CODE;
-    }
+    public String providerCode() { return PROVIDER_CODE; }
 
     @Override
-    public Set<ProviderCapability> capabilities() {
-        return CAPABILITIES;
+    public Set<ProviderCapability> capabilities() { return CAPABILITIES; }
+
+    @Override
+    public Set<MediaType> supportedMediaTypes() {
+        return Set.of(MediaType.TIKTOK, MediaType.FACEBOOK, MediaType.YOUTUBE, MediaType.INSTAGRAM);
     }
 
     @Override
     public ProviderConnectionTestVO testConnection(ProviderConnectionSecret connection) {
         long timestamp = clock.millis();
         GoodShortConnectionProbeRequest request = GoodShortConnectionProbeRequest.builder()
-                .pageNo(1)
-                .pageSize(1)
-                .language("ENGLISH")
-                .pid(connection.getPartnerId())
-                .timestamp(timestamp)
-                .build();
+                .pageNo(1).pageSize(1).language("ENGLISH").pid(connection.getPartnerId())
+                .timestamp(timestamp).build();
         String signature = signer.sign(signatureParameters(request), connection.getApiKey());
-
         GoodShortResponse response;
         try {
-            response = restClient.post()
-                    .uri(CONNECTION_PROBE_PATH)
-                    .contentType(MediaType.APPLICATION_JSON)
-                    .header("sign", signature)
-                    .body(request)
-                    .retrieve()
-                    .body(GoodShortResponse.class);
+            response = restClient.mutate().baseUrl(connection.getBaseUrl()).build().post()
+                    .uri(CONNECTION_PROBE_PATH).contentType(org.springframework.http.MediaType.APPLICATION_JSON)
+                    .header("sign", signature).body(request).retrieve().body(GoodShortResponse.class);
         } catch (ResourceAccessException exception) {
             throw new BusinessException(ErrorCode.PROVIDER_REMOTE_UNAVAILABLE);
         } catch (RestClientResponseException exception) {
@@ -89,16 +95,71 @@ public class GoodShortAdapter implements ProviderAdapter {
             }
             throw new BusinessException(ErrorCode.PROVIDER_REMOTE_REJECTED);
         }
+        if (!successful(response)) throw new BusinessException(ErrorCode.PROVIDER_REMOTE_REJECTED);
+        return ProviderConnectionTestVO.builder().reachable(true).message(response.getMessage())
+                .testedAt(Instant.ofEpochMilli(timestamp)).build();
+    }
 
-        if (response == null || !Integer.valueOf(0).equals(response.getStatus())
-                || !Boolean.TRUE.equals(response.getSuccess())) {
-            throw new BusinessException(ErrorCode.PROVIDER_REMOTE_REJECTED);
+    @Override
+    public void submitAccountFiling(ProviderConnectionSecret connection, AccountFilingSubmission submission) {
+        Map<String, Object> parameters = filingParameters(connection, submission);
+        GoodShortResponse response = post(connection, FILING_REPORT_PATH, parameters);
+        if (!successful(response)) throw new ProviderRemoteRejectedException("GoodShort 报备请求被拒绝");
+    }
+
+    @Override
+    public AccountFilingResult queryAccountFiling(ProviderConnectionSecret connection, AccountFilingQuery query) {
+        long timestamp = clock.millis();
+        Map<String, Object> parameters = new LinkedHashMap<>();
+        parameters.put("pid", connection.getPartnerId());
+        parameters.put("timestamp", timestamp);
+        parameters.put("type", "ACCOUNT");
+        parameters.put("media", query.mediaType().name());
+        parameters.put("accountId", query.externalAccountId());
+        GoodShortResponse response = post(connection, FILING_QUERY_PATH, parameters);
+        if (!successful(response) || response.getData() == null) {
+            throw new ProviderRemoteRejectedException("GoodShort 报备查询被拒绝");
         }
-        return ProviderConnectionTestVO.builder()
-                .reachable(true)
-                .message(response.getMessage())
-                .testedAt(Instant.ofEpochMilli(timestamp))
-                .build();
+        GoodShortFilingData data = response.getData();
+        FilingStatus status = switch (data.getStatus() == null ? -1 : data.getStatus()) {
+            case 0 -> FilingStatus.PENDING;
+            case 1 -> FilingStatus.APPROVED;
+            case 2 -> FilingStatus.FAILED;
+            default -> throw new ProviderRemoteRejectedException("GoodShort 返回未知报备状态");
+        };
+        return new AccountFilingResult(status, String.valueOf(data.getStatus()),
+                firstNonBlank(data.getExternalFilingId(), data.getFilingId()),
+                parseRemoteTime(data.getFilingTime()), parseRemoteTime(data.getOperateTime()));
+    }
+
+    private Map<String, Object> filingParameters(ProviderConnectionSecret connection,
+                                                  AccountFilingSubmission submission) {
+        Map<String, Object> parameters = new LinkedHashMap<>();
+        parameters.put("pid", connection.getPartnerId());
+        parameters.put("timestamp", clock.millis());
+        parameters.put("type", "ACCOUNT");
+        parameters.put("media", submission.mediaType().name());
+        parameters.put("accountId", submission.externalAccountId());
+        putIfNotBlank(parameters, "accountName", submission.accountName());
+        putIfNotBlank(parameters, "accountLink", submission.accountLink());
+        return parameters;
+    }
+
+    private GoodShortResponse post(ProviderConnectionSecret connection, String path,
+                                   Map<String, Object> parameters) {
+        String signature = signer.sign(parameters, connection.getApiKey());
+        try {
+            return restClient.mutate().baseUrl(connection.getBaseUrl()).build().post().uri(path)
+                    .contentType(org.springframework.http.MediaType.APPLICATION_JSON).header("sign", signature)
+                    .body(parameters).retrieve().body(GoodShortResponse.class);
+        } catch (ResourceAccessException exception) {
+            throw new ProviderTransientException("GoodShort 网络暂时不可用");
+        } catch (RestClientResponseException exception) {
+            if (exception.getStatusCode().is5xxServerError() || exception.getStatusCode().value() == 429) {
+                throw new ProviderTransientException("GoodShort 服务暂时不可用");
+            }
+            throw new ProviderRemoteRejectedException("GoodShort 请求被拒绝");
+        }
     }
 
     private Map<String, Object> signatureParameters(GoodShortConnectionProbeRequest request) {
@@ -109,5 +170,23 @@ public class GoodShortAdapter implements ProviderAdapter {
         parameters.put("pid", request.getPid());
         parameters.put("timestamp", request.getTimestamp());
         return parameters;
+    }
+
+    private boolean successful(GoodShortResponse response) {
+        return response != null && Integer.valueOf(0).equals(response.getStatus())
+                && Boolean.TRUE.equals(response.getSuccess());
+    }
+
+    private void putIfNotBlank(Map<String, Object> values, String key, String value) {
+        if (value != null && !value.isBlank()) values.put(key, value);
+    }
+
+    private LocalDateTime parseRemoteTime(String value) {
+        if (value == null || value.isBlank()) return null;
+        return OffsetDateTime.parse(value, REMOTE_DATE_FORMAT).toLocalDateTime();
+    }
+
+    private String firstNonBlank(String first, String second) {
+        return first != null && !first.isBlank() ? first : second;
     }
 }
