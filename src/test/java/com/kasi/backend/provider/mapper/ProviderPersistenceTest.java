@@ -103,6 +103,7 @@ class ProviderPersistenceTest extends BaseAuthTest {
         ShortDramaConnection connection = new ShortDramaConnection();
         connection.setProviderId(providerId);
         connection.setConnectionName("GoodShort接入账号");
+        connection.setBaseUrl("https://api.goodshort.test/creek");
         connection.setPartnerId("partner-1");
         connection.setApiKeyCiphertext(ciphertext);
         connection.setCurrency("USD");

@@ -1,0 +1,101 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.kasi.backend.promotion.mapper.ProviderMediaFilingMapper">
+    <resultMap id="BaseResultMap" type="com.kasi.backend.promotion.entity.ProviderMediaFiling">
+        <id column="id" property="id"/>
+        <result column="connection_id" property="connectionId"/>
+        <result column="media_account_id" property="mediaAccountId"/>
+        <result column="status" property="status"/>
+        <result column="submitted_data_version" property="submittedDataVersion"/>
+        <result column="task_data_version" property="taskDataVersion"/>
+        <result column="remote_status" property="remoteStatus"/>
+        <result column="external_filing_id" property="externalFilingId"/>
+        <result column="filing_time" property="filingTime"/>
+        <result column="operate_time" property="operateTime"/>
+        <result column="next_action" property="nextAction"/>
+        <result column="next_action_at" property="nextActionAt"/>
+        <result column="retry_count" property="retryCount"/>
+        <result column="last_submitted_at" property="lastSubmittedAt"/>
+        <result column="last_queried_at" property="lastQueriedAt"/>
+        <result column="last_error_code" property="lastErrorCode"/>
+        <result column="last_error_message" property="lastErrorMessage"/>
+        <result column="lease_owner" property="leaseOwner"/>
+        <result column="lease_until" property="leaseUntil"/>
+        <result column="created_at" property="createdAt"/>
+        <result column="updated_at" property="updatedAt"/>
+    </resultMap>
+
+    <select id="findById" resultMap="BaseResultMap">SELECT * FROM provider_media_filing WHERE id = #{id}</select>
+    <select id="findByConnectionAndMedia" resultMap="BaseResultMap">
+        SELECT * FROM provider_media_filing WHERE connection_id = #{connectionId} AND media_account_id = #{mediaAccountId}
+    </select>
+    <select id="findByMediaAccountId" resultMap="BaseResultMap">
+        SELECT * FROM provider_media_filing WHERE media_account_id = #{mediaAccountId} ORDER BY id ASC
+    </select>
+    <select id="findByMediaAccountIds" resultMap="BaseResultMap">
+        SELECT * FROM provider_media_filing
+        WHERE media_account_id IN
+        <foreach collection="mediaAccountIds" item="id" open="(" separator="," close=")">#{id}</foreach>
+        ORDER BY id ASC
+    </select>
+    <insert id="insert" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO provider_media_filing
+            (connection_id, media_account_id, status, submitted_data_version, task_data_version,
+             next_action, next_action_at)
+        VALUES (#{connectionId}, #{mediaAccountId}, #{status}, #{submittedDataVersion}, #{taskDataVersion},
+                #{nextAction}, #{nextActionAt})
+    </insert>
+    <update id="enqueue">
+        UPDATE provider_media_filing
+        SET status = #{status}, next_action = #{action}, task_data_version = #{taskDataVersion},
+            next_action_at = #{nextActionAt}, lease_owner = NULL, lease_until = NULL,
+            retry_count = 0, last_error_code = NULL, last_error_message = NULL,
+            updated_at = CURRENT_TIMESTAMP
+        WHERE id = #{id} AND task_data_version = #{taskDataVersion}
+    </update>
+    <update id="reschedule">
+        UPDATE provider_media_filing
+        SET status = #{status}, next_action = #{action}, task_data_version = #{taskDataVersion},
+            next_action_at = #{nextActionAt}, lease_owner = NULL, lease_until = NULL,
+            retry_count = 0, last_error_code = NULL, last_error_message = NULL,
+            updated_at = CURRENT_TIMESTAMP
+        WHERE id = #{id} AND task_data_version = #{expectedVersion}
+    </update>
+    <select id="findDueIds" resultType="long">
+        SELECT id FROM provider_media_filing
+        WHERE next_action &lt;&gt; 'NONE' AND next_action_at &lt;= #{now}
+          AND (lease_until IS NULL OR lease_until &lt;= #{now})
+        ORDER BY next_action_at ASC, id ASC LIMIT #{limit}
+    </select>
+    <update id="claimLease">
+        UPDATE provider_media_filing
+        SET lease_owner = #{owner}, lease_until = #{leaseUntil}, updated_at = CURRENT_TIMESTAMP
+        WHERE id = #{id} AND next_action &lt;&gt; 'NONE'
+          AND (lease_until IS NULL OR lease_until &lt;= #{now})
+    </update>
+    <update id="completeSubmit">
+        UPDATE provider_media_filing
+        SET submitted_data_version = #{taskDataVersion}, last_submitted_at = #{submittedAt},
+            next_action = 'QUERY', next_action_at = #{nextQueryAt}, retry_count = 0,
+            last_error_code = NULL, last_error_message = NULL, lease_owner = NULL, lease_until = NULL,
+            updated_at = CURRENT_TIMESTAMP
+        WHERE id = #{id} AND lease_owner = #{owner} AND task_data_version = #{taskDataVersion}
+    </update>
+    <update id="completeQuery">
+        UPDATE provider_media_filing
+        SET status = #{status}, remote_status = #{remoteStatus}, external_filing_id = #{externalFilingId},
+            filing_time = #{filingTime}, operate_time = #{operateTime}, last_queried_at = #{queriedAt},
+            next_action = #{nextAction}, next_action_at = #{nextActionAt}, retry_count = 0,
+            last_error_code = NULL, last_error_message = NULL, lease_owner = NULL, lease_until = NULL,
+            updated_at = CURRENT_TIMESTAMP
+        WHERE id = #{id} AND lease_owner = #{owner} AND task_data_version = #{taskDataVersion}
+    </update>
+    <update id="recordRetry">
+        UPDATE provider_media_filing
+        SET status = #{status}, next_action = #{nextAction}, next_action_at = #{nextActionAt},
+            retry_count = #{retryCount}, last_error_code = #{errorCode},
+            last_error_message = #{errorMessage}, lease_owner = NULL, lease_until = NULL,
+            updated_at = CURRENT_TIMESTAMP
+        WHERE id = #{id} AND lease_owner = #{owner} AND task_data_version = #{taskDataVersion}
+    </update>
+</mapper>

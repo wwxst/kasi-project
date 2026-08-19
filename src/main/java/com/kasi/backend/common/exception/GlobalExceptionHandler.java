@@ -8,6 +8,7 @@ import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.core.AuthenticationException;
 import org.springframework.validation.FieldError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
+import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 
@@ -39,6 +40,13 @@ public class GlobalExceptionHandler {
                 .collect(Collectors.joining("; "));
         log.warn("参数校验失败: {}", message);
         return ResponseEntity.ok(ApiResponse.error(ErrorCode.VALIDATION_ERROR.getCode(), message));
+    }
+
+    @ExceptionHandler(HttpMessageNotReadableException.class)
+    public ResponseEntity<ApiResponse<Void>> handleUnreadableMessage(HttpMessageNotReadableException e) {
+        log.warn("请求体格式错误: {}", e.getMessage());
+        return ResponseEntity.ok(ApiResponse.error(ErrorCode.VALIDATION_ERROR.getCode(),
+                ErrorCode.VALIDATION_ERROR.getMessage()));
     }
 
     /**

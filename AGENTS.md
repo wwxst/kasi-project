@@ -16,19 +16,21 @@
   - `admin/` — 管理员认证、本人资料与密码维护，以及超级管理员管理普通管理员账号
   - `user/` — 推广用户注册、登录、获取当前用户、退出登录、修改密码、忘记密码流程，以及管理员可用的推广用户管理 CRUD
   - `provider/` — 短剧平台定义、接入账号持久层、AES-GCM 密钥加密、GoodShort 签名/连接探测，以及管理员平台接入管理 API
+  - `promotion/` — 推广用户媒体账号绑定、GoodShort 账号报备、审核状态任务和管理员查询/重试 API
   - `auth/` — 可复用的验证码服务和密码重置 Token 机制（Redis 存储，Lua 原子消费/预占，TTL 自动过期）
-- 数据库迁移：`db/migration/V1__kasi_promotion.sql` 定义账号表并植入唯一初始超级管理员，`V2__media_account_filing.sql` 定义短剧平台、平台接入账号、推广用户媒体账号和平台报备表；V2 仅植入 `GOODSHORT` 平台定义，不植入接入密钥。验证码和密码重置 Token 等临时数据由 Redis（`vc:*`、`pwd:*` 键）管理，TTL 自动过期。
+- 数据库迁移：`db/migration/V1__kasi_promotion.sql` 定义账号表并植入唯一初始超级管理员，`V2__media_account_filing.sql` 定义短剧平台、平台接入账号、推广用户媒体账号和平台报备表，`V3__provider_connection_base_url.sql` 为平台接入配置增加可管理的接口 URL，`V4__media_filing_task_version.sql` 为报备任务增加资料版本隔离；V2 仅植入 `GOODSHORT` 平台定义，不植入接入密钥。验证码和密码重置 Token 等临时数据由 Redis（`vc:*`、`pwd:*` 键）管理，TTL 自动过期。
 - 项目当前仍处于开发阶段，数据库可以删除重建；修改已执行的迁移后应重建开发数据库。未来生产首次建库也按 Flyway 版本顺序执行并植入初始账号，不新增运行时账号植入器。
 - 会话状态由 Redis（`auth:version:{type}:{userId}`、`auth:session:{jti}`）管理。JWT 携带 `jti`、`sessionVersion`，受保护请求必须同时校验签名、账号状态和 Redis 会话；Redis 不可用时安全失败返回 503，不能降级放行。
 - 修改密码、密码重置等敏感 MySQL 状态变更会先将账号版本切换为 `MUTATING:{nonce}`，数据库成功后再恢复新的 `ACTIVE:*` 版本，使旧 Token 失效。普通 logout 只撤销当前 `jti` 会话。
 - 管理员本人通过 `PUT /api/admin/auth/password` 修改密码时只提交新密码和确认密码，不要求原密码；成功后当前账号的旧 Token 全部失效。推广用户本人改密仍要求原密码。
 - 当前采用简单的 `is_super_admin` 权限控制，不是 RBAC。数据库只允许一个业务上的超级管理员；`ROLE_SUPER_ADMIN` 由数据库当前记录派生，不信任 JWT 声明。
 - 超级管理员可分页查询、新增、编辑、启禁用、重置密码和物理删除普通管理员；普通管理员不能被提升为超级管理员，管理接口不能操作唯一超级管理员。
-- 普通管理员和超级管理员均可查询 `/api/admin/drama/providers`；只有超级管理员可写入平台接入账号或执行连接探测。平台管理响应不得暴露明文密钥、密文或掩码片段。
+- 普通管理员和超级管理员均可查询 `/api/admin/drama/providers`；只有超级管理员可写入平台 URL、PID、KEY、启用状态或执行连接探测。平台 KEY 只保存 AES-GCM 密文，管理响应不得暴露明文密钥、密文或掩码片段。
 - 管理员只使用必填 `real_name`，不使用 `nickname`。`sys_admin_user` 不保留 `deleted_at`；管理员删除只执行物理 `DELETE`，删除后账号、手机号和邮箱可以复用。
 - 推广用户不使用独立 `username`，只用手机号或邮箱登录；`user_no` 是后端生成的 12 位随机数字展示编号，内部关联继续使用自增 `id`。普通用户登录和本人信息 JSON 不返回内部 `id`，JWT `sub` 仍按现有认证契约保存内部 `id`。超级管理员和普通管理员均可通过 `/api/user/management/**` 分页、搜索、新增、编辑、启禁用、重置密码和物理删除推广用户。
-- 推广用户联系方式、状态、密码和删除等敏感管理操作先进入 Redis `MUTATING` 状态；Redis 失败时不得写 MySQL。当前删除服务仍是物理删除；V2 外键已经阻止存在媒体账号的推广用户被数据库删除，稳定业务错误和“只能禁用”接口规则待媒体账号服务实现。
+- 推广用户联系方式、状态、密码和删除等敏感管理操作先进入 Redis `MUTATING` 状态；Redis 失败时不得写 MySQL。绑定媒体账号的推广用户删除会返回 `USER_MEDIA_ACCOUNT_BOUND(3014)`，只能禁用；未绑定媒体账号的用户仍可物理删除。
 - `sys_admin_user` 和 `promotion_user` 均不保留 `deleted_at`；媒体账号表同样不保留 `deleted_at`，媒体账号不提供物理删除。
+- 媒体账号用户 API 位于 `/api/user/promotion/media-accounts`，管理员 API 位于 `/api/admin/promotion/media-accounts`；管理员支持分页查询、详情、编辑和失败报备重试，未加白时允许纠正媒体平台和账号 ID，已加白后锁定身份字段。响应不暴露平台连接 ID、PID、密钥或任务租约字段。报备任务默认每 30 秒领取到期任务，提交后 1 分钟首次查询，审核中每 5 分钟查询，已加白每 24 小时复核。
 - Git 仓库：`https://github.com/wwxst/kasi-backend.git`，远程 `origin`，分支 `master`。
 - 在文档和代码审查中，请将当前架构与规划架构区分开来。不要将规划中的模块描述为已实现的模块。
 

@@ -36,7 +36,7 @@ class GoodShortAdapterTest {
     private static final long TIMESTAMP = 1681810530092L;
     private static final String API_KEY = "aaabbbccc";
     private static final ProviderConnectionSecret CONNECTION =
-            new ProviderConnectionSecret("partner-1", API_KEY, "USD");
+            new ProviderConnectionSecret("https://goodshort.test", "partner-1", API_KEY, "USD");
 
     private MockRestServiceServer server;
     private GoodShortAdapter adapter;

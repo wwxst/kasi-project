@@ -71,6 +71,7 @@ src/
       db/migration/
         V1__kasi_promotion.sql              # 基础账号表和默认超级管理员
         V2__media_account_filing.sql       # 平台接入、媒体账号和通用报备表
+        V4__media_filing_task_version.sql  # 报备任务资料版本隔离
       mapper/                               # 2个 MyBatis XML 映射文件
   test/
     java/com/kasi/backend/
@@ -127,7 +128,7 @@ $env:Path = "$env:JAVA_HOME\bin;$env:Path"
 | 密码重置 Token | 过期 600 秒 |
 | 验证码发送器 | `local` profile 使用 Console sender；`test` profile 使用测试 sender；生产环境需提供真实实现 |
 | 平台密钥主密钥 | 必须通过 `PROVIDER_CREDENTIAL_MASTER_KEY` 注入 Base64 编码的 32 字节密钥；不得提交到仓库或写入日志 |
-| GoodShort 探测 | `app.providers.goodshort.base-url`、连接超时 3 秒、读取超时 10 秒；平台密钥从数据库密文解密后仅在适配器调用链内使用 |
+| GoodShort 探测 | 接口 URL 从平台接入配置读取，连接超时 3 秒、读取超时 10 秒；平台密钥从数据库密文解密后仅在适配器调用链内使用 |
 
 应用要连接 MySQL，至少需要提供：
 
@@ -143,7 +144,7 @@ $env:SPRING_DATASOURCE_PASSWORD = '<database-password>'
 .\mvnw.cmd spring-boot:run
 ```
 
-首次启动时 Flyway 会按版本扫描 `db/migration/`，执行 V1 和 V2，创建账号、平台接入、媒体账号和通用报备表，并由 V1 植入唯一的初始超级管理员：
+首次启动时 Flyway 会按版本扫描 `db/migration/`，执行 V1、V2 和 V3，创建账号、平台接入、媒体账号和通用报备表，并由 V1 植入唯一的初始超级管理员：
 
 - 账号：`kasiadmin`
 - 初始密码：`kasi123456`
@@ -154,16 +155,16 @@ $env:SPRING_DATASOURCE_PASSWORD = '<database-password>'
 
 ## 5. 数据库现状
 
-### 已实现的表结构（V1、V2）
+### 已实现的表结构（V1、V2、V3、V4）
 
-迁移脚本 V1、V2 定义当前数据库持久表，验证码和密码重置 Token 等临时数据由 Redis 管理：
+迁移脚本 V1、V2、V3、V4 定义当前数据库持久表，验证码和密码重置 Token 等临时数据由 Redis 管理：
 
 | 存储 | 表/Key | 说明 | 核心字段 |
 |------|--------|------|----------|
 | MySQL | `sys_admin_user` | 后台管理员用户 | username, password(BCrypt), real_name, mobile, email, status, is_super_admin |
 | MySQL | `promotion_user` | 推广用户 | user_no(12位随机数字字符串), password(BCrypt), nickname, mobile, email, status, register_source |
 | MySQL | `short_drama_provider` | 短剧平台定义 | provider_code, provider_name, status |
-| MySQL | `short_drama_connection` | 平台机构接入账号（仅保存密钥密文） | provider_id, partner_id, api_key_ciphertext, currency, status |
+| MySQL | `short_drama_connection` | 平台机构接入账号（仅保存密钥密文） | provider_id, base_url, partner_id, api_key_ciphertext, status |
 | MySQL | `promotion_media_account` | 推广用户绑定的媒体账号（不可物理删除） | user_id, media_type, external_account_id, account_name, account_link, status, data_version |
 | MySQL | `provider_media_filing` | 媒体账号按平台保存的报备状态和任务信息 | connection_id, media_account_id, status, next_action, retry_count |
 | Redis | `vc:*` | 验证码（临时） | 5分钟过期，60秒重发间隔，每日上限10次 |
@@ -171,11 +172,11 @@ $env:SPRING_DATASOURCE_PASSWORD = '<database-password>'
 | Redis | `auth:version:*` | 账号会话版本（含 `ACTIVE:*` 或 `MUTATING:*`） | TTL 不超过 JWT 有效期加宽限期 |
 | Redis | `auth:session:*` | 单个 JWT 会话（按 `jti`） | TTL 与 JWT 有效期一致，退出时删除 |
 
-`V1__kasi_promotion.sql` 在建表后直接插入 `kasiadmin`，并固定写入 `status=1`、`is_super_admin=1`。该初始化同时用于开发环境重建和未来生产环境首次建库，不会在应用每次启动时重复执行。V2 只植入启用的 `GOODSHORT` 平台定义，不植入任何平台接入密钥。
+`V1__kasi_promotion.sql` 在建表后直接插入 `kasiadmin`，并固定写入 `status=1`、`is_super_admin=1`。该初始化同时用于开发环境重建和未来生产环境首次建库，不会在应用每次启动时重复执行。V2 只植入启用的 `GOODSHORT` 平台定义，不植入任何平台接入密钥；V3 为平台接入配置增加可由后台维护的 `base_url`。
 
-当前已完成平台定义与接入账号持久层、AES-GCM 密钥加密、不暴露密钥的管理服务和管理员 API，以及 GoodShort 签名和连接探测适配器。媒体账号绑定 API、GoodShort 报备提交/查询任务、报备状态接口和推广用户删除时的稳定业务错误仍属于后续实现，不应视为已完成的业务模块。
+当前已完成平台定义与接入账号持久层、AES-GCM 密钥加密、不暴露密钥的管理服务和管理员 API，以及 GoodShort 签名和连接探测适配器。媒体账号绑定与通用报备模块也已完成后端闭环：推广用户可绑定多个媒体账号，同一媒体平台账号全局唯一；系统通过 GoodShort `/open/filing/report` 和 `/open/filing/query` 完成报备提交与审核查询，持久任务支持租约、资料版本隔离、临时失败重试和三态（审核中、已加白、已失败）；用户和管理员查询/重试接口已接入，绑定媒体账号的推广用户只能禁用不能物理删除。
 
-短剧目录与同步、媒体账号绑定与报备、推广链接、订单、佣金计算、导出和转化分析均仍是规划能力，本模块没有实现这些业务。
+当前仍未实现短剧目录与同步、推广链接、订单、佣金计算、导出和转化分析；管理后台的媒体账号报备查询、详情、编辑和失败重试接口已接入，推广用户端页面仍待接入。
 
 > **说明**：`sys_sequence` 表已移除，`user_no` 由后端在插入前随机生成；`promotion_user.id` 继续作为自增内部主键。`auth_verification_code` 和 `auth_password_reset_token` 表已移除，改用 Redis 存储（更高效、自动过期）。
 
@@ -259,12 +260,12 @@ $env:SPRING_DATASOURCE_PASSWORD = '<database-password>'
 
 ### 6.6 短剧平台接入管理 API
 
-平台配置查询允许普通管理员和超级管理员访问；写入平台凭据与连接探测只允许超级管理员。所有响应只返回 `credentialConfigured`，不会返回明文密钥、密文或掩码片段。
+平台配置查询允许普通管理员和超级管理员访问；写入平台 URL、PID、KEY 与连接探测只允许超级管理员。KEY 更新时可省略以保留现有密文；所有响应只返回 `credentialConfigured`，不会返回明文密钥、密文或掩码片段。
 
 | 方法 | 路径 | 权限 | 说明 |
 |------|------|------|------|
 | GET | `/api/admin/drama/providers` | ADMIN | 查询平台、能力声明和接入账号非敏感资料 |
-| PUT | `/api/admin/drama/providers/{providerId}/connection` | SUPER_ADMIN | 新增或更新平台接入账号；更新时可省略密钥以保留原密文 |
+| PUT | `/api/admin/drama/providers/{providerId}/connection` | SUPER_ADMIN | 新增或更新平台 URL、PID、KEY 和启用状态；更新时可省略 KEY 以保留原密文 |
 | POST | `/api/admin/drama/providers/{providerId}/connection/test` | SUPER_ADMIN | 解密现有凭据并执行 GoodShort 最小连接探测，不保存返回短剧 |
 
 ### 6.7 统一响应格式

@@ -117,6 +117,23 @@ class UserManagementMutationTest extends BaseAuthTest {
     }
 
     @Test
+    @DisplayName("已绑定媒体账号的推广用户只能禁用不能物理删除")
+    void deleteRejectsUserWithMediaAccount() throws Exception {
+        Long id = jdbcTemplate.queryForObject(
+                "SELECT id FROM promotion_user WHERE user_no = ?", Long.class, PRIMARY_USER_NO);
+        jdbcTemplate.update("INSERT INTO promotion_media_account "
+                        + "(user_id, media_type, external_account_id, status, data_version) VALUES (?, 'TIKTOK', 'creator-bound', 1, 1)",
+                id);
+        String adminToken = loginAsAdmin();
+        mockMvc.perform(MockMvcRequestBuilders.delete("/api/user/management/{id}", id)
+                        .header("Authorization", "Bearer " + adminToken))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(3014));
+        assertThat(jdbcTemplate.queryForObject(
+                "SELECT COUNT(*) FROM promotion_user WHERE id = ?", Integer.class, id)).isOne();
+    }
+
+    @Test
     @DisplayName("新增用户拒绝重复手机号和不一致密码")
     void createRejectsDuplicateMobileAndPasswordMismatch() throws Exception {
         String token = loginAsAdmin();

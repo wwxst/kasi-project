@@ -13,6 +13,10 @@ import lombok.ToString;
 public class UpsertProviderConnectionDTO {
 
     @NotBlank
+    @Size(max = 512)
+    @Pattern(regexp = "^https?://[^\\s]+$", message = "接口域名必须是有效的 HTTP 或 HTTPS 地址")
+    private String baseUrl;
+
     @Size(max = 64)
     private String connectionName;
 
@@ -24,7 +28,6 @@ public class UpsertProviderConnectionDTO {
     @ToString.Exclude
     private String apiKey;
 
-    @NotBlank
     @Pattern(regexp = "^[A-Z]{3}$")
     private String currency;
 

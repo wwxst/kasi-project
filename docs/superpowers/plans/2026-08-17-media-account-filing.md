@@ -10,6 +10,8 @@
 
 ---
 
+> **Implementation status (2026-08-18):** 后端媒体账号绑定与 GoodShort 通用报备已实现并通过完整测试（201 tests, 0 failures, 0 errors）。由于 `V3__provider_connection_base_url.sql` 已被平台 URL 配置占用，任务资料版本实际使用 `V4__media_filing_task_version.sql`。管理前端尚未开始，用户验收后再进入前端工作。
+
 ## 执行前置
 
 执行本计划前，必须先完成并验收 [GoodShort 平台接入计划](2026-08-17-goodshort-provider-connection.md) 中除已被 V2 取代的建表步骤之外的任务，仓库至少应已经存在并通过测试：

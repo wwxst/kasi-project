@@ -94,6 +94,7 @@ class ProviderConnectionServiceTest {
         verify(connectionMapper).insert(captor.capture());
         ShortDramaConnection inserted = captor.getValue();
         assertThat(inserted.getConnectionName()).isEqualTo("GoodShort账号");
+        assertThat(inserted.getBaseUrl()).isEqualTo("https://api.goodshort.test/creek");
         assertThat(inserted.getPartnerId()).isEqualTo("partner-1");
         assertThat(inserted.getCurrency()).isEqualTo("USD");
         assertThat(inserted.getStatus()).isZero();
@@ -180,6 +181,7 @@ class ProviderConnectionServiceTest {
         ArgumentCaptor<ProviderConnectionSecret> secretCaptor =
                 ArgumentCaptor.forClass(ProviderConnectionSecret.class);
         verify(adapter).testConnection(secretCaptor.capture());
+        assertThat(secretCaptor.getValue().getBaseUrl()).isEqualTo("https://api.goodshort.test/creek");
         assertThat(secretCaptor.getValue().getPartnerId()).isEqualTo("partner-1");
         assertThat(secretCaptor.getValue().getApiKey()).isEqualTo("plain-secret");
         assertThat(secretCaptor.getValue().getCurrency()).isEqualTo("USD");
@@ -268,6 +270,7 @@ class ProviderConnectionServiceTest {
         connection.setId(2L);
         connection.setProviderId(1L);
         connection.setConnectionName("GoodShort账号");
+        connection.setBaseUrl("https://api.goodshort.test/creek");
         connection.setPartnerId("partner-1");
         connection.setApiKeyCiphertext(ciphertext);
         connection.setCurrency("USD");
@@ -279,6 +282,7 @@ class ProviderConnectionServiceTest {
 
     private UpsertProviderConnectionDTO request(String apiKey, Integer status) {
         UpsertProviderConnectionDTO request = new UpsertProviderConnectionDTO();
+        request.setBaseUrl("https://api.goodshort.test/creek");
         request.setConnectionName("  GoodShort账号  ");
         request.setPartnerId("  partner-1  ");
         request.setApiKey(apiKey);

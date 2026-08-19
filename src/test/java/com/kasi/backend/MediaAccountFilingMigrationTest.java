@@ -16,8 +16,8 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 class MediaAccountFilingMigrationTest {
 
     @Test
-    @DisplayName("V2创建平台接入、媒体账号和报备表并保护用户归属")
-    void migrateV2CreatesMediaAccountFilingSchema() {
+    @DisplayName("V2和V3创建平台接入、媒体账号、报备表及接口域名")
+    void migrateCreatesMediaAccountFilingSchemaAndBaseUrl() {
         JdbcTemplate jdbc = migrateAllMigrations();
 
         assertThat(tableExists(jdbc, "SHORT_DRAMA_PROVIDER")).isTrue();
@@ -40,6 +40,9 @@ class MediaAccountFilingMigrationTest {
                 providerId, "GoodShort默认接入", "partner-1", "ciphertext", "USD");
         Long connectionId = jdbc.queryForObject(
                 "SELECT id FROM short_drama_connection WHERE provider_id = ?", Long.class, providerId);
+        assertThat(jdbc.queryForObject(
+                "SELECT base_url FROM short_drama_connection WHERE id = ?", String.class, connectionId))
+                .isEqualTo("https://api.novelopen.com/creek");
         jdbc.update("INSERT INTO promotion_media_account "
                 + "(user_id, media_type, external_account_id) VALUES (?, 'TIKTOK', 'creator-1')", userId);
         Long mediaId = jdbc.queryForObject("SELECT id FROM promotion_media_account", Long.class);
@@ -52,6 +55,9 @@ class MediaAccountFilingMigrationTest {
         assertThat(jdbc.queryForObject(
                 "SELECT status FROM provider_media_filing WHERE media_account_id = ?", String.class, mediaId))
                 .isEqualTo("PENDING");
+        assertThat(jdbc.queryForObject(
+                "SELECT task_data_version FROM provider_media_filing WHERE media_account_id = ?", Integer.class, mediaId))
+                .isEqualTo(1);
 
         assertThatThrownBy(() -> jdbc.update("INSERT INTO promotion_media_account "
                 + "(user_id, media_type, external_account_id) VALUES (?, 'TIKTOK', 'creator-1')", userId))

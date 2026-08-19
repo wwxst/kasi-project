@@ -1,6 +1,5 @@
 package com.kasi.backend.provider.goodshort;
 
-import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import lombok.Data;
 import org.springframework.boot.context.properties.ConfigurationProperties;
@@ -12,9 +11,6 @@ import java.time.Duration;
 @Validated
 @ConfigurationProperties(prefix = "app.providers.goodshort")
 public class GoodShortProperties {
-
-    @NotBlank
-    private String baseUrl;
 
     @NotNull
     private Duration connectTimeout;
