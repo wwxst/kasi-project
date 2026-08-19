@@ -18,6 +18,8 @@ import com.kasi.backend.provider.vo.ProviderConnectionTestVO;
 import com.kasi.backend.provider.vo.ProviderConnectionVO;
 import com.kasi.backend.provider.vo.ProviderVO;
 import com.kasi.backend.provider.vo.ProviderFilingModeVO;
+import com.kasi.backend.promotion.mapper.ProviderMediaFilingMapper;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -32,15 +34,26 @@ public class ProviderConnectionServiceImpl implements ProviderConnectionService 
     private final ShortDramaConnectionMapper connectionMapper;
     private final ProviderCredentialCipher credentialCipher;
     private final List<ProviderAdapter> providerAdapters;
+    private final ProviderMediaFilingMapper filingMapper;
 
     public ProviderConnectionServiceImpl(ShortDramaProviderMapper providerMapper,
                                          ShortDramaConnectionMapper connectionMapper,
                                          ProviderCredentialCipher credentialCipher,
                                          List<ProviderAdapter> providerAdapters) {
+        this(providerMapper, connectionMapper, credentialCipher, providerAdapters, null);
+    }
+
+    @Autowired
+    public ProviderConnectionServiceImpl(ShortDramaProviderMapper providerMapper,
+                                         ShortDramaConnectionMapper connectionMapper,
+                                         ProviderCredentialCipher credentialCipher,
+                                         List<ProviderAdapter> providerAdapters,
+                                         ProviderMediaFilingMapper filingMapper) {
         this.providerMapper = providerMapper;
         this.connectionMapper = connectionMapper;
         this.credentialCipher = credentialCipher;
         this.providerAdapters = List.copyOf(providerAdapters);
+        this.filingMapper = filingMapper;
     }
 
     @Override
@@ -147,12 +160,16 @@ public class ProviderConnectionServiceImpl implements ProviderConnectionService 
         if (targetMode == null) {
             throw new BusinessException(ErrorCode.VALIDATION_ERROR);
         }
+        FilingMode currentMode = connection.getFilingMode() == null ? FilingMode.API : connection.getFilingMode();
         int affected = connectionMapper.updateFilingMode(connection.getId(), targetMode, operatorId);
         if (affected != 1) {
             throw new IllegalStateException("平台报白方式保存失败");
         }
         connection.setFilingMode(targetMode);
         connection.setUpdatedBy(operatorId);
+        if (currentMode != FilingMode.MANUAL && targetMode == FilingMode.MANUAL && filingMapper != null) {
+            filingMapper.stopPendingTasksByConnectionId(connection.getId());
+        }
         return toFilingModeVO(provider, connection);
     }
 

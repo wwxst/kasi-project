@@ -12,6 +12,7 @@ import com.kasi.backend.promotion.mapper.PromotionMediaAccountMapper;
 import com.kasi.backend.promotion.mapper.ProviderMediaFilingMapper;
 import com.kasi.backend.provider.entity.ShortDramaConnection;
 import com.kasi.backend.provider.entity.ShortDramaProvider;
+import com.kasi.backend.provider.enums.FilingMode;
 import com.kasi.backend.provider.service.ProviderRuntimeConnectionService;
 import com.kasi.backend.provider.spi.AccountFilingProviderAdapter;
 import com.kasi.backend.provider.spi.ProviderRuntimeConnection;
@@ -35,6 +36,8 @@ class MediaAccountServiceTest {
     private ProviderMediaFilingMapper filingMapper;
     private ProviderRuntimeConnectionService runtimeService;
     private AccountFilingProviderAdapter adapter;
+    private com.kasi.backend.provider.mapper.ShortDramaConnectionMapper connectionMapper;
+    private com.kasi.backend.provider.mapper.ShortDramaProviderMapper providerMapper;
     private MediaAccountService service;
 
     @BeforeEach
@@ -43,9 +46,11 @@ class MediaAccountServiceTest {
         filingMapper = mock(ProviderMediaFilingMapper.class);
         runtimeService = mock(ProviderRuntimeConnectionService.class);
         adapter = mock(AccountFilingProviderAdapter.class);
+        connectionMapper = mock(com.kasi.backend.provider.mapper.ShortDramaConnectionMapper.class);
+        providerMapper = mock(com.kasi.backend.provider.mapper.ShortDramaProviderMapper.class);
         when(adapter.supportedMediaTypes()).thenReturn(Set.of(MediaType.TIKTOK));
         service = new com.kasi.backend.promotion.service.impl.MediaAccountServiceImpl(
-                mediaMapper, filingMapper, runtimeService);
+                mediaMapper, filingMapper, runtimeService, connectionMapper, providerMapper);
     }
 
     @Test
@@ -79,6 +84,32 @@ class MediaAccountServiceTest {
         assertThat(result.getExternalAccountId()).isEqualTo("creator-1");
         verify(filingMapper).insert(argThat(f -> f.getConnectionId().equals(21L)
                 && f.getStatus() == FilingStatus.PENDING));
+    }
+
+    @Test
+    @DisplayName("人工报白创建账号时不排入API任务")
+    void manualModeCreatesNoApiTask() {
+        when(runtimeService.resolve(10L, com.kasi.backend.provider.enums.ProviderCapability.ACCOUNT_FILING))
+                .thenReturn(runtime(adapter, 21L));
+        ShortDramaConnection connection = new ShortDramaConnection();
+        connection.setId(21L);
+        connection.setProviderId(10L);
+        connection.setFilingMode(FilingMode.MANUAL);
+        when(connectionMapper.findById(21L)).thenReturn(connection);
+        when(mediaMapper.findByIdentity(MediaType.TIKTOK, "creator-manual")).thenReturn(null);
+        when(mediaMapper.insert(any())).thenAnswer(invocation -> { ((PromotionMediaAccount) invocation.getArgument(0)).setId(31L); return 1; });
+        when(filingMapper.insert(any())).thenAnswer(invocation -> { ((ProviderMediaFiling) invocation.getArgument(0)).setId(41L); return 1; });
+        when(mediaMapper.findOwnedById(31L, 1L)).thenReturn(account(31L, 1L, MediaType.TIKTOK, "creator-manual", 1));
+        when(filingMapper.findByMediaAccountId(31L)).thenReturn(List.of(filing(41L, 21L, 31L, FilingStatus.PENDING, 1)));
+
+        CreateMediaAccountDTO request = new CreateMediaAccountDTO();
+        request.setMediaType(MediaType.TIKTOK);
+        request.setExternalAccountId("creator-manual");
+        request.setProviderId(10L);
+
+        service.create(1L, request);
+
+        verify(filingMapper).insert(argThat(f -> f.getNextAction() == com.kasi.backend.promotion.enums.FilingAction.NONE));
     }
 
     @Test

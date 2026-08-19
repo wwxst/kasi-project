@@ -12,6 +12,7 @@
         <result column="external_filing_id" property="externalFilingId"/>
         <result column="filing_time" property="filingTime"/>
         <result column="operate_time" property="operateTime"/>
+        <result column="operate_by" property="operateBy"/>
         <result column="next_action" property="nextAction"/>
         <result column="next_action_at" property="nextActionAt"/>
         <result column="retry_count" property="retryCount"/>
@@ -97,5 +98,22 @@
             last_error_message = #{errorMessage}, lease_owner = NULL, lease_until = NULL,
             updated_at = CURRENT_TIMESTAMP
         WHERE id = #{id} AND lease_owner = #{owner} AND task_data_version = #{taskDataVersion}
+    </update>
+    <update id="updateManualStatus">
+        UPDATE provider_media_filing
+        SET status = #{status}, next_action = 'NONE', next_action_at = NULL,
+            operate_by = #{operateBy}, operate_time = #{operateTime},
+            lease_owner = NULL, lease_until = NULL,
+            updated_at = CURRENT_TIMESTAMP
+        WHERE id = #{id} AND status = 'PENDING'
+    </update>
+    <update id="stopPendingTasksByConnectionId">
+        UPDATE provider_media_filing
+        SET next_action = 'NONE', next_action_at = NULL,
+            lease_owner = NULL, lease_until = NULL,
+            updated_at = CURRENT_TIMESTAMP
+        WHERE connection_id = #{connectionId}
+          AND status = 'PENDING'
+          AND next_action &lt;&gt; 'NONE'
     </update>
 </mapper>

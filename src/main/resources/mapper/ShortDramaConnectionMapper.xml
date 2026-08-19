@@ -17,7 +17,8 @@
             (provider_id, connection_name, base_url, partner_id, api_key_ciphertext, currency, filing_mode, status,
              created_by, updated_by)
         VALUES
-            (#{providerId}, #{connectionName}, #{baseUrl}, #{partnerId}, #{apiKeyCiphertext}, #{currency}, #{filingMode}, #{status},
+            (#{providerId}, #{connectionName}, #{baseUrl}, #{partnerId}, #{apiKeyCiphertext}, #{currency},
+             COALESCE(#{filingMode}, 'API'), #{status},
              #{createdBy}, #{updatedBy})
     </insert>
 
@@ -30,7 +31,7 @@
                 api_key_ciphertext = #{apiKeyCiphertext},
             </if>
             currency = #{currency},
-            filing_mode = #{filingMode},
+            filing_mode = COALESCE(#{filingMode}, 'API'),
             status = #{status},
             updated_by = #{updatedBy},
             updated_at = CURRENT_TIMESTAMP
