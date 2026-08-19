@@ -25,6 +25,12 @@ class MediaAccountFilingMigrationTest {
         assertThat(tableExists(jdbc, "PROMOTION_MEDIA_ACCOUNT")).isTrue();
         assertThat(tableExists(jdbc, "PROVIDER_MEDIA_FILING")).isTrue();
         assertThat(jdbc.queryForObject(
+                "SELECT COUNT(*) FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME = 'SHORT_DRAMA_CONNECTION' AND COLUMN_NAME = 'FILING_MODE'",
+                Integer.class)).isEqualTo(1);
+        assertThat(jdbc.queryForObject(
+                "SELECT COUNT(*) FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME = 'PROVIDER_MEDIA_FILING' AND COLUMN_NAME = 'OPERATE_BY'",
+                Integer.class)).isEqualTo(1);
+        assertThat(jdbc.queryForObject(
                 "SELECT COUNT(*) FROM short_drama_provider WHERE provider_code = 'GOODSHORT'", Long.class))
                 .isEqualTo(1L);
 
@@ -40,6 +46,9 @@ class MediaAccountFilingMigrationTest {
                 providerId, "GoodShort默认接入", "partner-1", "ciphertext", "USD");
         Long connectionId = jdbc.queryForObject(
                 "SELECT id FROM short_drama_connection WHERE provider_id = ?", Long.class, providerId);
+        assertThat(jdbc.queryForObject(
+                "SELECT filing_mode FROM short_drama_connection WHERE id = ?", String.class, connectionId))
+                .isEqualTo("API");
         assertThat(jdbc.queryForObject(
                 "SELECT base_url FROM short_drama_connection WHERE id = ?", String.class, connectionId))
                 .isEqualTo("https://api.novelopen.com/creek");

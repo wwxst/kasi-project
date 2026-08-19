@@ -74,6 +74,8 @@ public enum ErrorCode {
     MEDIA_TYPE_UNSUPPORTED(7005, "当前平台不支持该媒体类型"),
     MEDIA_FILING_NOT_FOUND(7006, "平台报备不存在"),
     MEDIA_FILING_APPROVED(7007, "已加白报备不需要重试"),
+    MEDIA_FILING_STATUS_INVALID(7008, "报备状态只能更新为已加白或已失败"),
+    MEDIA_FILING_MANUAL_ONLY(7009, "人工报备无需执行API任务"),
 
     ;
 

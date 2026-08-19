@@ -3,10 +3,12 @@ package com.kasi.backend.promotion.controller;
 import com.kasi.backend.common.response.ApiResponse;
 import com.kasi.backend.promotion.dto.AdminMediaAccountPageQueryDTO;
 import com.kasi.backend.promotion.dto.AdminUpdateMediaAccountDTO;
+import com.kasi.backend.promotion.dto.UpdateMediaFilingStatusDTO;
 import com.kasi.backend.promotion.service.MediaAccountAdminService;
 import com.kasi.backend.promotion.vo.AdminMediaAccountDetailVO;
 import com.kasi.backend.promotion.vo.AdminMediaAccountPageVO;
 import com.kasi.backend.promotion.vo.MediaFilingVO;
+import com.kasi.backend.security.context.AuthContextHolder;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.*;
@@ -36,5 +38,13 @@ public class AdminMediaAccountController {
     @PostMapping("/{id}/filings/{providerId}/retry")
     public ApiResponse<MediaFilingVO> retry(@PathVariable Long id, @PathVariable Long providerId) {
         return ApiResponse.success(mediaAccountAdminService.retry(id, providerId));
+    }
+
+    @PatchMapping("/{id}/filings/{providerId}/status")
+    public ApiResponse<MediaFilingVO> updateFilingStatus(@PathVariable Long id,
+                                                          @PathVariable Long providerId,
+                                                          @Valid @RequestBody UpdateMediaFilingStatusDTO request) {
+        return ApiResponse.success(mediaAccountAdminService.updateFilingStatus(
+                AuthContextHolder.getAdminId(), id, providerId, request));
     }
 }

@@ -6,6 +6,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.http.MediaType;
 
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -91,6 +92,51 @@ class AdminMediaAccountControllerTest extends BaseAuthTest {
                         .header("Authorization", "Bearer " + loginAsUser())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(body))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
+    @DisplayName("管理员可以更新待处理报备的人工状态且重复更新失败")
+    void adminCanUpdateManualFilingStatus() throws Exception {
+        long providerId = jdbcTemplate.queryForObject(
+                "SELECT id FROM short_drama_provider WHERE provider_code = 'GOODSHORT'", Long.class);
+        jdbcTemplate.update("INSERT INTO short_drama_connection "
+                        + "(provider_id, connection_name, base_url, partner_id, api_key_ciphertext, currency, status) "
+                        + "VALUES (?, 'GoodShort', 'https://goodshort.test', 'pid', 'cipher', 'USD', 1)", providerId);
+        long connectionId = jdbcTemplate.queryForObject(
+                "SELECT id FROM short_drama_connection WHERE provider_id = ?", Long.class, providerId);
+        jdbcTemplate.update("INSERT INTO promotion_media_account "
+                        + "(user_id, media_type, external_account_id, status, data_version) "
+                        + "VALUES ((SELECT id FROM promotion_user WHERE user_no = ?), 'TIKTOK', 'manual-status', 1, 1)",
+                PRIMARY_USER_NO);
+        long mediaAccountId = jdbcTemplate.queryForObject(
+                "SELECT id FROM promotion_media_account WHERE external_account_id = 'manual-status'", Long.class);
+        jdbcTemplate.update("INSERT INTO provider_media_filing "
+                        + "(connection_id, media_account_id, status, task_data_version, next_action, next_action_at) "
+                        + "VALUES (?, ?, 'PENDING', 1, 'NONE', NULL)", connectionId, mediaAccountId);
+
+        String token = loginAsAdmin("operator", ADMIN_PASSWORD);
+        mockMvc.perform(patch("/api/admin/promotion/media-accounts/{id}/filings/{providerId}/status",
+                        mediaAccountId, providerId)
+                        .header("Authorization", "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"status\":\"APPROVED\"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.status").value("APPROVED"));
+
+        mockMvc.perform(patch("/api/admin/promotion/media-accounts/{id}/filings/{providerId}/status",
+                        mediaAccountId, providerId)
+                        .header("Authorization", "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"status\":\"FAILED\"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(7008));
+
+        mockMvc.perform(patch("/api/admin/promotion/media-accounts/{id}/filings/{providerId}/status",
+                        mediaAccountId, providerId)
+                        .header("Authorization", "Bearer " + loginAsUser())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"status\":\"FAILED\"}"))
                 .andExpect(status().isForbidden());
     }
 }

@@ -17,6 +17,7 @@ import com.kasi.backend.promotion.service.MediaAccountService;
 import com.kasi.backend.provider.entity.ShortDramaConnection;
 import com.kasi.backend.provider.entity.ShortDramaProvider;
 import com.kasi.backend.provider.enums.ProviderCapability;
+import com.kasi.backend.provider.enums.FilingMode;
 import com.kasi.backend.provider.mapper.ShortDramaConnectionMapper;
 import com.kasi.backend.provider.mapper.ShortDramaProviderMapper;
 import com.kasi.backend.provider.spi.AccountFilingProviderAdapter;
@@ -94,8 +95,13 @@ public class MediaAccountServiceImpl implements MediaAccountService {
             filing.setMediaAccountId(account.getId());
             filing.setStatus(FilingStatus.PENDING);
             filing.setTaskDataVersion(1);
-            filing.setNextAction(FilingAction.SUBMIT);
-            filing.setNextActionAt(LocalDateTime.now());
+            if (filingMode(runtime.connectionId()) == FilingMode.MANUAL) {
+                filing.setNextAction(FilingAction.NONE);
+                filing.setNextActionAt(null);
+            } else {
+                filing.setNextAction(FilingAction.SUBMIT);
+                filing.setNextActionAt(LocalDateTime.now());
+            }
             filingMapper.insert(filing);
         } catch (DuplicateKeyException exception) {
             throw new BusinessException(ErrorCode.MEDIA_ACCOUNT_DUPLICATE);
@@ -142,8 +148,12 @@ public class MediaAccountServiceImpl implements MediaAccountService {
         PromotionMediaAccount account = requireOwnedForUpdate(id, userId);
         if (!Integer.valueOf(1).equals(account.getStatus())) throw new BusinessException(ErrorCode.MEDIA_ACCOUNT_DISABLED);
         ProviderRuntimeConnection runtime = resolve(providerId, account.getMediaType());
+        FilingMode mode = filingMode(runtime.connectionId());
         ProviderMediaFiling filing = filingMapper.findByConnectionAndMedia(runtime.connectionId(), id);
         if (filing == null) {
+            if (mode == FilingMode.MANUAL) {
+                throw new BusinessException(ErrorCode.MEDIA_FILING_MANUAL_ONLY);
+            }
             filing = new ProviderMediaFiling();
             filing.setConnectionId(runtime.connectionId());
             filing.setMediaAccountId(id);
@@ -154,6 +164,8 @@ public class MediaAccountServiceImpl implements MediaAccountService {
             filingMapper.insert(filing);
         } else if (filing.getStatus() == FilingStatus.APPROVED) {
             throw new BusinessException(ErrorCode.MEDIA_FILING_APPROVED);
+        } else if (mode == FilingMode.MANUAL) {
+            throw new BusinessException(ErrorCode.MEDIA_FILING_MANUAL_ONLY);
         } else if (filing.getStatus() == FilingStatus.FAILED) {
             filingMapper.reschedule(filing.getId(), FilingStatus.PENDING, FilingAction.SUBMIT,
                     filing.getTaskDataVersion(), account.getDataVersion(), LocalDateTime.now());
@@ -209,8 +221,11 @@ public class MediaAccountServiceImpl implements MediaAccountService {
         for (ProviderMediaFiling filing : filings) {
             FilingStatus nextStatus = filing.getStatus() == FilingStatus.APPROVED && !identityChanged
                     ? FilingStatus.APPROVED : FilingStatus.PENDING;
-            filingMapper.reschedule(filing.getId(), nextStatus, FilingAction.SUBMIT,
-                    filing.getTaskDataVersion(), account.getDataVersion(), LocalDateTime.now());
+            boolean manual = filingMode(filing.getConnectionId()) == FilingMode.MANUAL;
+            filingMapper.reschedule(filing.getId(), nextStatus,
+                    manual ? FilingAction.NONE : FilingAction.SUBMIT,
+                    filing.getTaskDataVersion(), account.getDataVersion(),
+                    manual ? null : LocalDateTime.now());
         }
     }
 
@@ -262,7 +277,8 @@ public class MediaAccountServiceImpl implements MediaAccountService {
         return com.kasi.backend.promotion.vo.MediaFilingVO.builder().providerId(providerId).providerName(providerName)
                 .status(filing.getStatus()).remoteStatus(filing.getRemoteStatus())
                 .externalFilingId(filing.getExternalFilingId()).filingTime(filing.getFilingTime())
-                .operateTime(filing.getOperateTime()).lastSubmittedAt(filing.getLastSubmittedAt())
+                .operateTime(filing.getOperateTime()).operateBy(filing.getOperateBy())
+                .lastSubmittedAt(filing.getLastSubmittedAt())
                 .lastQueriedAt(filing.getLastQueriedAt()).nextActionAt(filing.getNextActionAt())
                 .lastErrorCode(filing.getLastErrorCode())
                 .lastErrorMessage(filing.getLastErrorMessage()).build();
@@ -270,4 +286,11 @@ public class MediaAccountServiceImpl implements MediaAccountService {
 
     private String requiredTrim(String value) { return value == null ? null : value.trim(); }
     private String trimToNull(String value) { return value == null || value.trim().isEmpty() ? null : value.trim(); }
+
+    private FilingMode filingMode(Long connectionId) {
+        if (connectionMapper == null) return FilingMode.API;
+        ShortDramaConnection connection = connectionMapper.findById(connectionId);
+        return connection == null || connection.getFilingMode() == null
+                ? FilingMode.API : connection.getFilingMode();
+    }
 }

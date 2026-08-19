@@ -4,8 +4,10 @@ import com.kasi.backend.common.exception.BusinessException;
 import com.kasi.backend.common.exception.ErrorCode;
 import com.kasi.backend.promotion.dto.AdminMediaAccountPageQueryDTO;
 import com.kasi.backend.promotion.dto.AdminUpdateMediaAccountDTO;
+import com.kasi.backend.promotion.dto.UpdateMediaFilingStatusDTO;
 import com.kasi.backend.promotion.entity.PromotionMediaAccount;
 import com.kasi.backend.promotion.entity.ProviderMediaFiling;
+import com.kasi.backend.promotion.enums.FilingStatus;
 import com.kasi.backend.promotion.mapper.PromotionMediaAccountMapper;
 import com.kasi.backend.promotion.mapper.ProviderMediaFilingMapper;
 import com.kasi.backend.promotion.service.MediaAccountAdminService;
@@ -69,6 +71,29 @@ public class MediaAccountAdminServiceImpl implements MediaAccountAdminService {
         PromotionMediaAccount account = mediaMapper.findById(id);
         if (account == null) throw new BusinessException(ErrorCode.MEDIA_ACCOUNT_NOT_FOUND);
         return mediaAccountService.submitOrRetry(account.getUserId(), id, providerId);
+    }
+
+    @Override
+    @Transactional
+    public MediaFilingVO updateFilingStatus(Long operatorId, Long mediaAccountId, Long providerId,
+                                             UpdateMediaFilingStatusDTO request) {
+        PromotionMediaAccount account = mediaMapper.findById(mediaAccountId);
+        if (account == null) throw new BusinessException(ErrorCode.MEDIA_ACCOUNT_NOT_FOUND);
+        if (request.getStatus() != FilingStatus.APPROVED && request.getStatus() != FilingStatus.FAILED) {
+            throw new BusinessException(ErrorCode.MEDIA_FILING_STATUS_INVALID);
+        }
+        ShortDramaConnection connection = connectionMapper.findByProviderId(providerId);
+        if (connection == null) throw new BusinessException(ErrorCode.PROVIDER_CONNECTION_NOT_FOUND);
+        ProviderMediaFiling filing = filingMapper.findByConnectionAndMedia(connection.getId(), mediaAccountId);
+        if (filing == null) throw new BusinessException(ErrorCode.MEDIA_FILING_NOT_FOUND);
+        int affected = filingMapper.updateManualStatus(filing.getId(), request.getStatus(), operatorId,
+                java.time.LocalDateTime.now());
+        if (affected != 1) throw new BusinessException(ErrorCode.MEDIA_FILING_STATUS_INVALID);
+
+        return mediaAccountService.getMineById(account.getUserId(), mediaAccountId).getFilings().stream()
+                .filter(item -> providerId.equals(item.getProviderId()))
+                .findFirst()
+                .orElseThrow(() -> new BusinessException(ErrorCode.MEDIA_FILING_NOT_FOUND));
     }
 
     private AdminMediaAccountListItemVO toListItem(PromotionMediaAccount account) {

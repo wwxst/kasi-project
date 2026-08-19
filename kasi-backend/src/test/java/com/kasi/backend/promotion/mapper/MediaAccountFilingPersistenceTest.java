@@ -94,6 +94,25 @@ class MediaAccountFilingPersistenceTest extends BaseAuthTest {
                 now.plusMinutes(1))).isEqualTo(1);
     }
 
+    @Test
+    @DisplayName("人工报白可以原子更新为最终状态并记录管理员")
+    void manualFilingStatusRecordsOperator() {
+        PromotionMediaAccount account = mediaAccount(userId(PRIMARY_USER_NO), MediaType.TIKTOK, "creator-manual");
+        mediaAccountMapper.insert(account);
+        Long connectionId = insertConnection();
+        ProviderMediaFiling filing = pendingFiling(connectionId, account.getId(), 1);
+        filingMapper.insert(filing);
+
+        assertThat(filingMapper.updateManualStatus(filing.getId(), FilingStatus.APPROVED, 99L,
+                LocalDateTime.now())).isEqualTo(1);
+        ProviderMediaFiling stored = filingMapper.findById(filing.getId());
+        assertThat(stored.getStatus()).isEqualTo(FilingStatus.APPROVED);
+        assertThat(stored.getOperateBy()).isEqualTo(99L);
+        assertThat(stored.getNextAction()).isEqualTo(FilingAction.NONE);
+        assertThat(filingMapper.updateManualStatus(filing.getId(), FilingStatus.FAILED, 100L,
+                LocalDateTime.now())).isZero();
+    }
+
     private Long insertConnection() {
         Long providerId = jdbcTemplate.queryForObject(
                 "SELECT id FROM short_drama_provider WHERE provider_code = 'GOODSHORT'", Long.class);
