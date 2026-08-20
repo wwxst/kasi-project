@@ -146,7 +146,7 @@ CREATE TABLE IF NOT EXISTS provider_drama (
 CREATE TABLE IF NOT EXISTS provider_drama_content (
     id BIGINT AUTO_INCREMENT PRIMARY KEY,
     drama_id BIGINT NOT NULL,
-    external_content_id VARCHAR(128) NOT NULL,
+    external_content_id VARCHAR(128),
     sequence_no INT NOT NULL,
     title VARCHAR(255),
     is_free TINYINT NOT NULL DEFAULT 0,
@@ -155,7 +155,6 @@ CREATE TABLE IF NOT EXISTS provider_drama_content (
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     UNIQUE (drama_id, sequence_no),
-    UNIQUE (drama_id, external_content_id),
     CONSTRAINT fk_test_drama_content_drama FOREIGN KEY (drama_id) REFERENCES provider_drama (id) ON DELETE CASCADE
 );
 
@@ -167,13 +166,17 @@ CREATE TABLE IF NOT EXISTS provider_sync_checkpoint (
     status VARCHAR(16) NOT NULL DEFAULT 'IDLE',
     page_no INT NOT NULL DEFAULT 1,
     page_size INT NOT NULL DEFAULT 100,
-    update_time TIMESTAMP,
+    update_time BIGINT,
     last_success_at TIMESTAMP,
     requested_at TIMESTAMP,
     started_at TIMESTAMP,
     finished_at TIMESTAMP,
     total_fetched INT NOT NULL DEFAULT 0,
     total_upserted INT NOT NULL DEFAULT 0,
+    inserted_count INT NOT NULL DEFAULT 0,
+    updated_count INT NOT NULL DEFAULT 0,
+    skipped_count INT NOT NULL DEFAULT 0,
+    error_count INT NOT NULL DEFAULT 0,
     last_error_code VARCHAR(64),
     last_error_message VARCHAR(512),
     lease_owner VARCHAR(64),

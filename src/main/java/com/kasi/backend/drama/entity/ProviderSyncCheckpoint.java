@@ -14,13 +14,17 @@ public class ProviderSyncCheckpoint {
     private DramaSyncStatus status;
     private Integer pageNo;
     private Integer pageSize;
-    private LocalDateTime updateTime;
+    private Long updateTime;
     private LocalDateTime lastSuccessAt;
     private LocalDateTime requestedAt;
     private LocalDateTime startedAt;
     private LocalDateTime finishedAt;
     private Integer totalFetched;
     private Integer totalUpserted;
+    private Integer insertedCount;
+    private Integer updatedCount;
+    private Integer skippedCount;
+    private Integer errorCount;
     private String lastErrorCode;
     private String lastErrorMessage;
     private String leaseOwner;
