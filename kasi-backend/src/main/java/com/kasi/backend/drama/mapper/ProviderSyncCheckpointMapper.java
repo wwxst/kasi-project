@@ -13,6 +13,8 @@ public interface ProviderSyncCheckpointMapper {
     ProviderSyncCheckpoint find(@Param("connectionId") Long connectionId, @Param("syncType") DramaSyncType syncType, @Param("language") String language);
     ProviderSyncCheckpoint findById(@Param("id") Long id);
     List<ProviderSyncCheckpoint> findByConnectionId(@Param("connectionId") Long connectionId);
+    List<ProviderSyncCheckpoint> findActive(@Param("connectionId") Long connectionId,
+                                            @Param("language") String language);
     int insert(ProviderSyncCheckpoint checkpoint);
     int requestRun(@Param("id") Long id, @Param("requestedAt") LocalDateTime requestedAt,
                    @Param("restart") boolean restart);

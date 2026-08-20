@@ -1,6 +1,7 @@
 package com.kasi.backend.drama.service.impl;
 
 import com.kasi.backend.common.exception.BusinessException;
+import com.kasi.backend.common.exception.ErrorCode;
 import com.kasi.backend.drama.config.DramaSyncProperties;
 import com.kasi.backend.drama.entity.ProviderDrama;
 import com.kasi.backend.drama.entity.ProviderDramaContent;
@@ -75,15 +76,22 @@ public class DramaCatalogSyncServiceImpl implements DramaCatalogSyncService {
         if (!usable(runtime) || !(runtime.adapter() instanceof DramaCatalogProviderAdapter)) {
             return List.of();
         }
+        connectionMapper.lockById(runtime.connectionId());
         List<DramaSyncTaskVO> tasks = new ArrayList<>();
         LocalDateTime now = LocalDateTime.now(clock);
         for (String language : normalizeLanguages(languages)) {
+            List<ProviderSyncCheckpoint> active = checkpointMapper.findActive(runtime.connectionId(), language);
+            if (active != null && !active.isEmpty()) {
+                throw new BusinessException(ErrorCode.DRAMA_SYNC_TASK_RUNNING);
+            }
             DramaSyncType effectiveType = effectiveType(runtime.connectionId(), requestedType, language);
             ProviderSyncCheckpoint checkpoint = ensureCheckpoint(runtime.connectionId(), effectiveType, language);
             boolean restart = checkpoint.getStatus() != DramaSyncStatus.FAILED;
             if (checkpointMapper.requestRun(checkpoint.getId(), now, restart) == 1) {
                 ProviderSyncCheckpoint requested = checkpointMapper.findById(checkpoint.getId());
                 tasks.add(DramaSyncTaskVO.from(requested == null ? checkpoint : requested));
+            } else {
+                throw new BusinessException(ErrorCode.DRAMA_SYNC_TASK_RUNNING);
             }
         }
         return tasks;
@@ -105,13 +113,21 @@ public class DramaCatalogSyncServiceImpl implements DramaCatalogSyncService {
         List<ProviderSyncCheckpoint> due = checkpointMapper.findDue(now, properties.getBatchSize());
         if (due == null) return;
         for (ProviderSyncCheckpoint candidate : due) {
-            if (checkpointMapper.claimLease(candidate.getId(), workerId, now,
-                    now.plus(properties.getLeaseDuration())) != 1) {
+            if (!claim(candidate, now)) {
                 continue;
             }
             ProviderSyncCheckpoint checkpoint = checkpointMapper.findById(candidate.getId());
             if (checkpoint != null) processClaimed(checkpoint);
         }
+    }
+
+    private boolean claim(ProviderSyncCheckpoint candidate, LocalDateTime now) {
+        Boolean claimed = transactionTemplate.execute(status -> {
+            connectionMapper.lockById(candidate.getConnectionId());
+            return checkpointMapper.claimLease(candidate.getId(), workerId, now,
+                    now.plus(properties.getLeaseDuration())) == 1;
+        });
+        return Boolean.TRUE.equals(claimed);
     }
 
     private void processClaimed(ProviderSyncCheckpoint checkpoint) {
@@ -129,7 +145,7 @@ public class DramaCatalogSyncServiceImpl implements DramaCatalogSyncService {
             }
             ShortDramaConnection connection = connectionMapper.findById(checkpoint.getConnectionId());
             if (connection == null) {
-                markSkipped(checkpoint, now);
+                markConnectionNotReady(checkpoint, now);
                 return;
             }
             DramaSyncType effectiveType = effectiveType(checkpoint.getConnectionId(), checkpoint.getSyncType(),
@@ -138,11 +154,11 @@ public class DramaCatalogSyncServiceImpl implements DramaCatalogSyncService {
             try {
                 runtime = runtimeService.resolve(connection.getProviderId(), capability(effectiveType));
             } catch (BusinessException exception) {
-                markSkipped(checkpoint, now);
+                markConnectionNotReady(checkpoint, now);
                 return;
             }
             if (!usable(runtime) || !(runtime.adapter() instanceof DramaCatalogProviderAdapter adapter)) {
-                markSkipped(checkpoint, now);
+                markConnectionNotReady(checkpoint, now);
                 return;
             }
             fetchPages(checkpoint, effectiveType, runtime, adapter);
@@ -277,11 +293,9 @@ public class DramaCatalogSyncServiceImpl implements DramaCatalogSyncService {
                 && !blank(runtime.secret().getApiKey());
     }
 
-    private void markSkipped(ProviderSyncCheckpoint checkpoint, LocalDateTime now) {
-        if (checkpointMapper.markSuccess(checkpoint.getId(), workerId, now,
-                value(checkpoint.getPageNo(), 1), checkpoint.getUpdateTime()) != 1) {
-            throw new LeaseLostException();
-        }
+    private void markConnectionNotReady(ProviderSyncCheckpoint checkpoint, LocalDateTime now) {
+        markFailure(checkpoint, now, "CONNECTION_NOT_READY",
+                "Provider connection is not ready for catalog synchronization");
     }
 
     private void markFailure(ProviderSyncCheckpoint checkpoint, LocalDateTime now,

@@ -136,6 +136,23 @@ class DramaCatalogPersistenceTest extends BaseAuthTest {
         assertThat(resumed.getTotalFetched()).isEqualTo(5);
     }
 
+    @Test
+    @DisplayName("同一连接和语言的全量与增量任务不能同时领取租约")
+    void crossTypeTasksAreMutuallyExclusive() {
+        Long connectionId = insertConnection();
+        ProviderSyncCheckpoint full = checkpoint(connectionId, DramaSyncType.FULL);
+        ProviderSyncCheckpoint incremental = checkpoint(connectionId, DramaSyncType.INCREMENTAL);
+        checkpointMapper.insert(full);
+        checkpointMapper.insert(incremental);
+        LocalDateTime now = LocalDateTime.now();
+        checkpointMapper.requestRun(full.getId(), now, true);
+        checkpointMapper.requestRun(incremental.getId(), now, true);
+
+        assertThat(checkpointMapper.claimLease(full.getId(), "worker-full", now, now.plusMinutes(2))).isEqualTo(1);
+        assertThat(checkpointMapper.claimLease(incremental.getId(), "worker-incremental", now,
+                now.plusMinutes(2))).isZero();
+    }
+
     private Long insertConnection() {
         Long providerId = jdbcTemplate.queryForObject("SELECT id FROM short_drama_provider WHERE provider_code='GOODSHORT'", Long.class);
         jdbcTemplate.update("INSERT INTO short_drama_connection (provider_id,connection_name,currency) VALUES (?, 'GoodShort', 'USD')", providerId);
@@ -147,5 +164,13 @@ class DramaCatalogPersistenceTest extends BaseAuthTest {
         drama.setTitle("Original title"); drama.setOriginalTitle("Original title"); drama.setLanguage("ENGLISH");
         drama.setDramaType("SERIES"); drama.setRemoteShowStatus("ONLINE"); drama.setLastSeenAt(LocalDateTime.now());
         return drama;
+    }
+
+    private ProviderSyncCheckpoint checkpoint(Long connectionId, DramaSyncType type) {
+        ProviderSyncCheckpoint checkpoint = new ProviderSyncCheckpoint();
+        checkpoint.setConnectionId(connectionId); checkpoint.setSyncType(type);
+        checkpoint.setLanguage("ENGLISH"); checkpoint.setStatus(DramaSyncStatus.IDLE);
+        checkpoint.setPageNo(1); checkpoint.setPageSize(100);
+        return checkpoint;
     }
 }
