@@ -62,11 +62,11 @@ class DramaCatalogPersistenceTest extends BaseAuthTest {
         checkpoint.setPageNo(1); checkpoint.setPageSize(100);
         assertThat(checkpointMapper.insert(checkpoint)).isEqualTo(1);
         LocalDateTime now = LocalDateTime.now();
-        assertThat(checkpointMapper.requestRun(checkpoint.getId(), now)).isEqualTo(1);
+        assertThat(checkpointMapper.requestRun(checkpoint.getId(), now, true)).isEqualTo(1);
         assertThat(checkpointMapper.claimLease(checkpoint.getId(), "worker-a", now, now.plusMinutes(2))).isEqualTo(1);
         assertThat(checkpointMapper.claimLease(checkpoint.getId(), "worker-b", now, now.plusMinutes(2))).isZero();
-        assertThat(checkpointMapper.updateProgress(checkpoint.getId(), 2, 1700000000123L, 10, 9, 4, 5, 1, 0)).isEqualTo(1);
-        assertThat(checkpointMapper.markSuccess(checkpoint.getId(), now, 2, 1700000000123L)).isEqualTo(1);
+        assertThat(checkpointMapper.updateProgress(checkpoint.getId(), "worker-a", 2, 1700000000123L, 10, 9, 4, 5, 1, 0)).isEqualTo(1);
+        assertThat(checkpointMapper.markSuccess(checkpoint.getId(), "worker-a", now, 2, 1700000000123L)).isEqualTo(1);
         ProviderSyncCheckpoint stored = checkpointMapper.findById(checkpoint.getId());
         assertThat(stored.getUpdateTime()).isEqualTo(1700000000123L);
         assertThat(stored.getStatus()).isEqualTo(DramaSyncStatus.SUCCESS);
@@ -76,6 +76,64 @@ class DramaCatalogPersistenceTest extends BaseAuthTest {
         assertThat(stored.getUpdatedCount()).isEqualTo(5);
         assertThat(stored.getSkippedCount()).isEqualTo(1);
         assertThat(stored.getErrorCount()).isZero();
+    }
+
+    @Test
+    @DisplayName("过期运行中租约可接管且旧持有者不能写回")
+    void expiredRunningLeaseCanBeTakenOver() {
+        Long connectionId = insertConnection();
+        ProviderSyncCheckpoint checkpoint = new ProviderSyncCheckpoint();
+        checkpoint.setConnectionId(connectionId); checkpoint.setSyncType(DramaSyncType.FULL);
+        checkpoint.setLanguage("ENGLISH"); checkpoint.setStatus(DramaSyncStatus.IDLE);
+        checkpoint.setPageNo(1); checkpoint.setPageSize(100);
+        checkpointMapper.insert(checkpoint);
+        LocalDateTime now = LocalDateTime.now();
+        checkpointMapper.requestRun(checkpoint.getId(), now.minusMinutes(3), true);
+        checkpointMapper.claimLease(checkpoint.getId(), "worker-old", now.minusMinutes(3), now.minusMinutes(1));
+
+        assertThat(checkpointMapper.findDue(now, 10)).extracting(ProviderSyncCheckpoint::getId)
+                .contains(checkpoint.getId());
+        assertThat(checkpointMapper.claimLease(checkpoint.getId(), "worker-new", now, now.plusMinutes(2))).isEqualTo(1);
+        assertThat(checkpointMapper.updateProgress(checkpoint.getId(), "worker-old", 2, null,
+                1, 1, 1, 0, 0, 0)).isZero();
+        assertThat(checkpointMapper.markFailure(checkpoint.getId(), "worker-old", now,
+                "STALE", "stale worker")).isZero();
+        assertThat(checkpointMapper.updateProgress(checkpoint.getId(), "worker-new", 2, null,
+                1, 1, 1, 0, 0, 0)).isEqualTo(1);
+        assertThat(checkpointMapper.markSuccess(checkpoint.getId(), "worker-new", now, 2, null)).isEqualTo(1);
+    }
+
+    @Test
+    @DisplayName("成功任务重跑重置进度而失败任务重试保留断点")
+    void requestRunResetsSuccessAndResumesFailure() {
+        Long connectionId = insertConnection();
+        ProviderSyncCheckpoint checkpoint = new ProviderSyncCheckpoint();
+        checkpoint.setConnectionId(connectionId); checkpoint.setSyncType(DramaSyncType.FULL);
+        checkpoint.setLanguage("ENGLISH"); checkpoint.setStatus(DramaSyncStatus.IDLE);
+        checkpoint.setPageNo(1); checkpoint.setPageSize(100);
+        checkpointMapper.insert(checkpoint);
+        LocalDateTime now = LocalDateTime.now();
+        checkpointMapper.requestRun(checkpoint.getId(), now, true);
+        checkpointMapper.claimLease(checkpoint.getId(), "worker-a", now, now.plusMinutes(2));
+        checkpointMapper.updateProgress(checkpoint.getId(), "worker-a", 3, 1700000000123L,
+                20, 20, 10, 10, 0, 0);
+        checkpointMapper.markSuccess(checkpoint.getId(), "worker-a", now, 3, 1700000000123L);
+
+        assertThat(checkpointMapper.requestRun(checkpoint.getId(), now.plusMinutes(1), true)).isEqualTo(1);
+        ProviderSyncCheckpoint restarted = checkpointMapper.findById(checkpoint.getId());
+        assertThat(restarted.getPageNo()).isEqualTo(1);
+        assertThat(restarted.getUpdateTime()).isNull();
+        assertThat(restarted.getTotalFetched()).isZero();
+
+        checkpointMapper.claimLease(checkpoint.getId(), "worker-b", now.plusMinutes(1), now.plusMinutes(3));
+        checkpointMapper.updateProgress(checkpoint.getId(), "worker-b", 2, null,
+                5, 5, 5, 0, 0, 0);
+        checkpointMapper.markFailure(checkpoint.getId(), "worker-b", now.plusMinutes(1),
+                "REMOTE", "remote failed");
+        assertThat(checkpointMapper.requestRun(checkpoint.getId(), now.plusMinutes(2), false)).isEqualTo(1);
+        ProviderSyncCheckpoint resumed = checkpointMapper.findById(checkpoint.getId());
+        assertThat(resumed.getPageNo()).isEqualTo(2);
+        assertThat(resumed.getTotalFetched()).isEqualTo(5);
     }
 
     private Long insertConnection() {
