@@ -65,6 +65,7 @@ public enum ErrorCode {
     PROVIDER_REMOTE_UNAVAILABLE(6005, "短剧平台暂时不可用"),
     PROVIDER_REMOTE_REJECTED(6006, "短剧平台拒绝请求"),
     PROVIDER_CAPABILITY_UNSUPPORTED(6007, "短剧平台不支持该能力"),
+    DRAMA_SYNC_TASK_RUNNING(6008, "短剧目录同步任务正在执行或等待执行"),
 
     // ========== 推广媒体与报备错误 ==========
     MEDIA_ACCOUNT_NOT_FOUND(7001, "媒体账号不存在"),

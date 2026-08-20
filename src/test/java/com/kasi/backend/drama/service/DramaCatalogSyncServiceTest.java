@@ -1,6 +1,7 @@
 package com.kasi.backend.drama.service;
 
 import com.kasi.backend.common.exception.BusinessException;
+import com.kasi.backend.common.exception.ErrorCode;
 import com.kasi.backend.drama.config.DramaSyncProperties;
 import com.kasi.backend.drama.entity.ProviderDrama;
 import com.kasi.backend.drama.entity.ProviderSyncCheckpoint;
@@ -29,6 +30,7 @@ import java.time.ZoneOffset;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 
@@ -62,6 +64,7 @@ class DramaCatalogSyncServiceTest {
     @DisplayName("没有成功全量基线时增量请求升级为全量且只标记待执行")
     void requestIncrementalWithoutBaselineRequestsFull() {
         when(runtimeService.resolve(7L, ProviderCapability.INCREMENTAL_DRAMA_SYNC)).thenReturn(runtime());
+        when(connectionMapper.lockById(3L)).thenReturn(mock(com.kasi.backend.provider.entity.ShortDramaConnection.class));
         when(checkpointMapper.find(3L, DramaSyncType.FULL, "ENGLISH"))
                 .thenReturn(null, null, checkpoint(11L, DramaSyncType.FULL));
 
@@ -71,6 +74,35 @@ class DramaCatalogSyncServiceTest {
         verify(checkpointMapper).insert(argThat(value -> value.getSyncType() == DramaSyncType.FULL));
         verify(checkpointMapper).requestRun(11L, LocalDateTime.of(2026, 8, 20, 8, 0), true);
         verifyNoInteractions(adapter);
+    }
+
+    @Test
+    @DisplayName("同类型已有运行任务时拒绝重复排队")
+    void sameTypeRunningTaskIsRejected() {
+        when(runtimeService.resolve(7L, ProviderCapability.FULL_DRAMA_SYNC)).thenReturn(runtime());
+        when(connectionMapper.lockById(3L)).thenReturn(mock(com.kasi.backend.provider.entity.ShortDramaConnection.class));
+        ProviderSyncCheckpoint running = checkpoint(11L, DramaSyncType.FULL);
+        running.setStatus(DramaSyncStatus.RUNNING);
+        when(checkpointMapper.findActive(3L, "ENGLISH")).thenReturn(List.of(running));
+
+        assertThatThrownBy(() -> service.requestSync(7L, DramaSyncType.FULL, List.of("ENGLISH")))
+                .isInstanceOfSatisfying(BusinessException.class,
+                        exception -> assertThat(exception.getCode()).isEqualTo(ErrorCode.DRAMA_SYNC_TASK_RUNNING.getCode()));
+        verify(checkpointMapper, never()).requestRun(anyLong(), any(), anyBoolean());
+    }
+
+    @Test
+    @DisplayName("跨类型已有排队任务时拒绝新的同步请求")
+    void crossTypeQueuedTaskIsRejected() {
+        when(runtimeService.resolve(7L, ProviderCapability.FULL_DRAMA_SYNC)).thenReturn(runtime());
+        when(connectionMapper.lockById(3L)).thenReturn(mock(com.kasi.backend.provider.entity.ShortDramaConnection.class));
+        ProviderSyncCheckpoint queued = checkpoint(12L, DramaSyncType.INCREMENTAL);
+        queued.setStatus(DramaSyncStatus.REQUESTED);
+        when(checkpointMapper.findActive(3L, "ENGLISH")).thenReturn(List.of(queued));
+
+        assertThatThrownBy(() -> service.requestSync(7L, DramaSyncType.FULL, List.of("ENGLISH")))
+                .isInstanceOf(BusinessException.class);
+        verify(checkpointMapper, never()).requestRun(anyLong(), any(), anyBoolean());
     }
 
     @Test
@@ -167,8 +199,8 @@ class DramaCatalogSyncServiceTest {
     }
 
     @Test
-    @DisplayName("人工报白或凭据不完整连接跳过远端调用")
-    void incompleteConnectionSkipsRemoteCall() {
+    @DisplayName("人工报白或凭据不完整连接记录失败且不调用远端")
+    void incompleteConnectionFailsWithoutRemoteCall() {
         ProviderSyncCheckpoint checkpoint = checkpoint(11L, DramaSyncType.FULL);
         when(checkpointMapper.findDue(any(), anyInt())).thenReturn(List.of(checkpoint));
         when(checkpointMapper.claimLease(anyLong(), anyString(), any(), any())).thenReturn(1);
@@ -178,12 +210,14 @@ class DramaCatalogSyncServiceTest {
         when(connectionMapper.findById(3L)).thenReturn(connection);
         when(runtimeService.resolve(7L, ProviderCapability.FULL_DRAMA_SYNC))
                 .thenThrow(mock(BusinessException.class));
-        when(checkpointMapper.markSuccess(anyLong(), anyString(), any(), anyInt(), any())).thenReturn(1);
+        when(checkpointMapper.markFailure(anyLong(), anyString(), any(), anyString(), anyString())).thenReturn(1);
 
         service.processDueBatch();
 
-        verify(checkpointMapper).markSuccess(11L, "worker-test",
-                LocalDateTime.of(2026, 8, 20, 8, 0), 1, null);
+        verify(checkpointMapper).markFailure(11L, "worker-test",
+                LocalDateTime.of(2026, 8, 20, 8, 0), "CONNECTION_NOT_READY",
+                "Provider connection is not ready for catalog synchronization");
+        verify(checkpointMapper, never()).markSuccess(anyLong(), anyString(), any(), anyInt(), any());
         verifyNoInteractions(adapter);
     }
 

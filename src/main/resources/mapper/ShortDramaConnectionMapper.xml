@@ -8,6 +8,10 @@
         SELECT * FROM short_drama_connection WHERE id = #{id}
     </select>
 
+    <select id="lockById" resultType="com.kasi.backend.provider.entity.ShortDramaConnection">
+        SELECT * FROM short_drama_connection WHERE id = #{id} FOR UPDATE
+    </select>
+
     <select id="findByProviderId" resultType="com.kasi.backend.provider.entity.ShortDramaConnection">
         SELECT * FROM short_drama_connection WHERE provider_id = #{providerId}
     </select>
