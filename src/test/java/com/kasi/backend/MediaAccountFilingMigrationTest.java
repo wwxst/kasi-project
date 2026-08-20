@@ -24,6 +24,9 @@ class MediaAccountFilingMigrationTest {
         assertThat(tableExists(jdbc, "SHORT_DRAMA_CONNECTION")).isTrue();
         assertThat(tableExists(jdbc, "PROMOTION_MEDIA_ACCOUNT")).isTrue();
         assertThat(tableExists(jdbc, "PROVIDER_MEDIA_FILING")).isTrue();
+        assertThat(tableExists(jdbc, "PROVIDER_DRAMA")).isTrue();
+        assertThat(tableExists(jdbc, "PROVIDER_DRAMA_CONTENT")).isTrue();
+        assertThat(tableExists(jdbc, "PROVIDER_SYNC_CHECKPOINT")).isTrue();
         assertThat(jdbc.queryForObject(
                 "SELECT COUNT(*) FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME = 'SHORT_DRAMA_CONNECTION' AND COLUMN_NAME = 'FILING_MODE'",
                 Integer.class)).isEqualTo(1);

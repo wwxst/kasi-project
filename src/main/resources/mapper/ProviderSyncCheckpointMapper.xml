@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.kasi.backend.drama.mapper.ProviderSyncCheckpointMapper">
+    <resultMap id="CheckpointMap" type="com.kasi.backend.drama.entity.ProviderSyncCheckpoint">
+        <id column="id" property="id"/><result column="connection_id" property="connectionId"/><result column="sync_type" property="syncType"/>
+        <result column="language" property="language"/><result column="status" property="status"/><result column="page_no" property="pageNo"/>
+        <result column="page_size" property="pageSize"/><result column="update_time" property="updateTime"/><result column="last_success_at" property="lastSuccessAt"/>
+        <result column="requested_at" property="requestedAt"/><result column="started_at" property="startedAt"/><result column="finished_at" property="finishedAt"/>
+        <result column="total_fetched" property="totalFetched"/><result column="total_upserted" property="totalUpserted"/>
+        <result column="last_error_code" property="lastErrorCode"/><result column="last_error_message" property="lastErrorMessage"/>
+        <result column="lease_owner" property="leaseOwner"/><result column="lease_until" property="leaseUntil"/><result column="created_at" property="createdAt"/><result column="updated_at" property="updatedAt"/>
+    </resultMap>
+    <select id="find" resultMap="CheckpointMap">SELECT * FROM provider_sync_checkpoint WHERE connection_id=#{connectionId} AND sync_type=#{syncType} AND language=#{language}</select>
+    <select id="findById" resultMap="CheckpointMap">SELECT * FROM provider_sync_checkpoint WHERE id=#{id}</select>
+    <insert id="insert" useGeneratedKeys="true" keyProperty="id">INSERT INTO provider_sync_checkpoint (connection_id,sync_type,language,status,page_no,page_size) VALUES (#{connectionId},#{syncType},#{language},#{status},#{pageNo},#{pageSize})</insert>
+    <insert id="upsert" useGeneratedKeys="true" keyProperty="id">INSERT INTO provider_sync_checkpoint (connection_id,sync_type,language,status,page_no,page_size) VALUES (#{connectionId},#{syncType},#{language},#{status},#{pageNo},#{pageSize}) ON DUPLICATE KEY UPDATE page_size=VALUES(page_size)</insert>
+    <update id="requestRun">UPDATE provider_sync_checkpoint SET status='REQUESTED',requested_at=#{requestedAt},last_error_code=NULL,last_error_message=NULL,updated_at=CURRENT_TIMESTAMP WHERE id=#{id}</update>
+    <select id="findDue" resultMap="CheckpointMap">SELECT * FROM provider_sync_checkpoint WHERE status IN ('REQUESTED','FAILED') AND (lease_until IS NULL OR lease_until &lt;= #{now}) ORDER BY COALESCE(requested_at,updated_at) ASC,id ASC LIMIT #{limit}</select>
+    <update id="claimLease">UPDATE provider_sync_checkpoint SET status='RUNNING',started_at=#{now},lease_owner=#{owner},lease_until=#{leaseUntil},updated_at=CURRENT_TIMESTAMP WHERE id=#{id} AND status IN ('REQUESTED','FAILED') AND (lease_until IS NULL OR lease_until &lt;= #{now})</update>
+    <update id="updateProgress">UPDATE provider_sync_checkpoint SET page_no=#{pageNo},update_time=#{updateTime},total_fetched=total_fetched+#{fetched},total_upserted=total_upserted+#{upserted},updated_at=CURRENT_TIMESTAMP WHERE id=#{id} AND status='RUNNING'</update>
+    <update id="markSuccess">UPDATE provider_sync_checkpoint SET status='SUCCESS',page_no=#{pageNo},update_time=#{updateTime},last_success_at=#{finishedAt},finished_at=#{finishedAt},total_fetched=total_fetched+#{fetched},total_upserted=total_upserted+#{upserted},lease_owner=NULL,lease_until=NULL,last_error_code=NULL,last_error_message=NULL,updated_at=CURRENT_TIMESTAMP WHERE id=#{id} AND status='RUNNING'</update>
+    <update id="markFailure">UPDATE provider_sync_checkpoint SET status='FAILED',finished_at=#{finishedAt},last_error_code=#{errorCode},last_error_message=#{errorMessage},lease_owner=NULL,lease_until=NULL,updated_at=CURRENT_TIMESTAMP WHERE id=#{id} AND status='RUNNING'</update>
+</mapper>
