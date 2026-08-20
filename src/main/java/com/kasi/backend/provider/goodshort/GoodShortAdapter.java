@@ -63,6 +63,8 @@ public class GoodShortAdapter implements AccountFilingProviderAdapter, DramaCata
             ProviderCapability.ANALYTICS_SYNC);
     private static final DateTimeFormatter REMOTE_DATE_FORMAT =
             DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss.SSSZ");
+    private static final DateTimeFormatter REMOTE_DATE_FORMAT_WITHOUT_MILLIS =
+            DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ssZ");
 
     private final RestClient restClient;
     private final GoodShortSigner signer;
@@ -220,7 +222,7 @@ public class GoodShortAdapter implements AccountFilingProviderAdapter, DramaCata
     }
 
     private ProviderDramaContentRecord mapEpisode(GoodShortEpisodeData episode) {
-        if (episode.getEpisodeNo() == null || episode.getEpisodeNo() < 1) {
+        if (episode == null || episode.getEpisodeNo() == null || episode.getEpisodeNo() < 1) {
             throw new ProviderRemoteRejectedException("GoodShort鍓ч泦缂哄皯episodeNo");
         }
         return new ProviderDramaContentRecord(episode.getEpisodeId(), episode.getEpisodeNo(), episode.getTitle(),
@@ -293,12 +295,20 @@ public class GoodShortAdapter implements AccountFilingProviderAdapter, DramaCata
             return parseRemoteTime(value);
         } catch (RuntimeException ignored) {
             try {
-                return LocalDateTime.parse(value, DateTimeFormatter.ISO_LOCAL_DATE_TIME);
-            } catch (RuntimeException ignoredLocalDateTime) {
+                return OffsetDateTime.parse(value, REMOTE_DATE_FORMAT_WITHOUT_MILLIS).toLocalDateTime();
+            } catch (RuntimeException ignoredCompactOffsetDateTime) {
                 try {
-                    return Instant.ofEpochMilli(Long.parseLong(value)).atZone(clock.getZone()).toLocalDateTime();
-                } catch (RuntimeException exception) {
-                    throw new ProviderRemoteRejectedException("GoodShort time format is invalid");
+                    return OffsetDateTime.parse(value, DateTimeFormatter.ISO_OFFSET_DATE_TIME).toLocalDateTime();
+                } catch (RuntimeException ignoredOffsetDateTime) {
+                    try {
+                        return LocalDateTime.parse(value, DateTimeFormatter.ISO_LOCAL_DATE_TIME);
+                    } catch (RuntimeException ignoredLocalDateTime) {
+                        try {
+                            return Instant.ofEpochMilli(Long.parseLong(value)).atZone(clock.getZone()).toLocalDateTime();
+                        } catch (RuntimeException exception) {
+                            throw new ProviderRemoteRejectedException("GoodShort time format is invalid");
+                        }
+                    }
                 }
             }
         }
