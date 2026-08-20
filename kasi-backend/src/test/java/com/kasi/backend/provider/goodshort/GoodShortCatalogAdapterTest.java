@@ -109,6 +109,39 @@ class GoodShortCatalogAdapterTest {
     }
 
     @Test
+    @DisplayName("鏃堕棿鏄剧ず鏀寔 ISO Z 鍜?+0000 鍋忕Щ")
+    void fetchMapsZuluAndCompactOffsetTimes() {
+        server.expect(requestTo("https://goodshort.test/open/book/initBooks"))
+                .andRespond(withSuccess("""
+                        {"status":0,"success":true,"data":{"pageNo":1,"pageSize":10,"total":1,"hasNext":false,
+                         "items":[{"bookId":"book-time","bookName":"Time","updateTime":"2025-08-28T11:26:18Z",
+                         "episodes":[{"episodeId":"ep-time","episodeNo":1,"isFree":true,
+                         "updateTime":"2025-08-28T12:26:18+0000"}]}]}}
+                        """, MediaType.APPLICATION_JSON));
+
+        var page = adapter.fetchFullDramas(CONNECTION, new DramaCatalogFetchRequest(1, 10, "ENGLISH"));
+
+        assertThat(page.items().getFirst().remoteUpdatedAt()).isNotNull();
+        assertThat(page.items().getFirst().contents().getFirst().remoteUpdatedAt()).isNotNull();
+        server.verify();
+    }
+
+    @Test
+    @DisplayName("绌哄墽闆嗗厓绱犳寜骞冲彴鎷掔粷澶勭悊锛屼笉鎶涘嚭 NPE")
+    void nullEpisodeElementIsRejected() {
+        server.expect(requestTo("https://goodshort.test/open/book/initBooks"))
+                .andRespond(withSuccess("""
+                        {"status":0,"success":true,"data":{"pageNo":1,"pageSize":10,"total":1,"hasNext":false,
+                         "items":[{"bookId":"book-null-episode","bookName":"Invalid","episodes":[null]}]}}
+                        """, MediaType.APPLICATION_JSON));
+
+        assertThatThrownBy(() -> adapter.fetchFullDramas(CONNECTION,
+                new DramaCatalogFetchRequest(1, 10, "ENGLISH")))
+                .isInstanceOf(ProviderRemoteRejectedException.class);
+        server.verify();
+    }
+
+    @Test
     @DisplayName("涓氬姟澶辫触銆佺┖data鍜屾湭鐭ユ牸寮忕粺涓€鎶ュ钩鍙版嫆缁濓紒")
     void businessAndMalformedResponsesAreRejected() {
         server.expect(requestTo("https://goodshort.test/open/book/initBooks"))
