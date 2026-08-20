@@ -4,7 +4,6 @@ import com.kasi.backend.promotion.enums.MediaType;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Pattern;
-import jakarta.validation.constraints.Positive;
 import jakarta.validation.constraints.Size;
 import lombok.Data;
 
@@ -15,5 +14,4 @@ public class CreateMediaAccountDTO {
     @Size(max = 128) private String accountName;
     @Pattern(regexp = "^https://.+", message = "主页链接必须使用HTTPS")
     @Size(max = 512) private String accountLink;
-    @NotNull @Positive private Long providerId;
 }

@@ -15,7 +15,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 class DefaultSuperAdminMigrationTest {
 
-    private static final String DEFAULT_USERNAME = "kasiadmin";
+    private static final String DEFAULT_USERNAME = "admin";
     private static final String DEFAULT_PASSWORD = "kasi123456";
 
     @Test

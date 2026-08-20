@@ -74,12 +74,19 @@ public class ProviderConnectionServiceImpl implements ProviderConnectionService 
 
         ShortDramaConnection existing = connectionMapper.findByProviderId(providerId);
         String apiKey = trimToNull(request.getApiKey());
-        if (existing == null && apiKey == null) {
+        FilingMode targetMode = request.getFilingMode() != null
+                ? request.getFilingMode()
+                : existing == null || existing.getFilingMode() == null
+                ? FilingMode.API : existing.getFilingMode();
+        String baseUrl = trimToNull(request.getBaseUrl());
+        String partnerId = trimToNull(request.getPartnerId());
+        if (targetMode == FilingMode.API && (baseUrl == null || partnerId == null
+                || (existing == null && apiKey == null))) {
             throw new BusinessException(ErrorCode.PROVIDER_CONNECTION_INVALID);
         }
 
         ShortDramaConnection connection = buildConnection(
-                existing, operatorId, providerId, provider.getProviderName(), request, apiKey);
+                existing, operatorId, providerId, provider.getProviderName(), request, apiKey, targetMode);
         int affected = existing == null
                 ? connectionMapper.insert(connection)
                 : connectionMapper.update(connection);
@@ -90,6 +97,12 @@ public class ProviderConnectionServiceImpl implements ProviderConnectionService 
         ShortDramaConnection saved = connectionMapper.findByProviderId(providerId);
         if (saved == null) {
             throw new IllegalStateException("平台接入账号保存后无法读取");
+        }
+        FilingMode currentMode = existing == null || existing.getFilingMode() == null
+                ? FilingMode.API : existing.getFilingMode();
+        if (currentMode != FilingMode.MANUAL && targetMode == FilingMode.MANUAL
+                && existing != null && filingMapper != null) {
+            filingMapper.stopPendingTasksByConnectionId(existing.getId());
         }
         return toConnectionVO(saved);
     }
@@ -176,19 +189,18 @@ public class ProviderConnectionServiceImpl implements ProviderConnectionService 
     private ShortDramaConnection buildConnection(ShortDramaConnection existing, Long operatorId,
                                                    Long providerId, String providerName,
                                                    UpsertProviderConnectionDTO request,
-                                                   String apiKey) {
+                                                   String apiKey, FilingMode filingMode) {
         ShortDramaConnection connection = new ShortDramaConnection();
         if (existing != null) {
             connection.setId(existing.getId());
         }
         connection.setProviderId(providerId);
         connection.setConnectionName(defaultText(request.getConnectionName(), providerName));
-        connection.setBaseUrl(request.getBaseUrl().trim());
-        connection.setPartnerId(request.getPartnerId().trim());
+        connection.setBaseUrl(trimToNull(request.getBaseUrl()));
+        connection.setPartnerId(trimToNull(request.getPartnerId()));
         connection.setApiKeyCiphertext(apiKey == null ? null : credentialCipher.encrypt(apiKey));
         connection.setCurrency(defaultText(request.getCurrency(), "USD").toUpperCase(Locale.ROOT));
-        connection.setFilingMode(existing == null || existing.getFilingMode() == null
-                ? FilingMode.API : existing.getFilingMode());
+        connection.setFilingMode(filingMode);
         connection.setStatus(request.getStatus());
         connection.setUpdatedBy(operatorId);
         if (existing == null) {

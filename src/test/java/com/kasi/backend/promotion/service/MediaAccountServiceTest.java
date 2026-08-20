@@ -56,8 +56,8 @@ class MediaAccountServiceTest {
     @Test
     @DisplayName("创建媒体账号同时建立审核中的首个平台报备")
     void createCreatesPendingFiling() {
-        when(runtimeService.resolve(10L, com.kasi.backend.provider.enums.ProviderCapability.ACCOUNT_FILING))
-                .thenReturn(runtime(adapter, 21L));
+        when(runtimeService.resolveAll(com.kasi.backend.provider.enums.ProviderCapability.ACCOUNT_FILING))
+                .thenReturn(List.of(runtime(adapter, 21L), runtime(adapter, 22L)));
         when(mediaMapper.findByIdentity(MediaType.TIKTOK, "creator-1")).thenReturn(null);
         when(mediaMapper.insert(any())).thenAnswer(invocation -> {
             PromotionMediaAccount account = invocation.getArgument(0);
@@ -70,27 +70,27 @@ class MediaAccountServiceTest {
             return 1;
         });
         when(mediaMapper.findOwnedById(31L, 1L)).thenReturn(account(31L, 1L, MediaType.TIKTOK, "creator-1", 1));
-        when(filingMapper.findByMediaAccountId(31L)).thenReturn(List.of(filing(41L, 21L, 31L, FilingStatus.PENDING, 1)));
+        when(filingMapper.findByMediaAccountId(31L)).thenReturn(List.of(
+                filing(41L, 21L, 31L, FilingStatus.PENDING, 1),
+                filing(42L, 22L, 31L, FilingStatus.PENDING, 1)));
 
         CreateMediaAccountDTO request = new CreateMediaAccountDTO();
         request.setMediaType(MediaType.TIKTOK);
         request.setExternalAccountId(" creator-1 ");
         request.setAccountName(" Creator ");
         request.setAccountLink("https://tiktok.com/@creator-1");
-        request.setProviderId(10L);
 
         var result = service.create(1L, request);
 
         assertThat(result.getExternalAccountId()).isEqualTo("creator-1");
-        verify(filingMapper).insert(argThat(f -> f.getConnectionId().equals(21L)
-                && f.getStatus() == FilingStatus.PENDING));
+        verify(filingMapper, times(2)).insert(argThat(f -> f.getStatus() == FilingStatus.PENDING));
     }
 
     @Test
     @DisplayName("人工报白创建账号时不排入API任务")
     void manualModeCreatesNoApiTask() {
-        when(runtimeService.resolve(10L, com.kasi.backend.provider.enums.ProviderCapability.ACCOUNT_FILING))
-                .thenReturn(runtime(adapter, 21L));
+        when(runtimeService.resolveAll(com.kasi.backend.provider.enums.ProviderCapability.ACCOUNT_FILING))
+                .thenReturn(List.of(runtime(adapter, 21L)));
         ShortDramaConnection connection = new ShortDramaConnection();
         connection.setId(21L);
         connection.setProviderId(10L);
@@ -105,7 +105,6 @@ class MediaAccountServiceTest {
         CreateMediaAccountDTO request = new CreateMediaAccountDTO();
         request.setMediaType(MediaType.TIKTOK);
         request.setExternalAccountId("creator-manual");
-        request.setProviderId(10L);
 
         service.create(1L, request);
 
