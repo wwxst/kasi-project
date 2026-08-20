@@ -16,10 +16,12 @@ public interface ProviderSyncCheckpointMapper {
     int requestRun(@Param("id") Long id, @Param("requestedAt") LocalDateTime requestedAt);
     List<ProviderSyncCheckpoint> findDue(@Param("now") LocalDateTime now, @Param("limit") int limit);
     int claimLease(@Param("id") Long id, @Param("owner") String owner, @Param("now") LocalDateTime now, @Param("leaseUntil") LocalDateTime leaseUntil);
-    int updateProgress(@Param("id") Long id, @Param("pageNo") int pageNo, @Param("updateTime") LocalDateTime updateTime,
-                       @Param("fetched") int fetched, @Param("upserted") int upserted);
+    int updateProgress(@Param("id") Long id, @Param("pageNo") int pageNo, @Param("updateTime") Long updateTime,
+                       @Param("fetched") int fetched, @Param("upserted") int upserted,
+                       @Param("inserted") int inserted, @Param("updated") int updated,
+                       @Param("skipped") int skipped, @Param("errors") int errors);
     int markSuccess(@Param("id") Long id, @Param("finishedAt") LocalDateTime finishedAt, @Param("pageNo") int pageNo,
-                    @Param("updateTime") LocalDateTime updateTime, @Param("fetched") int fetched, @Param("upserted") int upserted);
+                    @Param("updateTime") Long updateTime);
     int markFailure(@Param("id") Long id, @Param("finishedAt") LocalDateTime finishedAt,
                     @Param("errorCode") String errorCode, @Param("errorMessage") String errorMessage);
     int upsert(ProviderSyncCheckpoint checkpoint);

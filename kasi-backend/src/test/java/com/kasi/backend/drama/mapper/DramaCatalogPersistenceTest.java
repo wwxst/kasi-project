@@ -44,6 +44,12 @@ class DramaCatalogPersistenceTest extends BaseAuthTest {
         assertThat(dramaMapper.upsertContent(content)).isGreaterThanOrEqualTo(1);
         assertThat(dramaMapper.findContents(id)).singleElement().extracting(ProviderDramaContent::getTitle)
                 .isEqualTo("Episode 1 updated");
+
+        ProviderDramaContent contentWithoutExternalId = new ProviderDramaContent();
+        contentWithoutExternalId.setDramaId(id); contentWithoutExternalId.setSequenceNo(2);
+        contentWithoutExternalId.setTitle("Episode 2"); contentWithoutExternalId.setFree(false);
+        assertThat(dramaMapper.upsertContent(contentWithoutExternalId)).isGreaterThanOrEqualTo(1);
+        assertThat(dramaMapper.findContents(id)).hasSize(2);
     }
 
     @Test
@@ -59,9 +65,17 @@ class DramaCatalogPersistenceTest extends BaseAuthTest {
         assertThat(checkpointMapper.requestRun(checkpoint.getId(), now)).isEqualTo(1);
         assertThat(checkpointMapper.claimLease(checkpoint.getId(), "worker-a", now, now.plusMinutes(2))).isEqualTo(1);
         assertThat(checkpointMapper.claimLease(checkpoint.getId(), "worker-b", now, now.plusMinutes(2))).isZero();
-        assertThat(checkpointMapper.updateProgress(checkpoint.getId(), 2, now, 10, 9)).isEqualTo(1);
-        assertThat(checkpointMapper.markSuccess(checkpoint.getId(), now, 2, now, 10, 9)).isEqualTo(1);
-        assertThat(checkpointMapper.findById(checkpoint.getId()).getStatus()).isEqualTo(DramaSyncStatus.SUCCESS);
+        assertThat(checkpointMapper.updateProgress(checkpoint.getId(), 2, 1700000000123L, 10, 9, 4, 5, 1, 0)).isEqualTo(1);
+        assertThat(checkpointMapper.markSuccess(checkpoint.getId(), now, 2, 1700000000123L)).isEqualTo(1);
+        ProviderSyncCheckpoint stored = checkpointMapper.findById(checkpoint.getId());
+        assertThat(stored.getUpdateTime()).isEqualTo(1700000000123L);
+        assertThat(stored.getStatus()).isEqualTo(DramaSyncStatus.SUCCESS);
+        assertThat(stored.getTotalFetched()).isEqualTo(10);
+        assertThat(stored.getTotalUpserted()).isEqualTo(9);
+        assertThat(stored.getInsertedCount()).isEqualTo(4);
+        assertThat(stored.getUpdatedCount()).isEqualTo(5);
+        assertThat(stored.getSkippedCount()).isEqualTo(1);
+        assertThat(stored.getErrorCount()).isZero();
     }
 
     private Long insertConnection() {
