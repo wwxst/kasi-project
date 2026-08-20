@@ -31,6 +31,9 @@ class MediaAccountFilingMigrationTest {
                 "SELECT COUNT(*) FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME = 'PROVIDER_MEDIA_FILING' AND COLUMN_NAME = 'OPERATE_BY'",
                 Integer.class)).isEqualTo(1);
         assertThat(jdbc.queryForObject(
+                "SELECT COUNT(*) FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME = 'SHORT_DRAMA_CONNECTION' AND COLUMN_NAME IN ('BASE_URL', 'PARTNER_ID', 'API_KEY_CIPHERTEXT') AND IS_NULLABLE = 'YES'",
+                Integer.class)).isEqualTo(3);
+        assertThat(jdbc.queryForObject(
                 "SELECT COUNT(*) FROM short_drama_provider WHERE provider_code = 'GOODSHORT'", Long.class))
                 .isEqualTo(1L);
 
@@ -51,7 +54,7 @@ class MediaAccountFilingMigrationTest {
                 .isEqualTo("API");
         assertThat(jdbc.queryForObject(
                 "SELECT base_url FROM short_drama_connection WHERE id = ?", String.class, connectionId))
-                .isEqualTo("https://api.novelopen.com/creek");
+                .isNull();
         jdbc.update("INSERT INTO promotion_media_account "
                 + "(user_id, media_type, external_account_id) VALUES (?, 'TIKTOK', 'creator-1')", userId);
         Long mediaId = jdbc.queryForObject("SELECT id FROM promotion_media_account", Long.class);

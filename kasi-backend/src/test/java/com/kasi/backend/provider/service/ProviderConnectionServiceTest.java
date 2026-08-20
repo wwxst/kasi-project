@@ -5,6 +5,7 @@ import com.kasi.backend.provider.dto.UpsertProviderConnectionDTO;
 import com.kasi.backend.provider.entity.ShortDramaConnection;
 import com.kasi.backend.provider.entity.ShortDramaProvider;
 import com.kasi.backend.provider.enums.ProviderCapability;
+import com.kasi.backend.provider.enums.FilingMode;
 import com.kasi.backend.provider.mapper.ShortDramaConnectionMapper;
 import com.kasi.backend.provider.mapper.ShortDramaProviderMapper;
 import com.kasi.backend.provider.service.impl.ProviderConnectionServiceImpl;
@@ -75,6 +76,28 @@ class ProviderConnectionServiceTest {
                 .isInstanceOfSatisfying(BusinessException.class,
                         exception -> assertThat(exception.getCode()).isEqualTo(6003));
         verify(connectionMapper, never()).insert(any());
+    }
+
+    @Test
+    @DisplayName("首次人工报备配置允许不填写 API 凭据")
+    void manualFilingAllowsEmptyApiConfig() {
+        when(providerMapper.findById(1L)).thenReturn(provider());
+        when(connectionMapper.findByProviderId(1L)).thenReturn(null, connection(null));
+        when(connectionMapper.insert(any())).thenReturn(1);
+
+        UpsertProviderConnectionDTO request = new UpsertProviderConnectionDTO();
+        request.setFilingMode(FilingMode.MANUAL);
+        request.setStatus(1);
+
+        service.upsert(9L, 1L, request);
+
+        ArgumentCaptor<ShortDramaConnection> captor = ArgumentCaptor.forClass(ShortDramaConnection.class);
+        verify(connectionMapper).insert(captor.capture());
+        assertThat(captor.getValue().getFilingMode()).isEqualTo(FilingMode.MANUAL);
+        assertThat(captor.getValue().getBaseUrl()).isNull();
+        assertThat(captor.getValue().getPartnerId()).isNull();
+        assertThat(captor.getValue().getApiKeyCiphertext()).isNull();
+        verify(credentialCipher, never()).encrypt(any());
     }
 
     @Test

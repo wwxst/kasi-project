@@ -76,7 +76,13 @@ public class MediaAccountServiceImpl implements MediaAccountService {
     @Transactional
     public com.kasi.backend.promotion.vo.MediaAccountDetailVO create(Long userId, CreateMediaAccountDTO request) {
         String externalId = requiredTrim(request.getExternalAccountId());
-        ProviderRuntimeConnection runtime = resolve(request.getProviderId(), request.getMediaType());
+        List<ProviderRuntimeConnection> runtimes = runtimeService.resolveAll(ProviderCapability.ACCOUNT_FILING).stream()
+                .filter(runtime -> runtime.adapter() instanceof AccountFilingProviderAdapter filingAdapter
+                        && filingAdapter.supportedMediaTypes().contains(request.getMediaType()))
+                .toList();
+        if (runtimes.isEmpty()) {
+            throw new BusinessException(ErrorCode.PROVIDER_CONNECTION_NOT_FOUND);
+        }
         if (mediaMapper.findByIdentity(request.getMediaType(), externalId) != null) {
             throw new BusinessException(ErrorCode.MEDIA_ACCOUNT_DUPLICATE);
         }
@@ -90,19 +96,21 @@ public class MediaAccountServiceImpl implements MediaAccountService {
         account.setDataVersion(1);
         try {
             mediaMapper.insert(account);
-            ProviderMediaFiling filing = new ProviderMediaFiling();
-            filing.setConnectionId(runtime.connectionId());
-            filing.setMediaAccountId(account.getId());
-            filing.setStatus(FilingStatus.PENDING);
-            filing.setTaskDataVersion(1);
-            if (filingMode(runtime.connectionId()) == FilingMode.MANUAL) {
-                filing.setNextAction(FilingAction.NONE);
-                filing.setNextActionAt(null);
-            } else {
-                filing.setNextAction(FilingAction.SUBMIT);
-                filing.setNextActionAt(LocalDateTime.now());
+            for (ProviderRuntimeConnection runtime : runtimes) {
+                ProviderMediaFiling filing = new ProviderMediaFiling();
+                filing.setConnectionId(runtime.connectionId());
+                filing.setMediaAccountId(account.getId());
+                filing.setStatus(FilingStatus.PENDING);
+                filing.setTaskDataVersion(1);
+                if (filingMode(runtime.connectionId()) == FilingMode.MANUAL) {
+                    filing.setNextAction(FilingAction.NONE);
+                    filing.setNextActionAt(null);
+                } else {
+                    filing.setNextAction(FilingAction.SUBMIT);
+                    filing.setNextActionAt(LocalDateTime.now());
+                }
+                filingMapper.insert(filing);
             }
-            filingMapper.insert(filing);
         } catch (DuplicateKeyException exception) {
             throw new BusinessException(ErrorCode.MEDIA_ACCOUNT_DUPLICATE);
         }

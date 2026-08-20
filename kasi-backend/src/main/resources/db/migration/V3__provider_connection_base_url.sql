@@ -3,5 +3,5 @@
 -- =========================================================
 
 ALTER TABLE `short_drama_connection`
-    ADD COLUMN `base_url` VARCHAR(512) NOT NULL DEFAULT 'https://api.novelopen.com/creek'
-        COMMENT '平台接口域名';
+    ADD COLUMN `base_url` VARCHAR(512) DEFAULT NULL
+        COMMENT '平台接口域名（API报备必填）';

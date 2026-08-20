@@ -4,6 +4,7 @@ import com.kasi.backend.common.exception.BusinessException;
 import com.kasi.backend.provider.entity.ShortDramaConnection;
 import com.kasi.backend.provider.entity.ShortDramaProvider;
 import com.kasi.backend.provider.enums.ProviderCapability;
+import com.kasi.backend.provider.enums.FilingMode;
 import com.kasi.backend.provider.mapper.ShortDramaConnectionMapper;
 import com.kasi.backend.provider.mapper.ShortDramaProviderMapper;
 import com.kasi.backend.provider.spi.AccountFilingProviderAdapter;
@@ -60,6 +61,25 @@ class ProviderRuntimeConnectionServiceTest {
         assertThatThrownBy(() -> service.resolve(1L, ProviderCapability.ACCOUNT_FILING))
                 .isInstanceOfSatisfying(BusinessException.class,
                         exception -> assertThat(exception.getCode()).isEqualTo(6003));
+    }
+
+    @Test
+    @DisplayName("人工报备连接无 API 凭据时仍可用于建立报备记录")
+    void resolveAllIncludesManualConnectionWithoutCredentials() {
+        ShortDramaProvider provider = provider(1);
+        ShortDramaConnection connection = connection(1);
+        connection.setBaseUrl(null);
+        connection.setPartnerId(null);
+        connection.setApiKeyCiphertext(null);
+        connection.setFilingMode(FilingMode.MANUAL);
+        when(providerMapper.findAll()).thenReturn(java.util.List.of(provider));
+        when(connectionMapper.findByProviderId(1L)).thenReturn(connection);
+
+        var result = service.resolveAll(ProviderCapability.ACCOUNT_FILING);
+
+        assertThat(result).hasSize(1);
+        assertThat(result.getFirst().connectionId()).isEqualTo(10L);
+        assertThat(result.getFirst().secret().getApiKey()).isNull();
     }
 
     private ShortDramaProvider provider(int status) {

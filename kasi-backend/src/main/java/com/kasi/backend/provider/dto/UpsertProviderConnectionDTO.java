@@ -2,17 +2,17 @@ package com.kasi.backend.provider.dto;
 
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
-import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
+import jakarta.validation.constraints.AssertTrue;
+import com.kasi.backend.provider.enums.FilingMode;
 import lombok.Data;
 import lombok.ToString;
 
 @Data
 public class UpsertProviderConnectionDTO {
 
-    @NotBlank
     @Size(max = 512)
     @Pattern(regexp = "^https?://[^\\s]+$", message = "接口域名必须是有效的 HTTP 或 HTTPS 地址")
     private String baseUrl;
@@ -20,7 +20,6 @@ public class UpsertProviderConnectionDTO {
     @Size(max = 64)
     private String connectionName;
 
-    @NotBlank
     @Size(max = 64)
     private String partnerId;
 
@@ -35,4 +34,15 @@ public class UpsertProviderConnectionDTO {
     @Min(0)
     @Max(1)
     private Integer status;
+
+    private FilingMode filingMode;
+
+    @AssertTrue(message = "API 报备模式下接口 URL 和 PID 不能为空")
+    public boolean isApiConfigurationPresent() {
+        if (filingMode == FilingMode.MANUAL) {
+            return true;
+        }
+        return baseUrl != null && !baseUrl.isBlank()
+                && partnerId != null && !partnerId.isBlank();
+    }
 }
