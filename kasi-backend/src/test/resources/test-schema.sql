@@ -122,3 +122,64 @@ CREATE TABLE IF NOT EXISTS provider_media_filing (
     CONSTRAINT fk_test_filing_media_account
         FOREIGN KEY (media_account_id) REFERENCES promotion_media_account (id)
 );
+
+CREATE TABLE IF NOT EXISTS provider_drama (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    connection_id BIGINT NOT NULL,
+    external_drama_id VARCHAR(128) NOT NULL,
+    title VARCHAR(255) NOT NULL,
+    original_title VARCHAR(255),
+    description CLOB,
+    cover_url VARCHAR(1024),
+    language VARCHAR(32) NOT NULL,
+    drama_type VARCHAR(64),
+    remote_show_status VARCHAR(32),
+    local_status VARCHAR(16) NOT NULL DEFAULT 'DRAFT',
+    remote_updated_at TIMESTAMP,
+    last_seen_at TIMESTAMP,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE (connection_id, external_drama_id),
+    CONSTRAINT fk_test_drama_connection FOREIGN KEY (connection_id) REFERENCES short_drama_connection (id)
+);
+
+CREATE TABLE IF NOT EXISTS provider_drama_content (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    drama_id BIGINT NOT NULL,
+    external_content_id VARCHAR(128) NOT NULL,
+    sequence_no INT NOT NULL,
+    title VARCHAR(255),
+    is_free TINYINT NOT NULL DEFAULT 0,
+    duration_seconds INT,
+    remote_updated_at TIMESTAMP,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE (drama_id, sequence_no),
+    UNIQUE (drama_id, external_content_id),
+    CONSTRAINT fk_test_drama_content_drama FOREIGN KEY (drama_id) REFERENCES provider_drama (id) ON DELETE CASCADE
+);
+
+CREATE TABLE IF NOT EXISTS provider_sync_checkpoint (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    connection_id BIGINT NOT NULL,
+    sync_type VARCHAR(16) NOT NULL,
+    language VARCHAR(32) NOT NULL,
+    status VARCHAR(16) NOT NULL DEFAULT 'IDLE',
+    page_no INT NOT NULL DEFAULT 1,
+    page_size INT NOT NULL DEFAULT 100,
+    update_time TIMESTAMP,
+    last_success_at TIMESTAMP,
+    requested_at TIMESTAMP,
+    started_at TIMESTAMP,
+    finished_at TIMESTAMP,
+    total_fetched INT NOT NULL DEFAULT 0,
+    total_upserted INT NOT NULL DEFAULT 0,
+    last_error_code VARCHAR(64),
+    last_error_message VARCHAR(512),
+    lease_owner VARCHAR(64),
+    lease_until TIMESTAMP,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE (connection_id, sync_type, language),
+    CONSTRAINT fk_test_sync_checkpoint_connection FOREIGN KEY (connection_id) REFERENCES short_drama_connection (id)
+);
