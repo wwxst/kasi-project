@@ -34,3 +34,4 @@ build/
 
 ### Local runtime data ###
 dump.rdb
+.worktrees/
