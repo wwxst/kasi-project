@@ -15,12 +15,15 @@
 - Modify `src/App.test.tsx`: specify that the three header controls are absent and that retained controls remain available.
 - Modify `src/layouts/AdminLayout.tsx`: remove the three controls and their direct state/effect/icon dependencies.
 - Modify `src/layouts/admin-layout.css`: remove dark-only styles and obsolete responsive selectors.
+- Modify `src/pages/dashboard/dashboard-page.css`: remove dashboard styles reachable only through the deleted dark-layout class.
+- Modify `src/pages/profile/profile-page.css`: remove profile styles reachable only through the deleted dark-layout class.
 - Modify `README.md`: update the current admin-shell feature list.
 - Modify `docs/superpowers/specs/2026-08-21-admin-header-controls-removal-design.md`: record the verified implementation result.
 
 ### Task 1: Lock the removal boundary with a failing layout test
 
 **Files:**
+
 - Modify: `src/App.test.tsx:298-339`
 - Test: `src/App.test.tsx`
 
@@ -43,9 +46,7 @@ expect(
 Delete the user click and assertions that expect `data-theme="dark"` and the “切换浅色模式” button. Add an explicit retained-control assertion outside the banner:
 
 ```tsx
-expect(
-  screen.getByRole('button', { name: '收起侧边栏' }),
-).toBeInTheDocument()
+expect(screen.getByRole('button', { name: '收起侧边栏' })).toBeInTheDocument()
 ```
 
 - [ ] **Step 2: Run the focused test and verify the intended red state**
@@ -61,8 +62,11 @@ Expected: the dashboard layout test fails because the existing language, dark-mo
 ### Task 2: Remove the controls, clean direct dependencies, and verify
 
 **Files:**
+
 - Modify: `src/layouts/AdminLayout.tsx`
 - Modify: `src/layouts/admin-layout.css`
+- Modify: `src/pages/dashboard/dashboard-page.css`
+- Modify: `src/pages/profile/profile-page.css`
 - Modify: `README.md`
 - Modify: `docs/superpowers/specs/2026-08-21-admin-header-controls-removal-design.md`
 - Test: `src/App.test.tsx`
@@ -91,7 +95,7 @@ Delete the complete language `Popover`, dark-mode `Tooltip`/`Button`, and layout
 
 - [ ] **Step 2: Remove only obsolete CSS**
 
-Delete the complete `.admin-layout--dark` block from `.admin-layout--dark,` through the final dark `.ant-card-head` border rule. In the mobile media query, change:
+Delete every `.admin-layout--dark` rule from `admin-layout.css`, `dashboard-page.css`, and `profile-page.css`. In the layout mobile media query, change:
 
 ```css
 .admin-header__search,
@@ -163,13 +167,13 @@ Run:
 
 ```powershell
 git status --short
-git diff -- src/App.test.tsx src/layouts/AdminLayout.tsx src/layouts/admin-layout.css README.md docs/superpowers/specs/2026-08-21-admin-header-controls-removal-design.md
+git diff -- src/App.test.tsx src/layouts/AdminLayout.tsx src/layouts/admin-layout.css src/pages/dashboard/dashboard-page.css src/pages/profile/profile-page.css README.md docs/superpowers/specs/2026-08-21-admin-header-controls-removal-design.md docs/superpowers/plans/2026-08-21-admin-header-controls-removal.md
 ```
 
-Expected: only the five planned files have implementation changes. Then commit:
+Expected: only the eight planned files have implementation changes. Then commit:
 
 ```powershell
-git add -- src/App.test.tsx src/layouts/AdminLayout.tsx src/layouts/admin-layout.css README.md docs/superpowers/specs/2026-08-21-admin-header-controls-removal-design.md
+git add -- src/App.test.tsx src/layouts/AdminLayout.tsx src/layouts/admin-layout.css src/pages/dashboard/dashboard-page.css src/pages/profile/profile-page.css README.md docs/superpowers/specs/2026-08-21-admin-header-controls-removal-design.md docs/superpowers/plans/2026-08-21-admin-header-controls-removal.md
 git diff --cached --check
 git commit -m "refactor: simplify admin header controls"
 ```

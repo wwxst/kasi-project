@@ -62,16 +62,6 @@
   color: #8a94a3;
 }
 
-.admin-layout--dark .profile-page__heading h1,
-.admin-layout--dark .profile-card__identity strong,
-.admin-layout--dark .profile-card__details .ant-descriptions-item-content {
-  color: #e5e7eb;
-}
-
-.admin-layout--dark .profile-card__identity {
-  border-color: #34373d;
-}
-
 @media (max-width: 760px) {
   .profile-page__heading h1 {
     font-size: 21px;

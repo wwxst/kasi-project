@@ -278,25 +278,6 @@
   padding: 24px 32px 30px;
 }
 
-.admin-layout--dark .analysis-metric-card__value,
-.admin-layout--dark .analysis-ranking h2,
-.admin-layout--dark .analysis-search-stat__value strong,
-.admin-layout--dark .analysis-store-tab strong,
-.admin-layout--dark .analysis-store-tab b {
-  color: #e5e7eb;
-}
-
-.admin-layout--dark .analysis-metric-card__footer,
-.admin-layout--dark .analysis-trend,
-.admin-layout--dark .analysis-ranking li,
-.admin-layout--dark .analysis-search-trend {
-  color: #c9cdd4;
-}
-
-.admin-layout--dark .analysis-metric-card__footer {
-  border-color: #34373d;
-}
-
 @media (max-width: 1100px) {
   .analysis-sales-extra .ant-picker {
     display: none;

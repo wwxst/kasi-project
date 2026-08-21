@@ -18,17 +18,14 @@ import {
   ChevronLeft,
   ChevronRight,
   Gauge,
-  Languages,
   LibraryBig,
   LogOut,
   Maximize2,
   Menu as MenuIcon,
-  Moon,
   PanelsTopLeft,
   Search,
   Settings,
   ShieldCheck,
-  Sun,
   Users,
   UserRound,
 } from 'lucide-react'
@@ -42,17 +39,12 @@ const { Header, Sider, Content, Footer } = Layout
 export function AdminLayout() {
   const [collapsed, setCollapsed] = useState(false)
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
-  const [darkMode, setDarkMode] = useState(false)
   const [fullscreen, setFullscreen] = useState(false)
   const location = useLocation()
   const navigate = useNavigate()
   const admin = useAuthStore((state) => state.admin)
   const clearSession = useAuthStore((state) => state.clearSession)
   const showBreadcrumb = location.pathname === '/profile'
-
-  useEffect(() => {
-    document.documentElement.dataset.theme = darkMode ? 'dark' : 'light'
-  }, [darkMode])
 
   useEffect(() => {
     const handleFullscreenChange = () => {
@@ -158,9 +150,7 @@ export function AdminLayout() {
   }
 
   return (
-    <Layout
-      className={darkMode ? 'admin-layout admin-layout--dark' : 'admin-layout'}
-    >
+    <Layout className="admin-layout">
       <Header className="admin-header">
         <Link
           className="admin-header__brand"
@@ -193,17 +183,6 @@ export function AdminLayout() {
               onPressEnter={() => navigate('/dashboard')}
             />
 
-            <Popover content="当前语言：简体中文" placement="bottomRight">
-              <Tooltip title="语言">
-                <Button
-                  className="admin-header__tool admin-header__language"
-                  type="text"
-                  aria-label="语言"
-                  icon={<Languages size={16} />}
-                />
-              </Tooltip>
-            </Popover>
-
             <Popover
               placement="bottomRight"
               trigger="click"
@@ -222,44 +201,6 @@ export function AdminLayout() {
                 />
               </Tooltip>
             </Popover>
-
-            <Tooltip title={darkMode ? '切换浅色模式' : '切换深色模式'}>
-              <Button
-                className="admin-header__tool admin-header__theme"
-                type="text"
-                aria-label={darkMode ? '切换浅色模式' : '切换深色模式'}
-                icon={darkMode ? <Sun size={16} /> : <Moon size={16} />}
-                onClick={() => setDarkMode((value) => !value)}
-              />
-            </Tooltip>
-
-            <Dropdown
-              trigger={['click']}
-              placement="bottomRight"
-              menu={{
-                items: [
-                  {
-                    key: 'toggle-sider',
-                    icon: collapsed ? (
-                      <ChevronRight size={16} />
-                    ) : (
-                      <ChevronLeft size={16} />
-                    ),
-                    label: collapsed ? '展开侧栏' : '收起侧栏',
-                    onClick: () => setCollapsed((value) => !value),
-                  },
-                ],
-              }}
-            >
-              <Tooltip title="布局设置">
-                <Button
-                  className="admin-header__tool admin-header__settings"
-                  type="text"
-                  aria-label="布局设置"
-                  icon={<Settings size={16} />}
-                />
-              </Tooltip>
-            </Dropdown>
 
             <Tooltip title={fullscreen ? '退出全屏' : '进入全屏'}>
               <Button

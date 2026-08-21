@@ -163,7 +163,6 @@ afterEach(() => {
   server.resetHandlers()
   useAuthStore.getState().clearSession()
   window.sessionStorage.clear()
-  delete document.documentElement.dataset.theme
   vi.restoreAllMocks()
 })
 afterAll(() => server.close())
@@ -301,18 +300,18 @@ describe('App', () => {
       within(banner).getByRole('searchbox', { name: '搜索导航' }),
     ).toHaveAttribute('placeholder', '输入内容查询')
     expect(
-      within(banner).getByRole('button', { name: '语言' }),
-    ).toBeInTheDocument()
+      within(banner).queryByRole('button', { name: '语言' }),
+    ).not.toBeInTheDocument()
     expect(screen.queryByText('首页')).not.toBeInTheDocument()
     expect(
       within(banner).getByRole('button', { name: '通知' }),
     ).toBeInTheDocument()
     expect(
-      within(banner).getByRole('button', { name: '切换深色模式' }),
-    ).toBeInTheDocument()
+      within(banner).queryByRole('button', { name: '切换深色模式' }),
+    ).not.toBeInTheDocument()
     expect(
-      within(banner).getByRole('button', { name: '布局设置' }),
-    ).toBeInTheDocument()
+      within(banner).queryByRole('button', { name: '布局设置' }),
+    ).not.toBeInTheDocument()
     expect(
       within(banner).getByRole('button', { name: '进入全屏' }),
     ).toBeInTheDocument()
@@ -329,13 +328,8 @@ describe('App', () => {
     expect(
       within(banner).queryByRole('button', { name: '收起侧边栏' }),
     ).not.toBeInTheDocument()
-
-    await user.click(
-      within(banner).getByRole('button', { name: '切换深色模式' }),
-    )
-    expect(document.documentElement.dataset.theme).toBe('dark')
     expect(
-      within(banner).getByRole('button', { name: '切换浅色模式' }),
+      screen.getByRole('button', { name: '收起侧边栏' }),
     ).toBeInTheDocument()
 
     await user.click(accountMenuButton)

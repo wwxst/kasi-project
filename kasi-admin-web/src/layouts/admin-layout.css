@@ -256,53 +256,6 @@
   padding: 0 8px;
 }
 
-.admin-layout--dark,
-.admin-layout--dark .admin-main-layout {
-  color: #e5e7eb;
-  background: #17191d;
-}
-
-.admin-layout--dark .admin-header,
-.admin-layout--dark .admin-sider,
-.admin-layout--dark .ant-menu,
-.admin-layout--dark .ant-card {
-  color: #e5e7eb;
-  border-color: #34373d;
-  background: #23262b !important;
-}
-
-.admin-layout--dark .admin-header__brand,
-.admin-layout--dark .dashboard-heading h1,
-.admin-layout--dark .metric-card__value,
-.admin-layout--dark .dashboard-card .ant-card-head-title,
-.admin-layout--dark .permission-row,
-.admin-layout--dark .ant-descriptions-item-content,
-.admin-layout--dark .ant-breadcrumb-link,
-.admin-layout--dark .ant-breadcrumb-separator {
-  color: #e5e7eb;
-}
-
-.admin-layout--dark .admin-header__search.ant-input-affix-wrapper,
-.admin-layout--dark .admin-header__tool.ant-btn,
-.admin-layout--dark .admin-header__account.ant-btn {
-  color: #c9cdd4;
-  background: #34373d;
-}
-
-.admin-layout--dark .admin-header__search .ant-input {
-  color: #f2f3f5;
-}
-
-.admin-layout--dark .admin-header__account-name {
-  color: #e5e7eb;
-}
-
-.admin-layout--dark .admin-sider__footer,
-.admin-layout--dark .permission-row + .permission-row,
-.admin-layout--dark .ant-card-head {
-  border-color: #34373d;
-}
-
 @media (max-width: 760px) {
   .admin-header__brand {
     flex-basis: auto;
@@ -326,9 +279,6 @@
   }
 
   .admin-header__search,
-  .admin-header__language,
-  .admin-header__theme,
-  .admin-header__settings,
   .admin-header__fullscreen {
     display: none !important;
   }
