@@ -85,6 +85,9 @@ src/
     resources/
       application-test.properties           # 测试环境配置（H2）
       test-schema.sql                       # 测试表结构
+scripts/
+  dev/
+    seed_goodshort_drama_catalog.sql        # 手动执行的 GoodShort 本地目录假数据
 ```
 
 ### Java model naming
@@ -153,6 +156,20 @@ $env:SPRING_DATASOURCE_PASSWORD = '<database-password>'
 - 初始密码：`kasi123456`
 
 密码在数据库中保存为 BCrypt 哈希。首次登录后应立即通过 `PUT /api/admin/auth/password` 修改默认密码。项目当前仍处于可重建数据库的开发阶段；如果开发数据库已经执行过旧版 `V1`，应删除并重新创建数据库，不能在保留旧 Flyway 校验和的情况下直接替换迁移脚本。
+
+### GoodShort 本地目录假数据
+
+`scripts/dev/seed_goodshort_drama_catalog.sql` 仅用于当前本地开发 MySQL 在尚未取得真实 PID/KEY 前准备目录联调数据，禁止用于生产、预发布或共享测试环境。它不属于 Flyway，应用启动和运行时都不会自动执行。脚本创建的安全连接固定为名称 `GoodShort 本地假数据`、币种 `USD`、禁用状态、`MANUAL` 报备模式，不写入 PID、KEY 密文或接口地址，也不会发起远端请求。连接、短剧、剧集和检查点的内部 ID 均由数据库自增；短剧外部 ID 为 `99000001..99000024`。
+
+脚本可重复执行，预期得到 24 部短剧、204 条剧集内容和 4 个同步检查点。若已存在真实或非完全匹配的 GoodShort 连接，脚本会拒绝执行且不会覆盖；即使客户端在守卫报错后继续发送语句，脚本也会通过 DML 守卫拒绝写入。必须使用遇到首个错误即停止的 SQL 客户端执行，严禁 mysql `--force`；任何错误后先执行 `ROLLBACK` 并关闭连接，再重新尝试。
+
+请显式连接到本地开发 schema，再以 UTF-8 文件输入运行。例如使用 mysql CLI 的批处理模式（不提供密码参数，不使用 `--force`）：
+
+```powershell
+mysql --host=127.0.0.1 --user=<database-user> --database=kasi_promotion --default-character-set=utf8mb4 --batch < scripts/dev/seed_goodshort_drama_catalog.sql
+```
+
+命令中不要打印或嵌入数据库密码。
 
 测试环境使用 H2 内存数据库（MySQL 兼容模式），通过 `@ActiveProfiles("test")` 激活 [application-test.properties](src/test/resources/application-test.properties)，无需本地 MySQL。
 
