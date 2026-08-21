@@ -8,6 +8,14 @@ import type {
   UpsertProviderConnectionRequest,
 } from './providerTypes'
 
+export {
+  createCommissionRule,
+  deleteCommissionRule,
+  endCommissionRule,
+  listCommissionRules,
+  updateCommissionRule,
+} from './commissionRuleApi'
+
 const basePath = '/api/admin/drama/providers'
 
 export async function listProviders(): Promise<DramaProvider[]> {
