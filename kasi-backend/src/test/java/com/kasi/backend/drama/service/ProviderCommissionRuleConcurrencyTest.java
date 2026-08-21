@@ -41,25 +41,27 @@ class ProviderCommissionRuleConcurrencyTest extends BaseAuthTest {
     @DisplayName("同一平台并发创建重叠规则最多成功一条")
     void concurrentCreateSerializesOnProviderRow() throws Exception {
         Long providerId = providerMapper.findByCode("GOODSHORT").getId();
-        LocalDateTime from = LocalDateTime.of(2026, 9, 1, 0, 0);
+        LocalDateTime from = LocalDateTime.of(2099, 9, 1, 0, 0);
         CountDownLatch providerLocked = new CountDownLatch(1);
         ExecutorService executor = Executors.newFixedThreadPool(2);
+        try {
+            Future<?> first = executor.submit(() -> new TransactionTemplate(transactionManager).execute(status -> {
+                providerMapper.findByIdForUpdate(providerId);
+                providerLocked.countDown();
+                sleep(500);
+                service.create(1L, providerId, request(from));
+                return null;
+            }));
+            assertThat(providerLocked.await(5, TimeUnit.SECONDS)).isTrue();
 
-        Future<?> first = executor.submit(() -> new TransactionTemplate(transactionManager).execute(status -> {
-            providerMapper.findByIdForUpdate(providerId);
-            providerLocked.countDown();
-            sleep(500);
-            service.create(1L, providerId, request(from));
-            return null;
-        }));
-        assertThat(providerLocked.await(5, TimeUnit.SECONDS)).isTrue();
+            Future<?> second = executor.submit(() -> service.create(1L, providerId, request(from)));
+            first.get(10, TimeUnit.SECONDS);
+            assertThatThrownBusinessException(second);
 
-        Future<?> second = executor.submit(() -> service.create(1L, providerId, request(from)));
-        first.get(10, TimeUnit.SECONDS);
-        assertThatThrownBusinessException(second);
-        executor.shutdownNow();
-
-        assertThat(ruleMapper.findAllByProviderId(providerId)).hasSize(1);
+            assertThat(ruleMapper.findAllByProviderId(providerId)).hasSize(1);
+        } finally {
+            executor.shutdownNow();
+        }
     }
 
     private void assertThatThrownBusinessException(Future<?> future) throws Exception {
