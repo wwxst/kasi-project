@@ -75,7 +75,7 @@ java -version
 
 ## 数据库与 Flyway
 
-- Flyway 版本化迁移使用默认命名格式 `V{version}__{description}.sql`。当前迁移文件为 `V1__kasi_promotion.sql` 和 `V2__media_account_filing.sql`，后续新增迁移请遵循此标准。
+- Flyway 版本化迁移使用默认命名格式 `V{version}__{description}.sql`。当前为 V1 至 V7，详见当前项目现状；后续新增迁移请遵循此标准。
 - 当前不启用 `baseline-on-migrate`。没有 Flyway 历史表的非空数据库必须明确失败，禁止为兼容旧库而静默跳过 V1。
 - 迁移脚本必须针对已选定的 schema。不要在应用迁移脚本中放置针对固定本地数据库的 `CREATE DATABASE` 或 `USE` 语句。
 - 迁移中修改的会话设置（包括 `FOREIGN_KEY_CHECKS`），若确实需要，应在迁移完成后恢复。

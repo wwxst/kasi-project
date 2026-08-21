@@ -150,7 +150,7 @@ $env:SPRING_DATASOURCE_PASSWORD = '<database-password>'
 .\mvnw.cmd spring-boot:run
 ```
 
-首次启动时 Flyway 会按版本扫描 `db/migration/`，执行 V1、V2 和 V3，创建账号、平台接入、媒体账号和通用报备表，并由 V1 植入唯一的初始超级管理员：
+首次启动时 Flyway 会按版本扫描 `db/migration/`，执行 V1 至 V7：V1 创建账号表并植入唯一的初始超级管理员；V2 至 V6 创建平台接入、媒体账号、通用报备及人工报备相关表和字段；V7 创建短剧目录、剧集和同步检查点表。由 V1 植入的初始超级管理员为：
 
 - 账号：`kasiadmin`
 - 初始密码：`kasi123456`
@@ -163,10 +163,10 @@ $env:SPRING_DATASOURCE_PASSWORD = '<database-password>'
 
 脚本可重复执行，预期得到 24 部短剧、204 条剧集内容和 4 个同步检查点。若已存在真实或非完全匹配的 GoodShort 连接，脚本会拒绝执行且不会覆盖；即使客户端在守卫报错后继续发送语句，脚本也会通过 DML 守卫拒绝写入。必须使用遇到首个错误即停止的 SQL 客户端执行，严禁 mysql `--force`；任何错误后先执行 `ROLLBACK` 并关闭连接，再重新尝试。
 
-请显式连接到本地开发 schema，再以 UTF-8 文件输入运行。例如使用 mysql CLI 的批处理模式（不提供密码参数，不使用 `--force`）：
+请显式连接到本地开发 schema，再以 UTF-8 文件输入运行。例如使用 mysql CLI 的批处理模式（不使用 `--force`，`--password` 仅提示输入密码）：
 
 ```powershell
-mysql --host=127.0.0.1 --user=<database-user> --database=kasi_promotion --default-character-set=utf8mb4 --batch < scripts/dev/seed_goodshort_drama_catalog.sql
+mysql --host=127.0.0.1 --user=$env:SPRING_DATASOURCE_USERNAME --password --database=kasi_promotion --default-character-set=utf8mb4 --batch --execute="source scripts/dev/seed_goodshort_drama_catalog.sql"
 ```
 
 命令中不要打印或嵌入数据库密码。
