@@ -17,10 +17,10 @@
   - `user/` — 推广用户注册、登录、获取当前用户、退出登录、修改密码、忘记密码流程，以及管理员可用的推广用户管理 CRUD
   - `provider/` — 短剧平台定义、接入账号持久层、AES-GCM 密钥加密、GoodShort 签名/连接探测，以及管理员平台接入管理 API
   - `promotion/` — 推广用户媒体账号绑定、GoodShort 账号报备、审核状态任务和管理员查询/重试 API
-  - `drama/` — GoodShort 短剧目录与剧集持久层、全量/增量同步、检查点与租约、管理员目录 API 和定时调度
+  - `drama/` — GoodShort 短剧目录与剧集持久层、全量/增量同步、检查点与租约、平台级分佣规则、`BigDecimal` 计算器、管理员 API 和定时调度
   - `auth/` — 可复用的验证码服务和密码重置 Token 机制（Redis 存储，Lua 原子消费/预占，TTL 自动过期）
 - 数据库迁移：`db/migration/V1__kasi_promotion.sql` 定义账号表并植入唯一初始超级管理员，`V2__media_account_filing.sql` 定义短剧平台、平台接入账号、推广用户媒体账号和平台报备表，`V3__provider_connection_base_url.sql` 为平台接入配置增加可管理的接口 URL，`V4__media_filing_task_version.sql` 为报备任务增加资料版本隔离；V2 仅植入 `GOODSHORT` 平台定义，不植入接入密钥。验证码和密码重置 Token 等临时数据由 Redis（`vc:*`、`pwd:*` 键）管理，TTL 自动过期。
-- `V5__provider_filing_mode.sql` 和 `V6__manual_filing_operator.sql` 完成人工报备模式；`V7__drama_catalog_sync.sql` 定义 `provider_drama`、`provider_drama_content` 和 `provider_sync_checkpoint`。目录默认同步 `ENGLISH`，全量调用 `initBooks`，增量调用 `incrementBooks`。
+- `V5__provider_filing_mode.sql` 和 `V6__manual_filing_operator.sql` 完成人工报备模式；`V7__drama_catalog_sync.sql` 定义 `provider_drama`、`provider_drama_content` 和 `provider_sync_checkpoint`；`V8__provider_commission_rule.sql` 创建 `provider_commission_rule`，为每个短剧平台保存带版本时间段的五费率规则。目录默认同步 `ENGLISH`，全量调用 `initBooks`，增量调用 `incrementBooks`。
 - 项目当前仍处于开发阶段，数据库可以删除重建；修改已执行的迁移后应重建开发数据库。未来生产首次建库也按 Flyway 版本顺序执行并植入初始账号，不新增运行时账号植入器。
 - 会话状态由 Redis（`auth:version:{type}:{userId}`、`auth:session:{jti}`）管理。JWT 携带 `jti`、`sessionVersion`，受保护请求必须同时校验签名、账号状态和 Redis 会话；Redis 不可用时安全失败返回 503，不能降级放行。
 - 修改密码、密码重置等敏感 MySQL 状态变更会先将账号版本切换为 `MUTATING:{nonce}`，数据库成功后再恢复新的 `ACTIVE:*` 版本，使旧 Token 失效。普通 logout 只撤销当前 `jti` 会话。
@@ -34,6 +34,9 @@
 - `sys_admin_user` 和 `promotion_user` 均不保留 `deleted_at`；媒体账号表同样不保留 `deleted_at`，媒体账号不提供物理删除。
 - 媒体账号用户 API 位于 `/api/user/promotion/media-accounts`，管理员 API 位于 `/api/admin/promotion/media-accounts`；管理员支持分页查询、详情、编辑和失败报备重试，未加白时允许纠正媒体平台和账号 ID，已加白后锁定身份字段。响应不暴露平台连接 ID、PID、密钥或任务租约字段。报备任务默认每 30 秒领取到期任务，提交后 1 分钟首次查询，审核中每 5 分钟查询，已加白每 24 小时复核。
 - 短剧目录管理员 API 位于 `/api/admin/drama/catalog`；普通管理员和超级管理员均可分页查询、查看详情、触发同步、查询同步状态和修改本地上下架。同步默认每 5 分钟处理到期任务，支持断点续跑、过期租约接管和同连接/语言跨 FULL、INCREMENTAL 互斥；远端同步不得覆盖 `local_status`，也不得物理删除本次未返回的历史短剧。
+- 短剧平台分佣规则 API 位于 `/api/admin/drama/providers/{providerId}/commission-rules`：普通管理员和超级管理员均可 `GET` 只读查询，只有超级管理员可 `POST` 创建、`PUT` 编辑、`PATCH .../{ruleId}/end-time` 提前结束和 `DELETE` 删除。规则按平台配置，当前和未来接入账号及平台下所有短剧共用；API 使用 `0..100` 百分比，数据库使用 `0..1` 高精度比例，同平台 `[effectiveFrom,effectiveTo)` 时间段不得重叠。
+- 分佣规则状态由时间派生：`PENDING` 可编辑和删除，`ACTIVE` 只能提前结束，`ENDED` 永久只读。所有写操作先锁定 `short_drama_provider` 平台行再校验重叠；计算器全程使用 `BigDecimal`，中间保持高精度，最终金额保留两位并按 `HALF_UP` 四舍五入。
+- 推广链接、订单同步、订单费率快照、订单导出、钱包/结算和转化分析仍未实现；不得把平台分佣规则或纯计算器描述为订单级佣金闭环。
 - Git 仓库：`https://github.com/wwxst/kasi-backend.git`，远程 `origin`，分支 `master`。
 - 在文档和代码审查中，请将当前架构与规划架构区分开来。不要将规划中的模块描述为已实现的模块。
 
@@ -62,6 +65,7 @@ java -version
 - 运行完整测试套件，执行 `./mvnw.cmd test`。测试使用 H2 内存数据库（MySQL 兼容模式），通过 `application-test.properties` 配置，不依赖本地 MySQL。
 - 平台接入模块聚焦校验：`./mvnw.cmd -Dtest=MediaAccountFilingMigrationTest,ProviderCredentialCipherTest,ProviderPersistenceTest,ProviderConnectionServiceTest,GoodShortSignerTest,GoodShortAdapterTest,ProviderAdminControllerTest test`。
 - 短剧目录聚焦校验：`./mvnw.cmd -Dtest=GoodShortCatalogAdapterTest,DramaCatalogPersistenceTest,DramaCatalogSyncServiceTest,DramaCatalogAdminServiceTest,AdminDramaCatalogControllerTest,DramaCatalogSchedulerTest test`。
+- 平台分佣规则聚焦校验（PowerShell 需使用 `--%` 原样传递逗号列表）：`./mvnw.cmd --% -Dtest=ProviderCommissionRuleMigrationTest,ProviderCommissionRulePersistenceTest,ProviderCommissionCalculatorTest,ProviderCommissionRuleServiceTest,ProviderCommissionRuleConcurrencyTest,ProviderCommissionRuleControllerTest test`。
 - 提交更改前运行 `git diff --check`。
 - 在没有显示零错误的最新输出之前，不要宣称测试套件是健康的。
 - 每新增一个控制器、服务、映射器、迁移脚本或安全规则，都应添加针对性的测试。优先使用可复现的测试数据库，而非开发人员本机数据库。
@@ -74,7 +78,7 @@ java -version
 
 ## 数据库与 Flyway
 
-- Flyway 版本化迁移使用默认命名格式 `V{version}__{description}.sql`。当前迁移文件为 `V1__kasi_promotion.sql` 和 `V2__media_account_filing.sql`，后续新增迁移请遵循此标准。
+- Flyway 版本化迁移使用默认命名格式 `V{version}__{description}.sql`。当前迁移范围为 V1 至 V8，后续新增迁移请遵循此标准。
 - 当前不启用 `baseline-on-migrate`。没有 Flyway 历史表的非空数据库必须明确失败，禁止为兼容旧库而静默跳过 V1。
 - 迁移脚本必须针对已选定的 schema。不要在应用迁移脚本中放置针对固定本地数据库的 `CREATE DATABASE` 或 `USE` 语句。
 - 迁移中修改的会话设置（包括 `FOREIGN_KEY_CHECKS`），若确实需要，应在迁移完成后恢复。
@@ -144,6 +148,7 @@ java -version
 - 当前认证端点包括：注册验证码 `POST /api/user/auth/register/code`，忘记密码重置 `POST /api/user/auth/password/reset`。
 - 管理员管理端点统一位于 `/api/admin/management/**`，仅 `ROLE_SUPER_ADMIN` 可访问；本人资料使用 `PUT /api/admin/auth/profile`。
 - 推广用户管理端点统一位于 `/api/user/management/**`，超级管理员和普通管理员均以 `ROLE_ADMIN` 访问。
+- 平台分佣规则使用五个固定端点：`GET/POST /api/admin/drama/providers/{providerId}/commission-rules`、`PUT/DELETE /api/admin/drama/providers/{providerId}/commission-rules/{ruleId}`、`PATCH /api/admin/drama/providers/{providerId}/commission-rules/{ruleId}/end-time`；`GET` 要求 `ROLE_ADMIN`，写操作要求 `ROLE_SUPER_ADMIN`。
 
 ## 事务管理规范
 
