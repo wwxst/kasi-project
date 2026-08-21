@@ -402,8 +402,11 @@ function DramaDetail({ detail }: { detail: DramaCatalogDetail }) {
           <Descriptions.Item label="远端更新时间">
             {formatDate(detail.remoteUpdatedAt)}
           </Descriptions.Item>
-          <Descriptions.Item label="最近同步可见">
+          <Descriptions.Item label="最近同步可见" span={2}>
             {formatDate(detail.lastSeenAt)}
+          </Descriptions.Item>
+          <Descriptions.Item label="本地创建时间">
+            {formatDate(detail.createdAt)}
           </Descriptions.Item>
           <Descriptions.Item label="本地更新时间">
             {formatDate(detail.updatedAt)}

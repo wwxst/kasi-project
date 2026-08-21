@@ -225,6 +225,8 @@ describe('DramaCatalogPage', () => {
     expect(within(drawer).getByText('The Return')).toBeInTheDocument()
     expect(within(drawer).getByText('The Choice')).toBeInTheDocument()
     expect(within(drawer).getByText('免费')).toBeInTheDocument()
+    expect(within(drawer).getByText('本地创建时间')).toBeInTheDocument()
+    expect(within(drawer).getByText('2026-08-20 10:35')).toBeInTheDocument()
   })
 
   it('confirms publish and offline status changes then reloads the table', async () => {
