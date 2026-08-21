@@ -68,6 +68,10 @@ public enum ErrorCode {
     DRAMA_SYNC_TASK_RUNNING(6008, "短剧目录同步任务正在执行或等待执行"),
     DRAMA_NOT_FOUND(6009, "短剧不存在"),
     DRAMA_LOCAL_STATUS_INVALID(6010, "短剧本地状态只允许已发布或已下架"),
+    PROVIDER_COMMISSION_RULE_NOT_FOUND(6011, "平台分佣规则不存在"),
+    PROVIDER_COMMISSION_RULE_TIME_INVALID(6012, "平台分佣规则生效时间无效"),
+    PROVIDER_COMMISSION_RULE_TIME_OVERLAP(6013, "平台分佣规则生效时间重叠"),
+    PROVIDER_COMMISSION_RULE_STATE_INVALID(6014, "当前状态不允许修改平台分佣规则"),
 
     // ========== 推广媒体与报备错误 ==========
     MEDIA_ACCOUNT_NOT_FOUND(7001, "媒体账号不存在"),
