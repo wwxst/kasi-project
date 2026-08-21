@@ -50,6 +50,11 @@ const DramaCatalogPage = lazy(() =>
     default: module.DramaCatalogPage,
   })),
 )
+const ScheduledTaskPage = lazy(() =>
+  import('../pages/system/ScheduledTaskPage').then((module) => ({
+    default: module.ScheduledTaskPage,
+  })),
+)
 
 function ProtectedRoute() {
   const accessToken = useAuthStore((state) => state.accessToken)
@@ -90,6 +95,10 @@ export function AppRouter() {
               <Route
                 path="/system-config/drama-api"
                 element={<ProviderManagementPage />}
+              />
+              <Route
+                path="/system-config/scheduled-tasks"
+                element={<ScheduledTaskPage />}
               />
               <Route
                 path="/provider-management"

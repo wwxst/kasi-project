@@ -15,6 +15,7 @@ import {
   BadgeCheck,
   Bell,
   Clapperboard,
+  Clock3,
   ChevronLeft,
   ChevronRight,
   Gauge,
@@ -121,6 +122,13 @@ export function AdminLayout() {
                 key: '/system-config/drama-api',
                 icon: <Clapperboard size={18} strokeWidth={1.8} />,
                 label: <Link to="/system-config/drama-api">短剧 API 配置</Link>,
+              },
+              {
+                key: '/system-config/scheduled-tasks',
+                icon: <Clock3 size={18} strokeWidth={1.8} />,
+                label: (
+                  <Link to="/system-config/scheduled-tasks">定时任务</Link>
+                ),
               },
             ],
           },
