@@ -91,7 +91,7 @@ app.promotion.drama.sync.languages=ENGLISH
 | `last_seen_at` | 最近一次被同步返回的时间 |
 | `created_at` / `updated_at` | 本地审计时间 |
 
-唯一约束为 `(connection_id, external_drama_id)`。远端本次未返回的记录不删除，保留历史关联；是否可供后续推广由远端状态、本地状态、平台连接状态和分佣规则共同决定。
+唯一约束为 `(connection_id, external_drama_id)`。远端本次未返回的记录不删除，保留历史关联；是否可供后续推广由远端状态、本地状态、平台连接状态和短剧平台当前有效分佣规则共同决定。
 
 ### 5.2 `provider_drama_content`
 
@@ -204,7 +204,7 @@ app.promotion.drama.sync.languages=ENGLISH
 
 本模块完成后，按路线进入：
 
-1. 平台短剧分佣规则与有效期校验。
+1. 短剧平台分佣规则与有效期校验。
 2. 免费内容访问和推广链接生成。
 3. 订单同步、归因和预计佣金。
 4. 每日转化数据同步。
