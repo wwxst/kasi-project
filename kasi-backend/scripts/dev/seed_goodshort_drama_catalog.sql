@@ -69,7 +69,7 @@ SELECT
     CONCAT('Local GoodShort Drama ', n),
     CONCAT('Deterministic local development description for drama ', n),
     CASE WHEN MOD(n, 6) = 0 THEN NULL
-         ELSE CONCAT('https://example.invalid/goodshort/cover-', n, '.jpg') END,
+         ELSE CONCAT('https://placehold.co/300x450/png?text=GoodShort+', LPAD(n, 2, '0')) END,
     CASE WHEN n <= 12 THEN 'ENGLISH' ELSE 'SPANISH' END,
     CASE MOD(n, 4)
         WHEN 0 THEN 'ROMANCE'
@@ -116,8 +116,10 @@ SELECT
     '2026-01-01 00:00:00',
     '2026-01-02 00:00:00'
 FROM provider_drama d
+JOIN seed_goodshort_numbers drama_number
+  ON d.external_drama_id = CONCAT('990000', LPAD(drama_number.n, 2, '0'))
 JOIN seed_goodshort_numbers n
-  ON n.n <= 5 + MOD(CAST(SUBSTRING(d.external_drama_id, 7, 2) AS INT) - 1, 8)
+  ON n.n <= 5 + MOD(drama_number.n - 1, 8)
 WHERE d.connection_id = @goodshort_connection_id
 ON DUPLICATE KEY UPDATE
     external_content_id = VALUES(external_content_id),
@@ -137,7 +139,15 @@ INSERT INTO provider_sync_checkpoint (
 SELECT @goodshort_connection_id, sync_type, language, 'SUCCESS', 1, 100,
        CASE WHEN sync_type = 'FULL' THEN 100 ELSE 200 END,
        '2026-01-03 00:00:00', '2026-01-03 00:00:00', '2026-01-03 00:00:00',
-       '2026-01-03 00:00:00', 24, 24, 24, 0, 0, 0, NULL, NULL, NULL, NULL,
+       '2026-01-03 00:00:00',
+       CASE WHEN sync_type = 'FULL' THEN 12 ELSE 12 END,
+       CASE WHEN sync_type = 'FULL' THEN 12 ELSE 11 END,
+       CASE WHEN sync_type = 'FULL' THEN 12
+            WHEN language = 'ENGLISH' THEN 2 ELSE 1 END,
+       CASE WHEN sync_type = 'FULL' THEN 0
+            WHEN language = 'ENGLISH' THEN 9 ELSE 10 END,
+       CASE WHEN sync_type = 'FULL' THEN 0 ELSE 1 END,
+       0, NULL, NULL, NULL, NULL,
        '2026-01-01 00:00:00', '2026-01-03 00:00:00'
 FROM (SELECT 'FULL' AS sync_type UNION ALL SELECT 'INCREMENTAL') sync_types
 JOIN (SELECT 'ENGLISH' AS language UNION ALL SELECT 'SPANISH') languages
