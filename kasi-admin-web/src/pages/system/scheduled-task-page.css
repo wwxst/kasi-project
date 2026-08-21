@@ -1,0 +1,55 @@
+.scheduled-task-page .ant-table-wrapper {
+  overflow: hidden;
+  border: 1px solid var(--ant-color-border-secondary);
+  border-radius: 4px;
+}
+
+.scheduled-task-page .ant-table-thead > tr > th {
+  background: #eaf2ff;
+  font-weight: 500;
+}
+
+.scheduled-task-page .ant-table-cell {
+  min-height: 50px;
+}
+
+.scheduled-task-page__form {
+  padding-top: 12px;
+}
+
+.scheduled-task-page__form .ant-space-compact .ant-select {
+  width: 140px;
+}
+
+.scheduled-task-page__form .ant-space-compact .ant-input-number {
+  width: 110px;
+}
+
+.scheduled-task-page__cycle-unit {
+  display: inline-flex;
+  width: 40px;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--ant-color-border);
+  border-left: 0;
+  border-radius: 0 6px 6px 0;
+  color: var(--ant-color-text-secondary);
+  background: var(--ant-color-fill-quaternary);
+}
+
+.scheduled-task-page__cycle-help {
+  margin-top: 6px;
+  color: var(--ant-color-text-tertiary);
+  font-size: 12px;
+}
+
+@media (max-width: 640px) {
+  .scheduled-task-page__form .ant-form-item-row {
+    display: block;
+  }
+
+  .scheduled-task-page__form .ant-form-item-label,
+  .scheduled-task-page__form .ant-form-item-control {
+    max-width: 100%;
+  }
+}

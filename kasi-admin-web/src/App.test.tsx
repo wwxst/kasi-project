@@ -409,6 +409,52 @@ describe('App', () => {
     ).not.toBeInTheDocument()
   })
 
+  it('opens scheduled tasks from system configuration for an ordinary administrator', async () => {
+    server.use(
+      http.get('/api/admin/system/scheduled-tasks', () =>
+        HttpResponse.json({
+          code: 0,
+          message: 'ok',
+          data: [
+            {
+              taskCode: 'GOODSHORT_DRAMA_INCREMENTAL_SYNC',
+              title: 'GoodShort 短剧增量同步',
+              description: '每隔60分钟执行一次GoodShort短剧目录增量同步',
+              intervalMinutes: 60,
+              enabled: true,
+            },
+          ],
+        }),
+      ),
+    )
+    useAuthStore.getState().setSession({
+      accessToken: 'ordinary-token',
+      tokenType: 'Bearer',
+      expiresIn: 7200,
+      admin: {
+        id: 2,
+        username: 'operator',
+        realName: '运营管理员',
+        mobile: null,
+        email: null,
+        avatarUrl: null,
+        isSuperAdmin: 0,
+      },
+    })
+    window.history.replaceState({}, '', '/system-config/scheduled-tasks')
+
+    render(<App />)
+
+    expect(
+      await screen.findByRole('heading', { name: '定时任务' }),
+    ).toBeInTheDocument()
+    expect(screen.getByText('系统配置')).toBeInTheDocument()
+    expect(screen.getByText('定时任务', { selector: 'a' })).toBeInTheDocument()
+    expect(
+      await screen.findByText('GoodShort 短剧增量同步'),
+    ).toBeInTheDocument()
+  })
+
   it('loads the administrator table and protects the unique super administrator', async () => {
     const listRequestUrls: string[] = []
     server.use(

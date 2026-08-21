@@ -73,7 +73,11 @@ describe('scheduledTaskApi', () => {
   it('throws the backend business message', async () => {
     server.use(
       http.get('/api/admin/system/scheduled-tasks', () =>
-        HttpResponse.json({ code: 1008, message: '定时任务不存在', data: null }),
+        HttpResponse.json({
+          code: 1008,
+          message: '定时任务不存在',
+          data: null,
+        }),
       ),
     )
 
