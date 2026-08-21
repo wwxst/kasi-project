@@ -30,8 +30,13 @@ export function DramaSyncModal({
 
   useEffect(() => {
     if (!open) return
+    const providerId = providers.some(
+      (provider) => provider.id === preferredProviderId,
+    )
+      ? preferredProviderId
+      : providers[0]?.id
     form.setFieldsValue({
-      providerId: preferredProviderId ?? providers[0]?.id,
+      providerId: providerId ?? undefined,
       syncType: 'INCREMENTAL',
       languages: ['ENGLISH'],
     })

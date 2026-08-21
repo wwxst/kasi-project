@@ -58,7 +58,7 @@ export function DramaCatalogPage() {
 
   useEffect(() => {
     void listProviders()
-      .then((items) => setProviders(items.filter(isCatalogProvider)))
+      .then((items) => setProviders(items.filter(hasCatalogConnection)))
       .catch((error) =>
         message.error(
           error instanceof Error ? error.message : '短剧平台加载失败',
@@ -78,6 +78,10 @@ export function DramaCatalogPage() {
   )
 
   const currentProviderName = providers[0]?.providerName ?? '-'
+  const syncProviders = useMemo(
+    () => providers.filter(isSyncEnabledProvider),
+    [providers],
+  )
 
   useEffect(() => {
     if (syncProviderId === null && providers.length > 0) {
@@ -120,7 +124,11 @@ export function DramaCatalogPage() {
       search: false,
       width: 76,
       render: (_, record) => (
-        <DramaCover coverUrl={record.coverUrl} title={record.title} />
+        <DramaCover
+          coverUrl={record.coverUrl}
+          title={record.title}
+          fallbackTestId={`drama-cover-fallback-${record.id}`}
+        />
       ),
     },
     {
@@ -284,6 +292,7 @@ export function DramaCatalogPage() {
             key="sync-catalog"
             type="primary"
             icon={<RefreshCw size={16} />}
+            disabled={syncProviders.length === 0}
             onClick={() => setSyncModalOpen(true)}
           >
             同步目录
@@ -316,7 +325,7 @@ export function DramaCatalogPage() {
 
       <DramaSyncModal
         open={syncModalOpen}
-        providers={providers}
+        providers={syncProviders}
         preferredProviderId={syncProviderId}
         onClose={() => setSyncModalOpen(false)}
         onSubmitted={handleSyncSubmitted}
@@ -441,11 +450,17 @@ function DramaCover({
   coverUrl,
   title,
   large = false,
+  fallbackTestId,
 }: {
   coverUrl: string | null
   title: string | null
   large?: boolean
+  fallbackTestId?: string
 }) {
+  const [loadFailed, setLoadFailed] = useState(false)
+
+  useEffect(() => setLoadFailed(false), [coverUrl])
+
   return (
     <div
       className={
@@ -454,10 +469,17 @@ function DramaCover({
           : 'drama-catalog-page__cover'
       }
     >
-      {coverUrl ? (
-        <Image src={coverUrl} alt={title || '短剧封面'} preview={false} />
+      {coverUrl && !loadFailed ? (
+        <Image
+          src={coverUrl}
+          alt={title || '短剧封面'}
+          preview={false}
+          onError={() => setLoadFailed(true)}
+        />
       ) : (
-        <Clapperboard size={large ? 28 : 20} strokeWidth={1.6} />
+        <span data-testid={fallbackTestId}>
+          <Clapperboard size={large ? 28 : 20} strokeWidth={1.6} />
+        </span>
       )}
     </div>
   )
@@ -469,15 +491,22 @@ function LocalStatusTag({ status }: { status: DramaLocalStatus }) {
   )
 }
 
-function isCatalogProvider(provider: DramaProvider) {
+function hasCatalogConnection(provider: DramaProvider) {
   return (
-    provider.status === 1 &&
-    provider.connection?.status === 1 &&
+    provider.connection !== null &&
     provider.capabilities.some(
       (capability) =>
         capability === 'FULL_DRAMA_SYNC' ||
         capability === 'INCREMENTAL_DRAMA_SYNC',
     )
+  )
+}
+
+function isSyncEnabledProvider(provider: DramaProvider) {
+  return (
+    hasCatalogConnection(provider) &&
+    provider.status === 1 &&
+    provider.connection?.status === 1
   )
 }
 

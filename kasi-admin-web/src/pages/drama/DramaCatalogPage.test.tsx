@@ -1,5 +1,6 @@
 import {
   cleanup,
+  fireEvent,
   render,
   screen,
   waitFor,
@@ -434,5 +435,64 @@ describe('DramaCatalogPage', () => {
       await screen.findByText('当前语言已有同步任务执行中'),
     ).toBeInTheDocument()
     expect(modal).toBeVisible()
+  })
+
+  it('keeps disabled providers available for history but blocks new syncs', async () => {
+    const disabledProvider = {
+      ...provider,
+      status: 0,
+      connection: { ...provider.connection, status: 0 },
+    }
+    let statusProviderId: string | null = null
+    server.use(
+      http.get('/api/admin/drama/providers', () =>
+        HttpResponse.json({
+          code: 0,
+          message: 'ok',
+          data: [disabledProvider],
+        }),
+      ),
+      http.get('/api/admin/drama/catalog', () =>
+        HttpResponse.json({
+          code: 0,
+          message: 'ok',
+          data: {
+            list: [publishedDrama],
+            page: 1,
+            size: 20,
+            total: 1,
+          },
+        }),
+      ),
+      http.get('/api/admin/drama/catalog/sync/status', ({ request }) => {
+        statusProviderId = new URL(request.url).searchParams.get('providerId')
+        return HttpResponse.json({ code: 0, message: 'ok', data: [] })
+      }),
+    )
+    const user = userEvent.setup()
+
+    renderPage()
+
+    const row = await screen.findByTestId('mock-row-8')
+    expect(within(row).getByText('GoodShort')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: '同步目录' })).toBeDisabled()
+
+    await user.click(screen.getByRole('button', { name: '同步状态' }))
+    const drawer = await screen.findByTestId('drama-sync-status-drawer')
+    expect(within(drawer).getByText('GoodShort')).toBeInTheDocument()
+    await waitFor(() => expect(statusProviderId).toBe('1'))
+  })
+
+  it('shows a stable placeholder when a cover image fails to load', async () => {
+    useCatalogHandlers()
+
+    renderPage()
+
+    const row = await screen.findByTestId('mock-row-8')
+    fireEvent.error(within(row).getByRole('img', { name: 'Reborn to Love' }))
+
+    expect(
+      within(row).getByTestId('drama-cover-fallback-8'),
+    ).toBeInTheDocument()
   })
 })
