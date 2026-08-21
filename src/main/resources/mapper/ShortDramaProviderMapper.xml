@@ -12,6 +12,10 @@
         SELECT * FROM short_drama_provider WHERE id = #{id}
     </select>
 
+    <select id="findByIdForUpdate" resultType="com.kasi.backend.provider.entity.ShortDramaProvider">
+        SELECT * FROM short_drama_provider WHERE id = #{id} FOR UPDATE
+    </select>
+
     <select id="findByCode" resultType="com.kasi.backend.provider.entity.ShortDramaProvider">
         SELECT * FROM short_drama_provider WHERE provider_code = #{providerCode}
     </select>

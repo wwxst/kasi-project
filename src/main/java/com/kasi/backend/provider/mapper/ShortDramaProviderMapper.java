@@ -10,5 +10,6 @@ import java.util.List;
 public interface ShortDramaProviderMapper {
     List<ShortDramaProvider> findAll();
     ShortDramaProvider findById(@Param("id") Long id);
+    ShortDramaProvider findByIdForUpdate(@Param("id") Long id);
     ShortDramaProvider findByCode(@Param("providerCode") String providerCode);
 }
