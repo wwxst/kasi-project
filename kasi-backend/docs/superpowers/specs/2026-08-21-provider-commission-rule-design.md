@@ -167,8 +167,8 @@ Jakarta Validation 处理必填、百分比范围和小数精度，失败继续�
 
 2026-08-21 使用 Temurin JDK 25.0.3 和 Maven Wrapper 3.9.16 完成最新自动化验证：
 
-- 分佣规则六类聚焦测试：`Tests run: 23, Failures: 0, Errors: 0, Skipped: 0`。
-- 完整测试套件：`Tests run: 263, Failures: 0, Errors: 0, Skipped: 0`。
+- 分佣规则六类聚焦测试：`Tests run: 24, Failures: 0, Errors: 0, Skipped: 0`。
+- 完整测试套件：`Tests run: 264, Failures: 0, Errors: 0, Skipped: 0`。
 - `mvnw.cmd -DskipTests compile`：exit code 0，`BUILD SUCCESS`。
 - `git diff --check`：exit code 0，无空白错误。
 
