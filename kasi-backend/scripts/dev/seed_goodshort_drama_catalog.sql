@@ -58,7 +58,7 @@ WHERE @goodshort_provider_id IS NOT NULL
 SET @goodshort_connection_id = (
     SELECT id FROM short_drama_connection
     WHERE provider_id = @goodshort_provider_id
-      AND connection_name = CONCAT('GoodShort ', CHAR(26412), CHAR(22320), CHAR(20551), CHAR(25968), CHAR(25454))
+      AND connection_name = 'GoodShort 本地假数据'
       AND currency = 'USD' AND status = 0 AND filing_mode = 'MANUAL'
       AND partner_id IS NULL AND api_key_ciphertext IS NULL AND base_url IS NULL
 );
@@ -99,7 +99,7 @@ WHERE @goodshort_connection_id IS NOT NULL
   AND EXISTS (
       SELECT 1 FROM short_drama_connection c
       WHERE c.id = @goodshort_connection_id
-        AND c.connection_name = CONCAT('GoodShort ', CHAR(26412), CHAR(22320), CHAR(20551), CHAR(25968), CHAR(25454))
+        AND c.connection_name = 'GoodShort 本地假数据'
         AND c.currency = 'USD' AND c.status = 0 AND c.filing_mode = 'MANUAL'
         AND c.partner_id IS NULL AND c.api_key_ciphertext IS NULL AND c.base_url IS NULL
   )
@@ -140,7 +140,7 @@ WHERE d.connection_id = @goodshort_connection_id
   AND EXISTS (
       SELECT 1 FROM short_drama_connection c
       WHERE c.id = @goodshort_connection_id
-        AND c.connection_name = CONCAT('GoodShort ', CHAR(26412), CHAR(22320), CHAR(20551), CHAR(25968), CHAR(25454))
+        AND c.connection_name = 'GoodShort 本地假数据'
         AND c.currency = 'USD' AND c.status = 0 AND c.filing_mode = 'MANUAL'
         AND c.partner_id IS NULL AND c.api_key_ciphertext IS NULL AND c.base_url IS NULL
   )
@@ -179,7 +179,7 @@ WHERE @goodshort_connection_id IS NOT NULL
   AND EXISTS (
       SELECT 1 FROM short_drama_connection c
       WHERE c.id = @goodshort_connection_id
-        AND c.connection_name = CONCAT('GoodShort ', CHAR(26412), CHAR(22320), CHAR(20551), CHAR(25968), CHAR(25454))
+        AND c.connection_name = 'GoodShort 本地假数据'
         AND c.currency = 'USD' AND c.status = 0 AND c.filing_mode = 'MANUAL'
         AND c.partner_id IS NULL AND c.api_key_ciphertext IS NULL AND c.base_url IS NULL
   )
