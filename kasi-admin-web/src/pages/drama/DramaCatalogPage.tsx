@@ -12,7 +12,7 @@ import {
   Table,
   Tag,
 } from 'antd'
-import { Clapperboard } from 'lucide-react'
+import { Activity, Clapperboard, RefreshCw } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import {
   getDramaCatalogDetail,
@@ -28,6 +28,8 @@ import type {
 } from '../../features/drama/dramaCatalogTypes'
 import { listProviders } from '../../features/provider/providerApi'
 import type { DramaProvider } from '../../features/provider/providerTypes'
+import { DramaSyncModal } from './DramaSyncModal'
+import { DramaSyncStatusDrawer } from './DramaSyncStatusDrawer'
 import './drama-catalog-page.css'
 
 const localStatusLabels: Record<DramaLocalStatus, string> = {
@@ -50,6 +52,9 @@ export function DramaCatalogPage() {
   const [detailOpen, setDetailOpen] = useState(false)
   const [detailLoading, setDetailLoading] = useState(false)
   const [statusUpdatingId, setStatusUpdatingId] = useState<number | null>(null)
+  const [syncModalOpen, setSyncModalOpen] = useState(false)
+  const [syncStatusOpen, setSyncStatusOpen] = useState(false)
+  const [syncProviderId, setSyncProviderId] = useState<number | null>(null)
 
   useEffect(() => {
     void listProviders()
@@ -73,6 +78,12 @@ export function DramaCatalogPage() {
   )
 
   const currentProviderName = providers[0]?.providerName ?? '-'
+
+  useEffect(() => {
+    if (syncProviderId === null && providers.length > 0) {
+      setSyncProviderId(providers[0].id)
+    }
+  }, [providers, syncProviderId])
 
   const openDetail = async (record: DramaCatalogListItem) => {
     setDetailOpen(true)
@@ -243,6 +254,12 @@ export function DramaCatalogPage() {
     return { data: result.list, total: result.total, success: true }
   }
 
+  const handleSyncSubmitted = (providerId: number) => {
+    setSyncProviderId(providerId)
+    setSyncModalOpen(false)
+    setSyncStatusOpen(true)
+  }
+
   return (
     <PageContainer
       className="drama-catalog-page"
@@ -255,7 +272,23 @@ export function DramaCatalogPage() {
         rowKey="id"
         columns={columns}
         request={loadPage}
-        toolBarRender={false}
+        toolBarRender={() => [
+          <Button
+            key="sync-status"
+            icon={<Activity size={16} />}
+            onClick={() => setSyncStatusOpen(true)}
+          >
+            同步状态
+          </Button>,
+          <Button
+            key="sync-catalog"
+            type="primary"
+            icon={<RefreshCw size={16} />}
+            onClick={() => setSyncModalOpen(true)}
+          >
+            同步目录
+          </Button>,
+        ]}
         search={{ labelWidth: 88 }}
         options={{
           density: true,
@@ -280,6 +313,22 @@ export function DramaCatalogPage() {
           </Spin>
         </div>
       </Drawer>
+
+      <DramaSyncModal
+        open={syncModalOpen}
+        providers={providers}
+        preferredProviderId={syncProviderId}
+        onClose={() => setSyncModalOpen(false)}
+        onSubmitted={handleSyncSubmitted}
+      />
+
+      <DramaSyncStatusDrawer
+        open={syncStatusOpen}
+        providers={providers}
+        providerId={syncProviderId}
+        onProviderChange={setSyncProviderId}
+        onClose={() => setSyncStatusOpen(false)}
+      />
     </PageContainer>
   )
 }

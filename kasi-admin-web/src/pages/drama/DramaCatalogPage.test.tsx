@@ -271,4 +271,166 @@ describe('DramaCatalogPage', () => {
       expect(requests.getListRequestCount()).toBeGreaterThan(2),
     )
   })
+
+  it('submits an incremental English sync task and opens its status', async () => {
+    useCatalogHandlers()
+    let syncBody: unknown
+    server.use(
+      http.post('/api/admin/drama/catalog/sync', async ({ request }) => {
+        syncBody = await request.json()
+        return HttpResponse.json({
+          code: 0,
+          message: 'ok',
+          data: [
+            {
+              id: 41,
+              syncType: 'INCREMENTAL',
+              language: 'ENGLISH',
+              status: 'REQUESTED',
+              pageNo: 1,
+              updateTime: null,
+              totalFetched: 0,
+              totalUpserted: 0,
+              insertedCount: 0,
+              updatedCount: 0,
+              skippedCount: 0,
+              errorCount: 0,
+              lastSuccessAt: null,
+              lastErrorCode: null,
+              lastErrorMessage: null,
+            },
+          ],
+        })
+      }),
+      http.get('/api/admin/drama/catalog/sync/status', () =>
+        HttpResponse.json({ code: 0, message: 'ok', data: [] }),
+      ),
+    )
+    const user = userEvent.setup()
+
+    renderPage()
+    await screen.findByTestId('mock-row-8')
+    await user.click(screen.getByRole('button', { name: '同步目录' }))
+
+    const modal = await screen.findByTestId('drama-sync-modal')
+    expect(within(modal).getByText('GoodShort')).toBeInTheDocument()
+    expect(within(modal).getByText('增量同步')).toBeInTheDocument()
+    expect(within(modal).getByText('ENGLISH')).toBeInTheDocument()
+
+    await user.click(within(modal).getByTestId('drama-sync-submit'))
+
+    await waitFor(() =>
+      expect(syncBody).toEqual({
+        providerId: 1,
+        syncType: 'INCREMENTAL',
+        languages: ['ENGLISH'],
+      }),
+    )
+    expect(await screen.findByText('同步任务已提交')).toBeInTheDocument()
+    expect(
+      await screen.findByTestId('drama-sync-status-drawer'),
+    ).toBeInTheDocument()
+  })
+
+  it('shows sync progress, statistics and errors then refreshes manually', async () => {
+    useCatalogHandlers()
+    let statusRequestCount = 0
+    let requestedProviderId: string | null = null
+    server.use(
+      http.get('/api/admin/drama/catalog/sync/status', ({ request }) => {
+        statusRequestCount += 1
+        requestedProviderId = new URL(request.url).searchParams.get(
+          'providerId',
+        )
+        return HttpResponse.json({
+          code: 0,
+          message: 'ok',
+          data: [
+            {
+              id: 41,
+              syncType: 'INCREMENTAL',
+              language: 'ENGLISH',
+              status: 'RUNNING',
+              pageNo: 3,
+              updateTime: 1787280000000,
+              totalFetched: 120,
+              totalUpserted: 118,
+              insertedCount: 30,
+              updatedCount: 88,
+              skippedCount: 2,
+              errorCount: 0,
+              lastSuccessAt: '2026-08-21T08:30:00',
+              lastErrorCode: null,
+              lastErrorMessage: null,
+            },
+            {
+              id: 42,
+              syncType: 'FULL',
+              language: 'ENGLISH',
+              status: 'FAILED',
+              pageNo: 6,
+              updateTime: null,
+              totalFetched: 500,
+              totalUpserted: 490,
+              insertedCount: 400,
+              updatedCount: 90,
+              skippedCount: 10,
+              errorCount: 1,
+              lastSuccessAt: '2026-08-20T18:00:00',
+              lastErrorCode: 'PROVIDER_REMOTE_UNAVAILABLE',
+              lastErrorMessage: 'GoodShort service temporarily unavailable',
+            },
+          ],
+        })
+      }),
+    )
+    const user = userEvent.setup()
+
+    renderPage()
+    await screen.findByTestId('mock-row-8')
+    await user.click(screen.getByRole('button', { name: '同步状态' }))
+
+    const drawer = await screen.findByTestId('drama-sync-status-drawer')
+    expect(requestedProviderId).toBe('1')
+    expect(within(drawer).getByText('运行中')).toBeInTheDocument()
+    expect(within(drawer).getByText('同步失败')).toBeInTheDocument()
+    expect(within(drawer).getByText('第 3 页')).toBeInTheDocument()
+    expect(within(drawer).getByText('拉取 120')).toBeInTheDocument()
+    expect(within(drawer).getByText('写入 118')).toBeInTheDocument()
+    expect(within(drawer).getByText('新增 30')).toBeInTheDocument()
+    expect(within(drawer).getByText('更新 88')).toBeInTheDocument()
+    expect(within(drawer).getByText('跳过 2')).toBeInTheDocument()
+    expect(within(drawer).getByText('异常 0')).toBeInTheDocument()
+    expect(
+      within(drawer).getByText('GoodShort service temporarily unavailable'),
+    ).toBeInTheDocument()
+
+    await user.click(within(drawer).getByTestId('drama-sync-status-refresh'))
+    await waitFor(() => expect(statusRequestCount).toBe(2))
+  })
+
+  it('shows the backend error when sync submission fails', async () => {
+    useCatalogHandlers()
+    server.use(
+      http.post('/api/admin/drama/catalog/sync', () =>
+        HttpResponse.json({
+          code: 6010,
+          message: '当前语言已有同步任务执行中',
+          data: null,
+        }),
+      ),
+    )
+    const user = userEvent.setup()
+
+    renderPage()
+    await screen.findByTestId('mock-row-8')
+    await user.click(screen.getByRole('button', { name: '同步目录' }))
+    const modal = await screen.findByTestId('drama-sync-modal')
+    await user.click(within(modal).getByTestId('drama-sync-submit'))
+
+    expect(
+      await screen.findByText('当前语言已有同步任务执行中'),
+    ).toBeInTheDocument()
+    expect(modal).toBeVisible()
+  })
 })
