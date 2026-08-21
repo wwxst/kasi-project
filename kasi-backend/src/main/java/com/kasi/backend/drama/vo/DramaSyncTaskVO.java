@@ -15,6 +15,10 @@ public record DramaSyncTaskVO(
         Long updateTime,
         int totalFetched,
         int totalUpserted,
+        int insertedCount,
+        int updatedCount,
+        int skippedCount,
+        int errorCount,
         LocalDateTime lastSuccessAt,
         String lastErrorCode,
         String lastErrorMessage) {
@@ -23,6 +27,8 @@ public record DramaSyncTaskVO(
         return new DramaSyncTaskVO(checkpoint.getId(), checkpoint.getSyncType(), checkpoint.getLanguage(),
                 checkpoint.getStatus(), value(checkpoint.getPageNo()), checkpoint.getUpdateTime(),
                 value(checkpoint.getTotalFetched()), value(checkpoint.getTotalUpserted()),
+                value(checkpoint.getInsertedCount()), value(checkpoint.getUpdatedCount()),
+                value(checkpoint.getSkippedCount()), value(checkpoint.getErrorCount()),
                 checkpoint.getLastSuccessAt(), checkpoint.getLastErrorCode(), checkpoint.getLastErrorMessage());
     }
 
