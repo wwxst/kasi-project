@@ -64,6 +64,33 @@ const configuredProvider = {
 
 const unconfiguredProvider = { ...configuredProvider, connection: null }
 
+const commissionRules = [
+  {
+    id: 7,
+    providerId: 1,
+    channelFeeRate: 30,
+    principalFeeRate: 0,
+    principalCommissionRate: 80,
+    downstreamFeeRate: 0,
+    downstreamCommissionRate: 70,
+    effectiveFrom: '2099-01-01T00:00:00',
+    effectiveTo: null,
+    status: 'PENDING',
+  },
+  {
+    id: 8,
+    providerId: 1,
+    channelFeeRate: 20,
+    principalFeeRate: 5,
+    principalCommissionRate: 75,
+    downstreamFeeRate: 2,
+    downstreamCommissionRate: 60,
+    effectiveFrom: '2026-01-01T00:00:00',
+    effectiveTo: '2026-06-01T00:00:00',
+    status: 'ENDED',
+  },
+]
+
 beforeAll(() => server.listen())
 afterEach(() => {
   cleanup()
@@ -264,5 +291,122 @@ describe('ProviderManagementPage', () => {
 
     expect(await screen.findByText(/GoodShort：连接成功/)).toBeInTheDocument()
     expect(screen.getByText('连接可达')).toBeInTheDocument()
+  })
+
+  it('loads platform commission rules and exposes super administrator actions', async () => {
+    server.use(
+      http.get('/api/admin/drama/providers', () =>
+        HttpResponse.json({
+          code: 0,
+          message: '查询成功',
+          data: [configuredProvider],
+        }),
+      ),
+      http.get('/api/admin/drama/providers/1/commission-rules', () =>
+        HttpResponse.json({
+          code: 0,
+          message: '查询成功',
+          data: commissionRules,
+        }),
+      ),
+    )
+
+    renderPage()
+
+    expect(await screen.findByText('分佣规则')).toBeInTheDocument()
+    expect((await screen.findAllByText('30%')).length).toBeGreaterThan(0)
+    expect(screen.getByRole('button', { name: '新增规则' })).toBeInTheDocument()
+    expect(screen.getAllByRole('button', { name: '编辑' })).toHaveLength(1)
+    expect(screen.getByText('已结束')).toBeInTheDocument()
+  })
+
+  it('keeps commission rules readable but hides write actions for ordinary administrators', async () => {
+    useAuthStore.setState({
+      admin: { ...useAuthStore.getState().admin!, isSuperAdmin: 0 },
+    })
+    server.use(
+      http.get('/api/admin/drama/providers', () =>
+        HttpResponse.json({
+          code: 0,
+          message: '查询成功',
+          data: [configuredProvider],
+        }),
+      ),
+      http.get('/api/admin/drama/providers/1/commission-rules', () =>
+        HttpResponse.json({
+          code: 0,
+          message: '查询成功',
+          data: commissionRules,
+        }),
+      ),
+    )
+
+    renderPage()
+
+    expect(await screen.findByText('分佣规则')).toBeInTheDocument()
+    expect(await screen.findByText('30%')).toBeInTheDocument()
+    expect(
+      screen.queryByRole('button', { name: '新增规则' }),
+    ).not.toBeInTheDocument()
+    expect(
+      screen.queryByRole('button', { name: '编辑' }),
+    ).not.toBeInTheDocument()
+  })
+
+  it('creates a commission rule from the embedded provider configuration form', async () => {
+    let requestBody: Record<string, unknown> | undefined
+    server.use(
+      http.get('/api/admin/drama/providers', () =>
+        HttpResponse.json({
+          code: 0,
+          message: '查询成功',
+          data: [configuredProvider],
+        }),
+      ),
+      http.get('/api/admin/drama/providers/1/commission-rules', () =>
+        HttpResponse.json({ code: 0, message: '查询成功', data: [] }),
+      ),
+      http.post(
+        '/api/admin/drama/providers/1/commission-rules',
+        async ({ request }) => {
+          requestBody = (await request.json()) as Record<string, unknown>
+          return HttpResponse.json({
+            code: 0,
+            message: '创建成功',
+            data: commissionRules[0],
+          })
+        },
+      ),
+    )
+
+    renderPage()
+    await screen.findByText('分佣规则')
+    fireEvent.click(screen.getByRole('button', { name: '新增规则' }))
+    fireEvent.change(screen.getByLabelText('渠道费率'), {
+      target: { value: '30' },
+    })
+    fireEvent.change(screen.getByLabelText('甲方手续费率'), {
+      target: { value: '0' },
+    })
+    fireEvent.change(screen.getByLabelText('甲方分佣比例'), {
+      target: { value: '80' },
+    })
+    fireEvent.change(screen.getByLabelText('我方手续费率'), {
+      target: { value: '0' },
+    })
+    fireEvent.change(screen.getByLabelText('下游分佣比例'), {
+      target: { value: '70' },
+    })
+    fireEvent.click(screen.getByRole('button', { name: 'OK' }))
+
+    await waitFor(() => expect(requestBody).toBeDefined())
+    expect(requestBody).toMatchObject({
+      channelFeeRate: 30,
+      principalFeeRate: 0,
+      principalCommissionRate: 80,
+      downstreamFeeRate: 0,
+      downstreamCommissionRate: 70,
+      effectiveTo: null,
+    })
   })
 })

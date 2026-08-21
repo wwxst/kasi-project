@@ -13,6 +13,7 @@
 ### Task 1: Add Commission Rule API Types And Request Layer
 
 **Files:**
+
 - Create: `src/features/provider/commissionRuleTypes.ts`
 - Create: `src/features/provider/commissionRuleApi.ts`
 - Modify: `src/features/provider/providerApi.test.ts`
@@ -54,6 +55,7 @@ Run `git add src/features/provider/commissionRuleTypes.ts src/features/provider/
 ### Task 2: Add The Commission Rule Section To Provider Configuration
 
 **Files:**
+
 - Modify: `src/pages/provider/ProviderManagementPage.tsx`
 - Modify: `src/pages/provider/provider-management-page.css`
 
@@ -108,6 +110,7 @@ Run `git add src/pages/provider/ProviderManagementPage.tsx src/pages/provider/pr
 ### Task 3: Verify The Frontend Feature
 
 **Files:**
+
 - No source changes expected unless verification exposes a defect.
 
 - [ ] **Step 1: Run focused API and page tests**
