@@ -34,4 +34,17 @@ class ProviderCommissionCalculatorTest {
                 BigDecimal.ONE, BigDecimal.ZERO, BigDecimal.ONE, BigDecimal.ZERO, BigDecimal.ONE))
                 .isEqualByComparingTo("0.00");
     }
+
+    @Test
+    @DisplayName("中间计算不提前舍入并仅在最终金额保留两位")
+    void calculateKeepsIntermediatePrecisionUntilFinalRounding() {
+        assertThat(calculator.calculate(
+                new BigDecimal("123456789012345678901234567890123456789.12"),
+                new BigDecimal("0.123456789012345678901234567890123456789"),
+                new BigDecimal("0.23456789012345678901234567890123456789"),
+                new BigDecimal("0.87654321098765432109876543210987654321"),
+                new BigDecimal("0.0123456789012345678901234567890123456789"),
+                new BigDecimal("0.7654321098765432109876543210987654321")))
+                .isEqualByComparingTo("54888322746759348928528526895687781252.69");
+    }
 }
