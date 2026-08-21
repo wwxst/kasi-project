@@ -2,7 +2,7 @@
 
 日期：2026-08-21
 
-状态：已确认，待实施
+状态：已实施并验证（2026-08-21）
 
 ## 1. 目标
 
@@ -71,7 +71,7 @@
 
 ## 5. 后端模型
 
-新增 Flyway `V8__scheduled_task_config.sql`，创建 `system_scheduled_task` 表并植入唯一固定任务。表字段如下：
+新增 Flyway `V9__scheduled_task_config.sql`，创建 `system_scheduled_task` 表并植入唯一固定任务。表字段如下：
 
 | 字段 | 作用 |
 |---|---|
@@ -144,7 +144,7 @@
 
 后端测试覆盖：
 
-- V8 迁移表结构、唯一任务和默认值。
+- V9 迁移表结构、唯一任务和默认值。
 - 普通管理员查询成功、写入返回 403、超级管理员更新成功。
 - 周期和说明的 Jakarta Validation。
 - 启用、禁用和修改周期时 `next_run_at` 的计算。

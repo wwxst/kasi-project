@@ -14,7 +14,7 @@
 
 Backend repository: `E:/JavaProjects/kasi-project/kasi-backend`
 
-- Create `src/main/resources/db/migration/V8__scheduled_task_config.sql`: production table and fixed GoodShort task seed.
+- Create `src/main/resources/db/migration/V9__scheduled_task_config.sql`: production table and fixed GoodShort task seed.
 - Modify `src/test/resources/test-schema.sql`: H2 equivalent for Spring integration tests.
 - Modify `src/test/java/com/kasi/backend/BaseAuthTest.java`: reset the fixed task before each integration test.
 - Create `src/test/java/com/kasi/backend/ScheduledTaskMigrationTest.java`: real Flyway migration contract.
@@ -52,7 +52,7 @@ Frontend repository: `E:/JavaProjects/kasi-project/kasi-admin-web`
 
 **Files:**
 - Create: `src/test/java/com/kasi/backend/ScheduledTaskMigrationTest.java`
-- Create: `src/main/resources/db/migration/V8__scheduled_task_config.sql`
+- Create: `src/main/resources/db/migration/V9__scheduled_task_config.sql`
 - Modify: `src/test/resources/test-schema.sql`
 - Modify: `src/test/java/com/kasi/backend/BaseAuthTest.java`
 
