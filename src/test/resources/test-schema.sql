@@ -49,7 +49,7 @@ CREATE TABLE IF NOT EXISTS provider_commission_rule (
     CONSTRAINT fk_test_provider_commission_provider
         FOREIGN KEY (provider_id) REFERENCES short_drama_provider (id)
 );
-CREATE INDEX idx_test_provider_commission_time
+CREATE INDEX IF NOT EXISTS idx_test_provider_commission_time
     ON provider_commission_rule (provider_id, effective_from, effective_to);
 
 CREATE TABLE IF NOT EXISTS sys_admin_user (
