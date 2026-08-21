@@ -12,6 +12,13 @@ INSERT INTO seed_goodshort_numbers (n) VALUES
     (1),(2),(3),(4),(5),(6),(7),(8),(9),(10),(11),(12),
     (13),(14),(15),(16),(17),(18),(19),(20),(21),(22),(23),(24);
 
+CREATE TEMPORARY TABLE seed_goodshort_episode_numbers (
+    n INT NOT NULL PRIMARY KEY
+);
+
+INSERT INTO seed_goodshort_episode_numbers (n) VALUES
+    (1),(2),(3),(4),(5),(6),(7),(8),(9),(10),(11),(12);
+
 CREATE TEMPORARY TABLE seed_goodshort_guard (
     guard_value INT NOT NULL PRIMARY KEY
 );
@@ -133,7 +140,7 @@ SELECT
 FROM provider_drama d
 JOIN seed_goodshort_numbers drama_number
   ON d.external_drama_id = CONCAT('990000', LPAD(drama_number.n, 2, '0'))
-JOIN seed_goodshort_numbers n
+JOIN seed_goodshort_episode_numbers n
   ON n.n <= 5 + MOD(drama_number.n - 1, 8)
 WHERE d.connection_id = @goodshort_connection_id
   AND @goodshort_connection_id IS NOT NULL
@@ -206,5 +213,6 @@ ON DUPLICATE KEY UPDATE
 
 DROP TABLE seed_goodshort_guard;
 DROP TABLE seed_goodshort_numbers;
+DROP TABLE seed_goodshort_episode_numbers;
 
 COMMIT;

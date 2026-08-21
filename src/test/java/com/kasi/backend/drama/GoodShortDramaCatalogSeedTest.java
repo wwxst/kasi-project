@@ -10,10 +10,15 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.datasource.DriverManagerDataSource;
 import org.springframework.jdbc.datasource.init.ScriptUtils;
 
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.sql.Connection;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -22,6 +27,22 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 class GoodShortDramaCatalogSeedTest {
 
     private static final String SEED_SCRIPT = "scripts/dev/seed_goodshort_drama_catalog.sql";
+
+    @Test
+    @DisplayName("MySQL 临时表不可在同一内容 upsert 中重复引用以避免 1137 reopen 错误")
+    void contentUpsertDoesNotReopenMySqlTemporaryTable() throws Exception {
+        String script = Files.readString(Path.of(SEED_SCRIPT), StandardCharsets.UTF_8);
+        Matcher matcher = Pattern.compile("(?is)INSERT\\s+INTO\\s+provider_drama_content\\b.*?;")
+                .matcher(script);
+
+        assertThat(matcher.find()).as("seed must contain the provider_drama_content upsert statement").isTrue();
+        String contentUpsert = matcher.group();
+        int numberTableReferences = countOccurrences(contentUpsert, "seed_goodshort_numbers");
+
+        assertThat(numberTableReferences)
+                .as("MySQL error 1137 forbids reopening a TEMPORARY table in one statement")
+                .isLessThanOrEqualTo(1);
+    }
 
     @Test
     @DisplayName("本地 GoodShort 种子可重复执行且保持目录 ID 稳定")
@@ -215,5 +236,15 @@ class GoodShortDramaCatalogSeedTest {
                 .load()
                 .migrate();
         return new JdbcTemplate(dataSource);
+    }
+
+    private static int countOccurrences(String value, String needle) {
+        int count = 0;
+        int index = 0;
+        while ((index = value.indexOf(needle, index)) >= 0) {
+            count++;
+            index += needle.length();
+        }
+        return count;
     }
 }
