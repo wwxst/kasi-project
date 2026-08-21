@@ -26,7 +26,7 @@ Kasi 推广平台的独立管理端前端，后端项目位于同级目录 `../k
 
 左侧“系统配置”一级菜单下提供“短剧 API 配置”二级菜单，页面路由为 `/system-config/drama-api`，旧 `/provider-management` 地址自动跳转到新路由。页面使用 Ant Design `Tabs + Form` 按短剧平台切换配置，只展示接口 URL、PID、KEY 和启用状态；普通管理员只读，超级管理员可提交并测试已保存的启用配置。KEY 只在表单临时输入，已有配置不会回填，留空表示保留原密钥；页面不展示明文、密文或掩码。页面对接后端 `GET /api/admin/drama/providers`、`PUT /api/admin/drama/providers/{providerId}/connection` 和 `POST /api/admin/drama/providers/{providerId}/connection/test`。推广链接、订单、佣金、导出和转化分析仍属于后续模块。
 
-左侧“系统配置”一级菜单下提供“定时任务”二级菜单，页面路由为 `/system-config/scheduled-tasks`，对接后端 `GET/PUT /api/admin/system/scheduled-tasks`。页面仅展示标题、任务说明、执行周期、是否开启和操作五列；超级管理员可编辑周期、说明和启停，普通管理员只读。任务标题、编码和执行程序由后端固定，页面不提供新增、删除、日志、执行历史、下次执行时间或立即执行入口。
+左侧“系统配置”一级菜单下提供“定时任务”二级菜单，页面路由为 `/system-config/scheduled-tasks`，对接后端 `GET/PUT /api/admin/system/scheduled-tasks`。页面仅展示标题、任务说明、执行周期、是否开启和操作五列；超级管理员可编辑周期、说明和启停，普通管理员只读。执行周期编辑器提供“每隔N秒/分钟/小时/天、每天、每星期、每月、每年”周期类型下拉；当前固定任务后端仍按分钟周期保存，日历型选项用于统一调度器界面展示。任务标题、编码和执行程序由后端固定，页面不提供新增、删除、日志、执行历史、下次执行时间或立即执行入口。
 
 左侧“短剧管理”一级菜单下提供“短剧目录”二级菜单，页面路由为 `/drama/catalog`，普通管理员和超级管理员均可访问。当前只对接 GoodShort：管理员可按平台、名称、语言、远端状态和本地状态查询目录，在右侧抽屉查看短剧与剧集元数据，确认上架或下架，并通过工具栏提交全量/增量同步任务和查看各语言同步状态、分页进度、统计及错误。同步请求只创建后端任务，不在页面请求中等待第三方同步完成。页面对接 `GET /api/admin/drama/catalog`、`GET /api/admin/drama/catalog/{id}`、`POST /api/admin/drama/catalog/sync`、`GET /api/admin/drama/catalog/sync/status` 和 `PATCH /api/admin/drama/catalog/{id}/status`；不展示连接 ID、PID、KEY、凭据或租约字段。
 

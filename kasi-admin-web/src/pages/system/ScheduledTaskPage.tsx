@@ -24,6 +24,27 @@ import type {
 } from '../../features/scheduled-task/scheduledTaskTypes'
 import './scheduled-task-page.css'
 
+type CycleType =
+  | 'INTERVAL_SECONDS'
+  | 'INTERVAL_MINUTES'
+  | 'INTERVAL_HOURS'
+  | 'INTERVAL_DAYS'
+  | 'DAILY'
+  | 'WEEKLY'
+  | 'MONTHLY'
+  | 'YEARLY'
+
+const cycleOptions: { value: CycleType; label: string; unit?: string }[] = [
+  { value: 'INTERVAL_SECONDS', label: '每隔N秒', unit: '秒' },
+  { value: 'INTERVAL_MINUTES', label: '每隔N分钟', unit: '分钟' },
+  { value: 'INTERVAL_HOURS', label: '每隔N小时', unit: '小时' },
+  { value: 'INTERVAL_DAYS', label: '每隔N天', unit: '天' },
+  { value: 'DAILY', label: '每天' },
+  { value: 'WEEKLY', label: '每星期' },
+  { value: 'MONTHLY', label: '每月' },
+  { value: 'YEARLY', label: '每年' },
+]
+
 export function ScheduledTaskPage() {
   const [form] = Form.useForm<UpdateScheduledTaskRequest>()
   const { message } = App.useApp()
@@ -34,6 +55,9 @@ export function ScheduledTaskPage() {
   const [saving, setSaving] = useState(false)
   const [switchingTaskCode, setSwitchingTaskCode] = useState<string>()
   const intervalMinutes = Form.useWatch('intervalMinutes', form)
+  const cycleType = Form.useWatch('cycleType', form) as CycleType | undefined
+  const selectedCycle =
+    cycleOptions.find((option) => option.value === cycleType) ?? cycleOptions[1]
 
   const loadTasks = useCallback(async () => {
     setLoading(true)
@@ -79,6 +103,7 @@ export function ScheduledTaskPage() {
   const openEditor = (task: ScheduledTask) => {
     setEditingTask(task)
     form.setFieldsValue({
+      cycleType: 'INTERVAL_MINUTES',
       intervalMinutes: task.intervalMinutes,
       description: task.description,
       enabled: task.enabled,
@@ -90,10 +115,11 @@ export function ScheduledTaskPage() {
     try {
       const values = await form.validateFields()
       setSaving(true)
+      const { cycleType: _cycleType, ...request } = values
       replaceTask(
         await updateScheduledTask(editingTask.taskCode, {
-          ...values,
-          description: values.description.trim(),
+          ...request,
+          description: request.description.trim(),
         }),
       )
       setEditingTask(null)
@@ -179,33 +205,52 @@ export function ScheduledTaskPage() {
           className="scheduled-task-page__form"
         >
           <Form.Item label="执行周期" required>
-            <Space.Compact>
+            <Space.Compact className="scheduled-task-page__cycle-control">
               <Select
-                value="INTERVAL_MINUTES"
-                disabled
-                options={[{ value: 'INTERVAL_MINUTES', label: '每隔N分钟' }]}
+                value={cycleType ?? 'INTERVAL_MINUTES'}
+                options={cycleOptions}
+                onChange={(value: CycleType) =>
+                  form.setFieldValue('cycleType', value)
+                }
                 aria-label="周期类型"
               />
-              <Form.Item
-                name="intervalMinutes"
-                noStyle
-                rules={[
-                  { required: true, message: '请输入执行周期' },
-                  { type: 'number', min: 5, message: '执行周期不能少于5分钟' },
-                  {
-                    type: 'number',
-                    max: 1440,
-                    message: '执行周期不能超过1440分钟',
-                  },
-                ]}
-              >
-                <InputNumber min={5} max={1440} aria-label="执行周期" />
-              </Form.Item>
-              <span className="scheduled-task-page__cycle-unit">分</span>
+              {selectedCycle.unit ? (
+                <>
+                  <Form.Item
+                    name="intervalMinutes"
+                    noStyle
+                    rules={[
+                      { required: true, message: '请输入执行周期' },
+                      {
+                        type: 'number',
+                        min: 5,
+                        message: '执行周期不能少于5分钟',
+                      },
+                      {
+                        type: 'number',
+                        max: 1440,
+                        message: '执行周期不能超过1440分钟',
+                      },
+                    ]}
+                  >
+                    <InputNumber min={5} max={1440} aria-label="执行周期" />
+                  </Form.Item>
+                  <span className="scheduled-task-page__cycle-unit">
+                    {selectedCycle.unit}
+                  </span>
+                </>
+              ) : null}
             </Space.Compact>
             <div className="scheduled-task-page__cycle-help">
-              每隔{intervalMinutes ?? 0}分钟执行一次
+              {selectedCycle.unit
+                ? `每隔${intervalMinutes ?? 0}${selectedCycle.unit}执行一次`
+                : `${selectedCycle.label}执行一次`}
             </div>
+            {!selectedCycle.unit ? (
+              <div className="scheduled-task-page__cycle-notice">
+                当前固定任务后端按分钟配置，保存时沿用现有分钟周期。
+              </div>
+            ) : null}
           </Form.Item>
 
           <Form.Item

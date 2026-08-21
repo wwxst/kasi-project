@@ -133,6 +133,8 @@ describe('ScheduledTaskPage', () => {
 
     expect(screen.getByRole('dialog')).toBeInTheDocument()
     expect(screen.getByLabelText('执行周期')).toBeInTheDocument()
+    expect(screen.getByLabelText('周期类型')).toBeInTheDocument()
+    expect(screen.getByText('每隔N分钟')).toBeInTheDocument()
     expect(screen.getByLabelText('任务说明')).toBeInTheDocument()
     expect(screen.getByLabelText('是否开启')).toBeInTheDocument()
     expect(screen.queryByLabelText('标题')).not.toBeInTheDocument()
@@ -154,6 +156,30 @@ describe('ScheduledTaskPage', () => {
         enabled: false,
       }),
     )
+  })
+
+  it('shows the cycle options from the scheduler reference', async () => {
+    renderPage()
+    await screen.findByText('GoodShort 短剧增量同步')
+    fireEvent.click(screen.getByRole('button', { name: '编辑' }))
+    fireEvent.mouseDown(screen.getByLabelText('周期类型'))
+
+    for (const label of [
+      '每隔N秒',
+      '每隔N分钟',
+      '每隔N小时',
+      '每隔N天',
+      '每天',
+      '每星期',
+      '每月',
+      '每年',
+    ]) {
+      expect(
+        await screen.findByText(label, {
+          selector: '.ant-select-item-option-content',
+        }),
+      ).toBeInTheDocument()
+    }
   })
 
   it('allows a super administrator to toggle the row directly', async () => {

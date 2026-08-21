@@ -9,6 +9,7 @@ export interface ScheduledTask {
 }
 
 export interface UpdateScheduledTaskRequest {
+  cycleType?: string
   intervalMinutes: number
   description: string
   enabled: boolean

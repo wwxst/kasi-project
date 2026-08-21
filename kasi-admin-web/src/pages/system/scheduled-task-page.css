@@ -18,7 +18,7 @@
 }
 
 .scheduled-task-page__form .ant-space-compact .ant-select {
-  width: 140px;
+  width: 150px;
 }
 
 .scheduled-task-page__form .ant-space-compact .ant-input-number {
@@ -40,6 +40,12 @@
 .scheduled-task-page__cycle-help {
   margin-top: 6px;
   color: var(--ant-color-text-tertiary);
+  font-size: 12px;
+}
+
+.scheduled-task-page__cycle-notice {
+  margin-top: 4px;
+  color: var(--ant-color-warning-text);
   font-size: 12px;
 }
 
