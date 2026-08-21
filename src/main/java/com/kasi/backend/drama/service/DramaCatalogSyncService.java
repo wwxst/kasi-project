@@ -7,6 +7,7 @@ import java.util.List;
 
 public interface DramaCatalogSyncService {
     List<DramaSyncTaskVO> requestSync(Long providerId, DramaSyncType syncType, List<String> languages);
+    List<DramaSyncTaskVO> requestScheduledIncremental(Long providerId, List<String> languages);
     List<DramaSyncTaskVO> getStatuses(Long providerId);
     void processDueBatch();
 }

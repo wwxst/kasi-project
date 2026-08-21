@@ -22,6 +22,7 @@ public enum ErrorCode {
     INTERNAL_ERROR(1005, "服务器内部错误"),
     VALIDATION_ERROR(1006, "参数校验失败"),
     AUTH_STATE_UNAVAILABLE(1007, "认证状态服务不可用"),
+    SCHEDULED_TASK_NOT_FOUND(1008, "定时任务不存在"),
 
     // ========== 管理员认证错误 ==========
     ADMIN_NOT_FOUND(2001, "账号或密码错误"),

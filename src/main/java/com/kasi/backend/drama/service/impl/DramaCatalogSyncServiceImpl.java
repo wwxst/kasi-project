@@ -98,6 +98,43 @@ public class DramaCatalogSyncServiceImpl implements DramaCatalogSyncService {
     }
 
     @Override
+    @Transactional
+    public List<DramaSyncTaskVO> requestScheduledIncremental(Long providerId, List<String> languages) {
+        ProviderRuntimeConnection runtime;
+        try {
+            runtime = runtimeService.resolve(providerId, ProviderCapability.INCREMENTAL_DRAMA_SYNC);
+        } catch (BusinessException exception) {
+            return List.of();
+        }
+        if (!usable(runtime) || !(runtime.adapter() instanceof DramaCatalogProviderAdapter)) {
+            return List.of();
+        }
+        connectionMapper.lockById(runtime.connectionId());
+        List<DramaSyncTaskVO> tasks = new ArrayList<>();
+        LocalDateTime now = LocalDateTime.now(clock);
+        for (String language : normalizeLanguages(languages)) {
+            List<ProviderSyncCheckpoint> active = checkpointMapper.findActive(runtime.connectionId(), language);
+            if (active != null && !active.isEmpty()) {
+                continue;
+            }
+            ProviderSyncCheckpoint full = checkpointMapper.find(
+                    runtime.connectionId(), DramaSyncType.FULL, language);
+            if (full == null || full.getStatus() != DramaSyncStatus.SUCCESS
+                    || full.getLastSuccessAt() == null) {
+                continue;
+            }
+            ProviderSyncCheckpoint incremental = ensureCheckpoint(
+                    runtime.connectionId(), DramaSyncType.INCREMENTAL, language);
+            boolean restart = incremental.getStatus() != DramaSyncStatus.FAILED;
+            if (checkpointMapper.requestRun(incremental.getId(), now, restart) == 1) {
+                ProviderSyncCheckpoint requested = checkpointMapper.findById(incremental.getId());
+                tasks.add(DramaSyncTaskVO.from(requested == null ? incremental : requested));
+            }
+        }
+        return tasks;
+    }
+
+    @Override
     @Transactional(readOnly = true)
     public List<DramaSyncTaskVO> getStatuses(Long providerId) {
         ShortDramaConnection connection = connectionMapper.findByProviderId(providerId);
