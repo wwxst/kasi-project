@@ -202,10 +202,3 @@ CREATE TABLE IF NOT EXISTS system_scheduled_task (
     UNIQUE (task_code),
     CHECK (interval_minutes BETWEEN 5 AND 1440)
 );
-
-INSERT INTO system_scheduled_task
-    (task_code, title, description, interval_minutes, enabled, next_run_at)
-VALUES
-    ('GOODSHORT_DRAMA_INCREMENTAL_SYNC', 'GoodShort 短剧增量同步',
-     '每隔60分钟执行一次GoodShort短剧目录增量同步', 60, 1,
-     TIMESTAMPADD(MINUTE, 60, CURRENT_TIMESTAMP));
