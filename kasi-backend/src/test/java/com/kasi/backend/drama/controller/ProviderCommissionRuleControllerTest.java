@@ -24,7 +24,8 @@ class ProviderCommissionRuleControllerTest extends BaseAuthTest {
     @DisplayName("匿名访问规则列表返回未登录")
     void anonymousGetReturnsUnauthorized() throws Exception {
         mockMvc.perform(get("/api/admin/drama/providers/1/commission-rules"))
-                .andExpect(status().isUnauthorized());
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.code").value(1002));
     }
 
     @Test
@@ -65,15 +66,33 @@ class ProviderCommissionRuleControllerTest extends BaseAuthTest {
                 .andExpect(status().isOk());
         mockMvc.perform(post(path(providerId)).header("Authorization", "Bearer " + token)
                         .contentType(MediaType.APPLICATION_JSON).content(ruleJson(now().plusMinutes(10), null, 30)))
-                .andExpect(status().isForbidden());
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.code").value(1003));
         mockMvc.perform(put(itemPath(providerId, 1L)).header("Authorization", "Bearer " + token)
                         .contentType(MediaType.APPLICATION_JSON).content(ruleJson(now().plusMinutes(10), null, 30)))
-                .andExpect(status().isForbidden());
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.code").value(1003));
         mockMvc.perform(patch(endPath(providerId, 1L)).header("Authorization", "Bearer " + token)
                         .contentType(MediaType.APPLICATION_JSON).content("{\"effectiveTo\":\"2099-01-01T00:00:00\"}"))
-                .andExpect(status().isForbidden());
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.code").value(1003));
         mockMvc.perform(delete(itemPath(providerId, 1L)).header("Authorization", "Bearer " + token))
-                .andExpect(status().isForbidden());
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.code").value(1003));
+    }
+
+    @Test
+    @DisplayName("非正数平台和规则路径参数返回参数校验错误")
+    void nonPositivePathVariablesReturnValidationError() throws Exception {
+        String token = loginAsAdmin();
+        mockMvc.perform(get(path(0L)).header("Authorization", "Bearer " + token))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(1006));
+        mockMvc.perform(put(itemPath(providerId(), 0L)).header("Authorization", "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(ruleJson(now().plusMinutes(10), null, 30)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(1006));
     }
 
     @Test
