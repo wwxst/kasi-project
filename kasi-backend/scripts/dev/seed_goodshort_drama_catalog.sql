@@ -13,18 +13,20 @@ INSERT INTO seed_goodshort_numbers (n) VALUES
     (13),(14),(15),(16),(17),(18),(19),(20),(21),(22),(23),(24);
 
 CREATE TEMPORARY TABLE seed_goodshort_guard (
-    guard_value INT NOT NULL
+    guard_value INT NOT NULL PRIMARY KEY
 );
+
+INSERT INTO seed_goodshort_guard (guard_value) VALUES (1);
 
 -- Missing provider and non-fixture connections both fail before any fixture write.
 INSERT INTO seed_goodshort_guard (guard_value)
-SELECT NULL
+SELECT 1
 WHERE NOT EXISTS (
     SELECT 1 FROM short_drama_provider WHERE provider_code = 'GOODSHORT'
 );
 
 INSERT INTO seed_goodshort_guard (guard_value)
-SELECT NULL
+SELECT 1
 FROM short_drama_connection c
 JOIN short_drama_provider p ON p.id = c.provider_id
 WHERE p.provider_code = 'GOODSHORT'
@@ -48,12 +50,17 @@ INSERT INTO short_drama_connection (
 )
 SELECT @goodshort_provider_id, 'GoodShort 本地假数据', 'USD', 0, 'MANUAL',
        NULL, NULL, NULL
-WHERE NOT EXISTS (
+WHERE @goodshort_provider_id IS NOT NULL
+  AND NOT EXISTS (
     SELECT 1 FROM short_drama_connection WHERE provider_id = @goodshort_provider_id
 );
 
 SET @goodshort_connection_id = (
-    SELECT id FROM short_drama_connection WHERE provider_id = @goodshort_provider_id
+    SELECT id FROM short_drama_connection
+    WHERE provider_id = @goodshort_provider_id
+      AND connection_name = CONCAT('GoodShort ', CHAR(26412), CHAR(22320), CHAR(20551), CHAR(25968), CHAR(25454))
+      AND currency = 'USD' AND status = 0 AND filing_mode = 'MANUAL'
+      AND partner_id IS NULL AND api_key_ciphertext IS NULL AND base_url IS NULL
 );
 
 INSERT INTO provider_drama (
@@ -88,6 +95,14 @@ SELECT
     '2026-01-01 00:00:00',
     '2026-01-02 00:00:00'
 FROM seed_goodshort_numbers
+WHERE @goodshort_connection_id IS NOT NULL
+  AND EXISTS (
+      SELECT 1 FROM short_drama_connection c
+      WHERE c.id = @goodshort_connection_id
+        AND c.connection_name = CONCAT('GoodShort ', CHAR(26412), CHAR(22320), CHAR(20551), CHAR(25968), CHAR(25454))
+        AND c.currency = 'USD' AND c.status = 0 AND c.filing_mode = 'MANUAL'
+        AND c.partner_id IS NULL AND c.api_key_ciphertext IS NULL AND c.base_url IS NULL
+  )
 ON DUPLICATE KEY UPDATE
     title = VALUES(title),
     original_title = VALUES(original_title),
@@ -121,6 +136,14 @@ JOIN seed_goodshort_numbers drama_number
 JOIN seed_goodshort_numbers n
   ON n.n <= 5 + MOD(drama_number.n - 1, 8)
 WHERE d.connection_id = @goodshort_connection_id
+  AND @goodshort_connection_id IS NOT NULL
+  AND EXISTS (
+      SELECT 1 FROM short_drama_connection c
+      WHERE c.id = @goodshort_connection_id
+        AND c.connection_name = CONCAT('GoodShort ', CHAR(26412), CHAR(22320), CHAR(20551), CHAR(25968), CHAR(25454))
+        AND c.currency = 'USD' AND c.status = 0 AND c.filing_mode = 'MANUAL'
+        AND c.partner_id IS NULL AND c.api_key_ciphertext IS NULL AND c.base_url IS NULL
+  )
 ON DUPLICATE KEY UPDATE
     external_content_id = VALUES(external_content_id),
     title = VALUES(title),
@@ -152,6 +175,14 @@ SELECT @goodshort_connection_id, sync_type, language, 'SUCCESS', 1, 100,
 FROM (SELECT 'FULL' AS sync_type UNION ALL SELECT 'INCREMENTAL') sync_types
 JOIN (SELECT 'ENGLISH' AS language UNION ALL SELECT 'SPANISH') languages
 ON 1 = 1
+WHERE @goodshort_connection_id IS NOT NULL
+  AND EXISTS (
+      SELECT 1 FROM short_drama_connection c
+      WHERE c.id = @goodshort_connection_id
+        AND c.connection_name = CONCAT('GoodShort ', CHAR(26412), CHAR(22320), CHAR(20551), CHAR(25968), CHAR(25454))
+        AND c.currency = 'USD' AND c.status = 0 AND c.filing_mode = 'MANUAL'
+        AND c.partner_id IS NULL AND c.api_key_ciphertext IS NULL AND c.base_url IS NULL
+  )
 ON DUPLICATE KEY UPDATE
     status = VALUES(status),
     page_no = VALUES(page_no),
