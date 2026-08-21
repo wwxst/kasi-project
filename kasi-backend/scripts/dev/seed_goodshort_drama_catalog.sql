@@ -211,8 +211,8 @@ ON DUPLICATE KEY UPDATE
     lease_until = VALUES(lease_until),
     updated_at = VALUES(updated_at);
 
-DROP TABLE seed_goodshort_guard;
-DROP TABLE seed_goodshort_numbers;
-DROP TABLE seed_goodshort_episode_numbers;
+/*!50000 DROP TEMPORARY TABLE seed_goodshort_guard */;
+/*!50000 DROP TEMPORARY TABLE seed_goodshort_numbers */;
+/*!50000 DROP TEMPORARY TABLE seed_goodshort_episode_numbers */;
 
 COMMIT;
