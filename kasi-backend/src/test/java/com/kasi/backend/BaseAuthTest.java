@@ -92,8 +92,17 @@ public abstract class BaseAuthTest {
         jdbcTemplate.execute("DELETE FROM promotion_media_account");
         jdbcTemplate.execute("DELETE FROM short_drama_connection");
         jdbcTemplate.execute("DELETE FROM short_drama_provider");
+        jdbcTemplate.execute("DELETE FROM system_scheduled_task");
         jdbcTemplate.execute("DELETE FROM promotion_user");
         jdbcTemplate.execute("DELETE FROM sys_admin_user");
+
+        jdbcTemplate.update("""
+                INSERT INTO system_scheduled_task
+                    (task_code, title, description, interval_minutes, enabled, next_run_at)
+                VALUES (?, ?, ?, ?, ?, TIMESTAMPADD(MINUTE, 60, CURRENT_TIMESTAMP))
+                """,
+                "GOODSHORT_DRAMA_INCREMENTAL_SYNC", "GoodShort 短剧增量同步",
+                "每隔60分钟执行一次GoodShort短剧目录增量同步", 60, 1);
 
         jdbcTemplate.update(
                 "INSERT INTO short_drama_provider (provider_code, provider_name, status) VALUES (?, ?, ?)",

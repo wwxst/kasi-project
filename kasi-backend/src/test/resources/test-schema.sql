@@ -186,3 +186,26 @@ CREATE TABLE IF NOT EXISTS provider_sync_checkpoint (
     UNIQUE (connection_id, sync_type, language),
     CONSTRAINT fk_test_sync_checkpoint_connection FOREIGN KEY (connection_id) REFERENCES short_drama_connection (id)
 );
+
+CREATE TABLE IF NOT EXISTS system_scheduled_task (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    task_code VARCHAR(64) NOT NULL,
+    title VARCHAR(128) NOT NULL,
+    description VARCHAR(255) NOT NULL,
+    interval_minutes INT NOT NULL,
+    enabled TINYINT NOT NULL DEFAULT 1,
+    next_run_at TIMESTAMP,
+    lease_owner VARCHAR(64),
+    lease_until TIMESTAMP,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE (task_code),
+    CHECK (interval_minutes BETWEEN 5 AND 1440)
+);
+
+INSERT INTO system_scheduled_task
+    (task_code, title, description, interval_minutes, enabled, next_run_at)
+VALUES
+    ('GOODSHORT_DRAMA_INCREMENTAL_SYNC', 'GoodShort 短剧增量同步',
+     '每隔60分钟执行一次GoodShort短剧目录增量同步', 60, 1,
+     TIMESTAMPADD(MINUTE, 60, CURRENT_TIMESTAMP));
