@@ -1,12 +1,12 @@
 # Kasi Backend 开发文档
 
-最后核对时间：2026-08-17
+最后核对时间：2026-08-21
 
 ## 1. 项目定位
 
 这是卡司推广平台的后端仓库，基于 Spring Boot 4.0.7 + MyBatis 4.0.1 + MySQL 8 + JWT 构建。
 
-**当前已完成**：管理员（ADMIN）和推广用户（USER）双认证体系、两类账号管理 CRUD，以及短剧平台接入账号管理与 GoodShort 连接探测基础。详见 [§6 API、认证与业务边界](#6-api认证与业务边界)。
+**当前已完成**：管理员（ADMIN）和推广用户（USER）双认证体系、两类账号管理 CRUD、短剧平台接入与 GoodShort 账号报备，以及 GoodShort 短剧目录全量/增量同步、管理员目录管理和定时调度。详见 [§6 API、认证与业务边界](#6-api认证与业务边界)。
 
 ## 2. 当前结构
 
@@ -60,6 +60,7 @@ src/
         vo/                                 # 不含平台密钥的管理响应 VO
         service/                            # 密钥加密与接入账号管理服务接口
         service/impl/                       # AES-GCM 与接入账号管理实现
+      drama/                                # 短剧目录、剧集、同步检查点、管理员 API 和调度
       common/                               # 公共组件
         response/ApiResponse.java           # 统一响应体
         exception/ErrorCode.java            # 错误码枚举
@@ -72,6 +73,7 @@ src/
         V1__kasi_promotion.sql              # 基础账号表和默认超级管理员
         V2__media_account_filing.sql       # 平台接入、媒体账号和通用报备表
         V4__media_filing_task_version.sql  # 报备任务资料版本隔离
+        V7__drama_catalog_sync.sql          # 短剧目录、剧集与同步检查点
       mapper/                               # 2个 MyBatis XML 映射文件
   test/
     java/com/kasi/backend/
@@ -129,6 +131,7 @@ $env:Path = "$env:JAVA_HOME\bin;$env:Path"
 | 验证码发送器 | `local` profile 使用 Console sender；`test` profile 使用测试 sender；生产环境需提供真实实现 |
 | 平台密钥主密钥 | 必须通过 `PROVIDER_CREDENTIAL_MASTER_KEY` 注入 Base64 编码的 32 字节密钥；不得提交到仓库或写入日志 |
 | GoodShort 探测 | 接口 URL 从平台接入配置读取，连接超时 3 秒、读取超时 10 秒；平台密钥从数据库密文解密后仅在适配器调用链内使用 |
+| 短剧目录同步 | 默认语言 `ENGLISH`、每页 100 条、每 5 分钟调度；支持配置语言、批量、分页、租约和调度开关 |
 
 应用要连接 MySQL，至少需要提供：
 
@@ -155,9 +158,9 @@ $env:SPRING_DATASOURCE_PASSWORD = '<database-password>'
 
 ## 5. 数据库现状
 
-### 已实现的表结构（V1、V2、V3、V4）
+### 已实现的表结构（V1 至 V7）
 
-迁移脚本 V1、V2、V3、V4 定义当前数据库持久表，验证码和密码重置 Token 等临时数据由 Redis 管理：
+迁移脚本 V1 至 V7 定义当前数据库持久表，验证码和密码重置 Token 等临时数据由 Redis 管理：
 
 | 存储 | 表/Key | 说明 | 核心字段 |
 |------|--------|------|----------|
@@ -167,6 +170,9 @@ $env:SPRING_DATASOURCE_PASSWORD = '<database-password>'
 | MySQL | `short_drama_connection` | 平台机构接入账号（仅保存密钥密文；人工报备可不配置 API 凭据） | provider_id, base_url, partner_id, api_key_ciphertext, filing_mode, status |
 | MySQL | `promotion_media_account` | 推广用户绑定的媒体账号（不可物理删除） | user_id, media_type, external_account_id, account_name, account_link, status, data_version |
 | MySQL | `provider_media_filing` | 媒体账号按平台保存的报备状态和任务信息 | connection_id, media_account_id, status, next_action, retry_count |
+| MySQL | `provider_drama` | 按接入账号保存的短剧目录，本地状态与远端状态分离 | connection_id, external_drama_id, language, remote_show_status, local_status |
+| MySQL | `provider_drama_content` | 短剧剧集元数据 | drama_id, external_content_id, sequence_no, is_free, duration_seconds |
+| MySQL | `provider_sync_checkpoint` | 全量/增量同步断点、统计、错误和数据库租约 | connection_id, sync_type, language, page_no, update_time, lease_owner, lease_until |
 | Redis | `vc:*` | 验证码（临时） | 5分钟过期，60秒重发间隔，每日上限10次 |
 | Redis | `pwd:*` | 密码重置 Token（临时） | 10分钟过期，一次性消费后删除 |
 | Redis | `auth:version:*` | 账号会话版本（含 `ACTIVE:*` 或 `MUTATING:*`） | TTL 不超过 JWT 有效期加宽限期 |
@@ -176,7 +182,7 @@ $env:SPRING_DATASOURCE_PASSWORD = '<database-password>'
 
 当前已完成平台定义与接入账号持久层、AES-GCM 密钥加密、不暴露密钥的管理服务和管理员 API，以及 GoodShort 签名和连接探测适配器。媒体账号绑定与通用报备模块也已完成后端闭环：推广用户可绑定多个媒体账号，同一媒体平台账号全局唯一；创建媒体账号时不选择单个平台，系统会为所有已启用、接入配置完整且适配器声明支持账号报备的平台分别建立报备记录；系统通过 GoodShort `/open/filing/report` 和 `/open/filing/query` 完成报备提交与审核查询，持久任务支持租约、资料版本隔离、临时失败重试和三态（审核中、已加白、已失败）；用户和管理员查询/重试接口已接入，绑定媒体账号的推广用户只能禁用不能物理删除。平台接入配置支持 API 自动报备和人工报备两种模式：API 模式必须填写接口 URL、PID、KEY，人工模式无需保存这些 API 凭据，由管理员维护报备状态。
 
-当前仍未实现短剧目录与同步、推广链接、订单、佣金计算、导出和转化分析；管理后台的媒体账号报备查询、详情、编辑和失败重试接口已接入，推广用户端页面仍待接入。
+当前已实现 GoodShort 短剧目录全量 `initBooks`、增量 `incrementBooks`、断点恢复、数据库租约、定时/手动触发、管理员查询详情和本地上下架；远端未返回记录不会物理删除，本地状态不会被同步覆盖。当前仍未实现推广链接、订单、佣金计算、导出和转化分析；推广用户端页面仍待接入。
 
 > **说明**：`sys_sequence` 表已移除，`user_no` 由后端在插入前随机生成；`promotion_user.id` 继续作为自增内部主键。`auth_verification_code` 和 `auth_password_reset_token` 表已移除，改用 Redis 存储（更高效、自动过期）。
 
@@ -268,7 +274,21 @@ $env:SPRING_DATASOURCE_PASSWORD = '<database-password>'
 | PUT | `/api/admin/drama/providers/{providerId}/connection` | SUPER_ADMIN | 新增或更新平台 URL、PID、KEY 和启用状态；更新时可省略 KEY 以保留原密文 |
 | POST | `/api/admin/drama/providers/{providerId}/connection/test` | SUPER_ADMIN | 解密现有凭据并执行 GoodShort 最小连接探测，不保存返回短剧 |
 
-### 6.7 统一响应格式
+### 6.7 短剧目录管理 API
+
+以下端点要求 `ROLE_ADMIN`，普通管理员和超级管理员均可使用；推广用户返回 403，未登录返回 401。
+
+| 方法 | 路径 | 说明 |
+|------|------|------|
+| GET | `/api/admin/drama/catalog` | 分页查询目录，支持平台、标题、语言、远端状态和本地状态筛选 |
+| GET | `/api/admin/drama/catalog/{id}` | 查询短剧详情和剧集元数据，不返回连接 ID、PID、密钥或租约字段 |
+| POST | `/api/admin/drama/catalog/sync` | 创建 FULL 或 INCREMENTAL 同步任务，不等待第三方同步完成 |
+| GET | `/api/admin/drama/catalog/sync/status` | 查询各语言检查点、统计和最近错误 |
+| PATCH | `/api/admin/drama/catalog/{id}/status` | 将本地状态修改为 `PUBLISHED` 或 `OFFLINE` |
+
+同步默认语言为 `ENGLISH`。全量使用 GoodShort `/open/book/initBooks`，增量使用 `/open/book/incrementBooks`；没有成功全量基线时，增量请求自动升级为全量。同一连接和语言只允许一个 FULL/INCREMENTAL 任务排队或运行。
+
+### 6.8 统一响应格式
 
 所有接口返回统一结构 `ApiResponse<T>`：
 
@@ -283,7 +303,7 @@ $env:SPRING_DATASOURCE_PASSWORD = '<database-password>'
 - `code=0`：成功
 - `code!=0`：失败（错误码定义见 [ErrorCode.java](src/main/java/com/kasi/backend/common/exception/ErrorCode.java)）
 
-### 6.8 技术实现要点
+### 6.9 技术实现要点
 
 - **密码存储**：BCrypt 哈希，使用 Spring Security `PasswordEncoder`
 - **JWT**：HMAC-SHA256 签名，载荷包含 `userId`、`subjectType`、登录标识、`jti`、`sessionVersion`，过期时间 7200 秒；每次受保护请求都校验 Redis 会话状态

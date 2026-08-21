@@ -17,8 +17,10 @@
   - `user/` — 推广用户注册、登录、获取当前用户、退出登录、修改密码、忘记密码流程，以及管理员可用的推广用户管理 CRUD
   - `provider/` — 短剧平台定义、接入账号持久层、AES-GCM 密钥加密、GoodShort 签名/连接探测，以及管理员平台接入管理 API
   - `promotion/` — 推广用户媒体账号绑定、GoodShort 账号报备、审核状态任务和管理员查询/重试 API
+  - `drama/` — GoodShort 短剧目录与剧集持久层、全量/增量同步、检查点与租约、管理员目录 API 和定时调度
   - `auth/` — 可复用的验证码服务和密码重置 Token 机制（Redis 存储，Lua 原子消费/预占，TTL 自动过期）
 - 数据库迁移：`db/migration/V1__kasi_promotion.sql` 定义账号表并植入唯一初始超级管理员，`V2__media_account_filing.sql` 定义短剧平台、平台接入账号、推广用户媒体账号和平台报备表，`V3__provider_connection_base_url.sql` 为平台接入配置增加可管理的接口 URL，`V4__media_filing_task_version.sql` 为报备任务增加资料版本隔离；V2 仅植入 `GOODSHORT` 平台定义，不植入接入密钥。验证码和密码重置 Token 等临时数据由 Redis（`vc:*`、`pwd:*` 键）管理，TTL 自动过期。
+- `V5__provider_filing_mode.sql` 和 `V6__manual_filing_operator.sql` 完成人工报备模式；`V7__drama_catalog_sync.sql` 定义 `provider_drama`、`provider_drama_content` 和 `provider_sync_checkpoint`。目录默认同步 `ENGLISH`，全量调用 `initBooks`，增量调用 `incrementBooks`。
 - 项目当前仍处于开发阶段，数据库可以删除重建；修改已执行的迁移后应重建开发数据库。未来生产首次建库也按 Flyway 版本顺序执行并植入初始账号，不新增运行时账号植入器。
 - 会话状态由 Redis（`auth:version:{type}:{userId}`、`auth:session:{jti}`）管理。JWT 携带 `jti`、`sessionVersion`，受保护请求必须同时校验签名、账号状态和 Redis 会话；Redis 不可用时安全失败返回 503，不能降级放行。
 - 修改密码、密码重置等敏感 MySQL 状态变更会先将账号版本切换为 `MUTATING:{nonce}`，数据库成功后再恢复新的 `ACTIVE:*` 版本，使旧 Token 失效。普通 logout 只撤销当前 `jti` 会话。
@@ -31,6 +33,7 @@
 - 推广用户联系方式、状态、密码和删除等敏感管理操作先进入 Redis `MUTATING` 状态；Redis 失败时不得写 MySQL。绑定媒体账号的推广用户删除会返回 `USER_MEDIA_ACCOUNT_BOUND(3014)`，只能禁用；未绑定媒体账号的用户仍可物理删除。
 - `sys_admin_user` 和 `promotion_user` 均不保留 `deleted_at`；媒体账号表同样不保留 `deleted_at`，媒体账号不提供物理删除。
 - 媒体账号用户 API 位于 `/api/user/promotion/media-accounts`，管理员 API 位于 `/api/admin/promotion/media-accounts`；管理员支持分页查询、详情、编辑和失败报备重试，未加白时允许纠正媒体平台和账号 ID，已加白后锁定身份字段。响应不暴露平台连接 ID、PID、密钥或任务租约字段。报备任务默认每 30 秒领取到期任务，提交后 1 分钟首次查询，审核中每 5 分钟查询，已加白每 24 小时复核。
+- 短剧目录管理员 API 位于 `/api/admin/drama/catalog`；普通管理员和超级管理员均可分页查询、查看详情、触发同步、查询同步状态和修改本地上下架。同步默认每 5 分钟处理到期任务，支持断点续跑、过期租约接管和同连接/语言跨 FULL、INCREMENTAL 互斥；远端同步不得覆盖 `local_status`，也不得物理删除本次未返回的历史短剧。
 - Git 仓库：`https://github.com/wwxst/kasi-backend.git`，远程 `origin`，分支 `master`。
 - 在文档和代码审查中，请将当前架构与规划架构区分开来。不要将规划中的模块描述为已实现的模块。
 
@@ -58,6 +61,7 @@ java -version
 - 若仅做编译检查，在 Java 25 环境下运行 `./mvnw.cmd -DskipTests compile`。
 - 运行完整测试套件，执行 `./mvnw.cmd test`。测试使用 H2 内存数据库（MySQL 兼容模式），通过 `application-test.properties` 配置，不依赖本地 MySQL。
 - 平台接入模块聚焦校验：`./mvnw.cmd -Dtest=MediaAccountFilingMigrationTest,ProviderCredentialCipherTest,ProviderPersistenceTest,ProviderConnectionServiceTest,GoodShortSignerTest,GoodShortAdapterTest,ProviderAdminControllerTest test`。
+- 短剧目录聚焦校验：`./mvnw.cmd -Dtest=GoodShortCatalogAdapterTest,DramaCatalogPersistenceTest,DramaCatalogSyncServiceTest,DramaCatalogAdminServiceTest,AdminDramaCatalogControllerTest,DramaCatalogSchedulerTest test`。
 - 提交更改前运行 `git diff --check`。
 - 在没有显示零错误的最新输出之前，不要宣称测试套件是健康的。
 - 每新增一个控制器、服务、映射器、迁移脚本或安全规则，都应添加针对性的测试。优先使用可复现的测试数据库，而非开发人员本机数据库。
