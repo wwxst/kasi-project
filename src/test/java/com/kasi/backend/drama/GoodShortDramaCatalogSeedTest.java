@@ -14,6 +14,8 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.sql.Connection;
+import java.sql.SQLException;
+import java.sql.Statement;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
@@ -58,6 +60,30 @@ class GoodShortDramaCatalogSeedTest {
         assertThat(referencedNumberTables)
                 .as("content upsert must reference two distinct ordinal temporary tables")
                 .hasSize(2);
+    }
+
+    @Test
+    @DisplayName("MySQL 临时表必须使用 temporary-only cleanup 避免隐式提交和持久表误删")
+    void temporaryTablesUseTemporaryOnlyCleanup() throws Exception {
+        String script = Files.readString(Path.of(SEED_SCRIPT), StandardCharsets.UTF_8);
+        Set<String> temporaryTables = parseTemporaryTableNames(script);
+        Set<String> ordinaryDrops = findMatches(script,
+                Pattern.compile("(?im)^\\s*DROP\\s+TABLE\\s+`?(seed_goodshort_[a-z0-9_]+)`?\\s*;"));
+
+        assertThat(ordinaryDrops)
+                .as("seed cleanup must not use ordinary DROP TABLE for temporary tables")
+                .isEmpty();
+
+        Pattern temporaryCleanup = Pattern.compile(
+                "(?is)/\\*!50000\\s+DROP\\s+TEMPORARY\\s+TABLE\\s+"
+                        + "(?!IF\\s+EXISTS\\b)`?([a-z0-9_]+)`?\\s*\\*/\\s*;");
+        Set<String> temporaryOnlyDrops = findMatches(script, temporaryCleanup);
+
+        assertThat(script).doesNotContainPattern(
+                "(?is)/\\*!50000\\s+DROP\\s+TEMPORARY\\s+TABLE\\s+IF\\s+EXISTS\\b");
+        assertThat(temporaryOnlyDrops)
+                .as("every declared temporary table must have MySQL temporary-only cleanup")
+                .containsExactlyInAnyOrderElementsOf(temporaryTables);
     }
 
     @Test
@@ -221,7 +247,11 @@ class GoodShortDramaCatalogSeedTest {
     private static void executeSeed(JdbcTemplate jdbc) {
         FileSystemResource resource = new FileSystemResource(SEED_SCRIPT);
         jdbc.execute((Connection connection) -> {
-            ScriptUtils.executeSqlScript(connection, resource);
+            try {
+                ScriptUtils.executeSqlScript(connection, resource);
+            } finally {
+                dropTemporaryTablesForH2(connection);
+            }
             return null;
         });
     }
@@ -230,12 +260,27 @@ class GoodShortDramaCatalogSeedTest {
         FileSystemResource resource = new FileSystemResource(SEED_SCRIPT);
         EncodedResource encodedResource = new EncodedResource(resource);
         jdbc.execute((Connection connection) -> {
-            ScriptUtils.executeSqlScript(connection, encodedResource, true, false,
-                    ScriptUtils.DEFAULT_STATEMENT_SEPARATOR, ScriptUtils.DEFAULT_COMMENT_PREFIX,
-                    ScriptUtils.DEFAULT_BLOCK_COMMENT_START_DELIMITER,
-                    ScriptUtils.DEFAULT_BLOCK_COMMENT_END_DELIMITER);
+            try {
+                ScriptUtils.executeSqlScript(connection, encodedResource, true, false,
+                        ScriptUtils.DEFAULT_STATEMENT_SEPARATOR, ScriptUtils.DEFAULT_COMMENT_PREFIX,
+                        ScriptUtils.DEFAULT_BLOCK_COMMENT_START_DELIMITER,
+                        ScriptUtils.DEFAULT_BLOCK_COMMENT_END_DELIMITER);
+            } finally {
+                dropTemporaryTablesForH2(connection);
+            }
             return null;
         });
+    }
+
+    private static void dropTemporaryTablesForH2(Connection connection) {
+        try (Statement statement = connection.createStatement()) {
+            for (String table : parseTemporaryTableNames(
+                    Files.readString(Path.of(SEED_SCRIPT), StandardCharsets.UTF_8))) {
+                statement.execute("DROP TABLE IF EXISTS " + table);
+            }
+        } catch (SQLException | java.io.IOException ex) {
+            throw new IllegalStateException("Failed to clean H2 seed temporary tables", ex);
+        }
     }
 
     private static JdbcTemplate migrateAllMigrations() {
@@ -262,6 +307,15 @@ class GoodShortDramaCatalogSeedTest {
             names.add(matcher.group(1).toLowerCase(Locale.ROOT));
         }
         return names;
+    }
+
+    private static Set<String> findMatches(String script, Pattern pattern) {
+        Set<String> matches = new LinkedHashSet<>();
+        Matcher matcher = pattern.matcher(script);
+        while (matcher.find()) {
+            matches.add(matcher.group(1).toLowerCase(Locale.ROOT));
+        }
+        return matches;
     }
 
     private static int countIdentifierReferences(String value, String identifier) {
