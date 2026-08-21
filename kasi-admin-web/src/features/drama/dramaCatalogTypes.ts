@@ -3,11 +3,7 @@ export type DramaLocalStatus = 'DRAFT' | 'PUBLISHED' | 'OFFLINE'
 export type DramaSyncType = 'FULL' | 'INCREMENTAL'
 
 export type DramaSyncStatus =
-  | 'IDLE'
-  | 'REQUESTED'
-  | 'RUNNING'
-  | 'SUCCESS'
-  | 'FAILED'
+  'IDLE' | 'REQUESTED' | 'RUNNING' | 'SUCCESS' | 'FAILED'
 
 export interface DramaCatalogPageQuery {
   page: number
