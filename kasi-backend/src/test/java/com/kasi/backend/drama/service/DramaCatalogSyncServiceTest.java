@@ -106,6 +106,58 @@ class DramaCatalogSyncServiceTest {
     }
 
     @Test
+    @DisplayName("定时增量在没有成功全量基线时不创建任务")
+    void scheduledIncrementalWithoutBaselineIsSkipped() {
+        when(runtimeService.resolve(7L, ProviderCapability.INCREMENTAL_DRAMA_SYNC)).thenReturn(runtime());
+        when(connectionMapper.lockById(3L))
+                .thenReturn(mock(com.kasi.backend.provider.entity.ShortDramaConnection.class));
+        when(checkpointMapper.find(3L, DramaSyncType.FULL, "ENGLISH")).thenReturn(null);
+
+        assertThat(service.requestScheduledIncremental(7L, List.of("ENGLISH"))).isEmpty();
+
+        verify(checkpointMapper, never()).insert(any());
+        verify(checkpointMapper, never()).requestRun(anyLong(), any(), anyBoolean());
+    }
+
+    @Test
+    @DisplayName("定时增量在全量基线成功后创建增量任务")
+    void scheduledIncrementalWithBaselineIsRequested() {
+        when(runtimeService.resolve(7L, ProviderCapability.INCREMENTAL_DRAMA_SYNC)).thenReturn(runtime());
+        when(connectionMapper.lockById(3L))
+                .thenReturn(mock(com.kasi.backend.provider.entity.ShortDramaConnection.class));
+        ProviderSyncCheckpoint full = checkpoint(11L, DramaSyncType.FULL);
+        full.setStatus(DramaSyncStatus.SUCCESS);
+        full.setLastSuccessAt(LocalDateTime.of(2026, 8, 19, 8, 0));
+        ProviderSyncCheckpoint incremental = checkpoint(12L, DramaSyncType.INCREMENTAL);
+        incremental.setStatus(DramaSyncStatus.SUCCESS);
+        incremental.setLastSuccessAt(LocalDateTime.of(2026, 8, 20, 7, 0));
+        when(checkpointMapper.find(3L, DramaSyncType.FULL, "ENGLISH")).thenReturn(full);
+        when(checkpointMapper.find(3L, DramaSyncType.INCREMENTAL, "ENGLISH"))
+                .thenReturn(incremental);
+        when(checkpointMapper.findById(12L)).thenReturn(incremental);
+
+        var tasks = service.requestScheduledIncremental(7L, List.of("ENGLISH"));
+
+        assertThat(tasks).singleElement()
+                .extracting(task -> task.syncType()).isEqualTo(DramaSyncType.INCREMENTAL);
+        verify(checkpointMapper).requestRun(12L, LocalDateTime.of(2026, 8, 20, 8, 0), true);
+    }
+
+    @Test
+    @DisplayName("定时增量发现活动任务时不重复排队")
+    void scheduledIncrementalWithActiveTaskIsSkipped() {
+        when(runtimeService.resolve(7L, ProviderCapability.INCREMENTAL_DRAMA_SYNC)).thenReturn(runtime());
+        when(connectionMapper.lockById(3L))
+                .thenReturn(mock(com.kasi.backend.provider.entity.ShortDramaConnection.class));
+        when(checkpointMapper.findActive(3L, "ENGLISH"))
+                .thenReturn(List.of(checkpoint(11L, DramaSyncType.FULL)));
+
+        assertThat(service.requestScheduledIncremental(7L, List.of("ENGLISH"))).isEmpty();
+
+        verify(checkpointMapper, never()).requestRun(anyLong(), any(), anyBoolean());
+    }
+
+    @Test
     @DisplayName("每页持久化完成后才推进检查点并在末页成功")
     void processPageThenAdvancesCheckpoint() {
         ProviderSyncCheckpoint checkpoint = checkpoint(11L, DramaSyncType.FULL);
