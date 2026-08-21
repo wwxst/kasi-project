@@ -15,6 +15,7 @@ import {
   render,
   screen,
   waitFor,
+  within,
 } from '@testing-library/react'
 import { App as AntdApp } from 'antd'
 import { http, HttpResponse } from 'msw'
@@ -180,6 +181,23 @@ describe('ScheduledTaskPage', () => {
         }),
       ).toBeInTheDocument()
     }
+  })
+
+  it('updates the unit when a different interval type is selected', async () => {
+    renderPage()
+    await screen.findByText('GoodShort 短剧增量同步')
+    fireEvent.click(screen.getByRole('button', { name: '编辑' }))
+    fireEvent.mouseDown(screen.getByLabelText('周期类型'))
+    fireEvent.click(
+      await screen.findByText('每隔N小时', {
+        selector: '.ant-select-item-option-content',
+      }),
+    )
+
+    const dialog = within(screen.getByRole('dialog'))
+    expect(dialog.getByText('小时')).toBeInTheDocument()
+    expect(dialog.getByText('每隔60小时执行一次')).toBeInTheDocument()
+    expect(dialog.queryByText('分钟')).not.toBeInTheDocument()
   })
 
   it('allows a super administrator to toggle the row directly', async () => {

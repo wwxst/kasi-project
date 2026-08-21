@@ -54,10 +54,11 @@ export function ScheduledTaskPage() {
   const [editingTask, setEditingTask] = useState<ScheduledTask | null>(null)
   const [saving, setSaving] = useState(false)
   const [switchingTaskCode, setSwitchingTaskCode] = useState<string>()
+  const [cycleType, setCycleType] = useState<CycleType>('INTERVAL_MINUTES')
   const intervalMinutes = Form.useWatch('intervalMinutes', form)
-  const cycleType = Form.useWatch('cycleType', form) as CycleType | undefined
-  const selectedCycle =
-    cycleOptions.find((option) => option.value === cycleType) ?? cycleOptions[1]
+  const selectedCycle = cycleOptions.find(
+    (option) => option.value === cycleType,
+  )!
 
   const loadTasks = useCallback(async () => {
     setLoading(true)
@@ -102,8 +103,8 @@ export function ScheduledTaskPage() {
 
   const openEditor = (task: ScheduledTask) => {
     setEditingTask(task)
+    setCycleType('INTERVAL_MINUTES')
     form.setFieldsValue({
-      cycleType: 'INTERVAL_MINUTES',
       intervalMinutes: task.intervalMinutes,
       description: task.description,
       enabled: task.enabled,
@@ -115,11 +116,10 @@ export function ScheduledTaskPage() {
     try {
       const values = await form.validateFields()
       setSaving(true)
-      const { cycleType: _cycleType, ...request } = values
       replaceTask(
         await updateScheduledTask(editingTask.taskCode, {
-          ...request,
-          description: request.description.trim(),
+          ...values,
+          description: values.description.trim(),
         }),
       )
       setEditingTask(null)
@@ -209,9 +209,7 @@ export function ScheduledTaskPage() {
               <Select
                 value={cycleType ?? 'INTERVAL_MINUTES'}
                 options={cycleOptions}
-                onChange={(value: CycleType) =>
-                  form.setFieldValue('cycleType', value)
-                }
+                onChange={(value: CycleType) => setCycleType(value)}
                 aria-label="周期类型"
               />
               {selectedCycle.unit ? (
