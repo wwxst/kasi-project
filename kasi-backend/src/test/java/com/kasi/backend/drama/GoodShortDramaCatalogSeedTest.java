@@ -14,8 +14,11 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.sql.Connection;
+import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -32,16 +35,29 @@ class GoodShortDramaCatalogSeedTest {
     @DisplayName("MySQL 临时表不可在同一内容 upsert 中重复引用以避免 1137 reopen 错误")
     void contentUpsertDoesNotReopenMySqlTemporaryTable() throws Exception {
         String script = Files.readString(Path.of(SEED_SCRIPT), StandardCharsets.UTF_8);
+        Set<String> temporaryTables = parseTemporaryTableNames(script);
         Matcher matcher = Pattern.compile("(?is)INSERT\\s+INTO\\s+provider_drama_content\\b.*?;")
                 .matcher(script);
 
+        assertThat(temporaryTables).isNotEmpty();
+        assertThat(temporaryTables)
+                .contains("seed_goodshort_numbers", "seed_goodshort_episode_numbers", "seed_goodshort_guard");
         assertThat(matcher.find()).as("seed must contain the provider_drama_content upsert statement").isTrue();
-        String contentUpsert = matcher.group();
-        int numberTableReferences = countOccurrences(contentUpsert, "seed_goodshort_numbers");
+        String contentUpsert = matcher.group().toLowerCase(Locale.ROOT);
+        Set<String> referencedNumberTables = new LinkedHashSet<>();
+        for (String temporaryTable : temporaryTables) {
+            int references = countIdentifierReferences(contentUpsert, temporaryTable);
+            assertThat(references)
+                    .as("MySQL error 1137 forbids reopening TEMPORARY table '%s' in one statement", temporaryTable)
+                    .isLessThanOrEqualTo(1);
+            if (temporaryTable.contains("number") && references > 0) {
+                referencedNumberTables.add(temporaryTable);
+            }
+        }
 
-        assertThat(numberTableReferences)
-                .as("MySQL error 1137 forbids reopening a TEMPORARY table in one statement")
-                .isLessThanOrEqualTo(1);
+        assertThat(referencedNumberTables)
+                .as("content upsert must reference two distinct ordinal temporary tables")
+                .hasSize(2);
     }
 
     @Test
@@ -238,12 +254,23 @@ class GoodShortDramaCatalogSeedTest {
         return new JdbcTemplate(dataSource);
     }
 
-    private static int countOccurrences(String value, String needle) {
+    private static Set<String> parseTemporaryTableNames(String script) {
+        Set<String> names = new LinkedHashSet<>();
+        Matcher matcher = Pattern.compile("(?i)CREATE\\s+TEMPORARY\\s+TABLE\\s+`?([a-z0-9_]+)`?")
+                .matcher(script);
+        while (matcher.find()) {
+            names.add(matcher.group(1).toLowerCase(Locale.ROOT));
+        }
+        return names;
+    }
+
+    private static int countIdentifierReferences(String value, String identifier) {
         int count = 0;
-        int index = 0;
-        while ((index = value.indexOf(needle, index)) >= 0) {
+        Matcher matcher = Pattern.compile("(?<![a-z0-9_])" + Pattern.quote(identifier)
+                        + "(?![a-z0-9_])")
+                .matcher(value);
+        while (matcher.find()) {
             count++;
-            index += needle.length();
         }
         return count;
     }
