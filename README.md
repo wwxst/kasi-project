@@ -134,7 +134,8 @@ $env:Path = "$env:JAVA_HOME\bin;$env:Path"
 | 验证码发送器 | `local` profile 使用 Console sender；`test` profile 使用测试 sender；生产环境需提供真实实现 |
 | 平台密钥主密钥 | 必须通过 `PROVIDER_CREDENTIAL_MASTER_KEY` 注入 Base64 编码的 32 字节密钥；不得提交到仓库或写入日志 |
 | GoodShort 探测 | 接口 URL 从平台接入配置读取，连接超时 3 秒、读取超时 10 秒；平台密钥从数据库密文解密后仅在适配器调用链内使用 |
-| 短剧目录同步 | 默认语言 `ENGLISH`、每页 100 条、每 5 分钟调度；支持配置语言、批量、分页、租约和调度开关 |
+| 短剧目录同步 | 默认语言 `ENGLISH`、每页 100 条、每 5 分钟执行已入队任务；支持配置语言、批量、分页、租约和调度开关 |
+| 固定定时任务 | V8 提供 GoodShort 增量同步配置，默认每 60 分钟入队；仅成功全量基线存在时自动创建增量任务 |
 
 应用要连接 MySQL，至少需要提供：
 
@@ -150,7 +151,7 @@ $env:SPRING_DATASOURCE_PASSWORD = '<database-password>'
 .\mvnw.cmd spring-boot:run
 ```
 
-首次启动时 Flyway 会按版本扫描 `db/migration/`，执行 V1 至 V7：V1 创建账号表并植入唯一的初始超级管理员；V2 至 V6 创建平台接入、媒体账号、通用报备及人工报备相关表和字段；V7 创建短剧目录、剧集和同步检查点表。由 V1 植入的初始超级管理员为：
+首次启动时 Flyway 会按版本扫描 `db/migration/`，执行 V1 至 V8：V1 创建账号表并植入唯一的初始超级管理员；V2 至 V6 创建平台接入、媒体账号、通用报备及人工报备相关表和字段；V7 创建短剧目录、剧集和同步检查点表；V8 创建固定定时任务配置并植入 GoodShort 增量同步任务。由 V1 植入的初始超级管理员为：
 
 - 账号：`kasiadmin`
 - 初始密码：`kasi123456`
@@ -175,9 +176,9 @@ mysql --host=127.0.0.1 --user=$env:SPRING_DATASOURCE_USERNAME --password --datab
 
 ## 5. 数据库现状
 
-### 已实现的表结构（V1 至 V7）
+### 已实现的表结构（V1 至 V8）
 
-迁移脚本 V1 至 V7 定义当前数据库持久表，验证码和密码重置 Token 等临时数据由 Redis 管理：
+迁移脚本 V1 至 V8 定义当前数据库持久表，验证码和密码重置 Token 等临时数据由 Redis 管理：
 
 | 存储 | 表/Key | 说明 | 核心字段 |
 |------|--------|------|----------|
@@ -190,6 +191,7 @@ mysql --host=127.0.0.1 --user=$env:SPRING_DATASOURCE_USERNAME --password --datab
 | MySQL | `provider_drama` | 按接入账号保存的短剧目录，本地状态与远端状态分离 | connection_id, external_drama_id, language, remote_show_status, local_status |
 | MySQL | `provider_drama_content` | 短剧剧集元数据 | drama_id, external_content_id, sequence_no, is_free, duration_seconds |
 | MySQL | `provider_sync_checkpoint` | 全量/增量同步断点、统计、错误和数据库租约 | connection_id, sync_type, language, page_no, update_time, lease_owner, lease_until |
+| MySQL | `system_scheduled_task` | 后端固定任务的周期、启停和入队租约 | task_code, description, interval_minutes, enabled, next_run_at, lease_owner, lease_until |
 | Redis | `vc:*` | 验证码（临时） | 5分钟过期，60秒重发间隔，每日上限10次 |
 | Redis | `pwd:*` | 密码重置 Token（临时） | 10分钟过期，一次性消费后删除 |
 | Redis | `auth:version:*` | 账号会话版本（含 `ACTIVE:*` 或 `MUTATING:*`） | TTL 不超过 JWT 有效期加宽限期 |
@@ -199,7 +201,7 @@ mysql --host=127.0.0.1 --user=$env:SPRING_DATASOURCE_USERNAME --password --datab
 
 当前已完成平台定义与接入账号持久层、AES-GCM 密钥加密、不暴露密钥的管理服务和管理员 API，以及 GoodShort 签名和连接探测适配器。媒体账号绑定与通用报备模块也已完成后端闭环：推广用户可绑定多个媒体账号，同一媒体平台账号全局唯一；创建媒体账号时不选择单个平台，系统会为所有已启用、接入配置完整且适配器声明支持账号报备的平台分别建立报备记录；系统通过 GoodShort `/open/filing/report` 和 `/open/filing/query` 完成报备提交与审核查询，持久任务支持租约、资料版本隔离、临时失败重试和三态（审核中、已加白、已失败）；用户和管理员查询/重试接口已接入，绑定媒体账号的推广用户只能禁用不能物理删除。平台接入配置支持 API 自动报备和人工报备两种模式：API 模式必须填写接口 URL、PID、KEY，人工模式无需保存这些 API 凭据，由管理员维护报备状态。
 
-当前已实现 GoodShort 短剧目录全量 `initBooks`、增量 `incrementBooks`、断点恢复、数据库租约、定时/手动触发、管理员查询详情和本地上下架；远端未返回记录不会物理删除，本地状态不会被同步覆盖。当前仍未实现推广链接、订单、佣金计算、导出和转化分析；推广用户端页面仍待接入。
+当前已实现 GoodShort 短剧目录全量 `initBooks`、增量 `incrementBooks`、断点恢复、数据库租约、手动触发、固定定时任务入队、管理员查询详情和本地上下架；首次全量同步仍由管理员手动发起，只有成功全量基线存在时每小时自动创建增量任务，已有任务或缺少基线时不会重复入队。固定任务每分钟扫描到期配置，现有目录执行器继续每 5 分钟领取并执行已入队任务；远端未返回记录不会物理删除，本地状态不会被同步覆盖。当前仍未实现推广链接、订单、佣金计算、导出和转化分析；推广用户端页面仍待接入。
 
 > **说明**：`sys_sequence` 表已移除，`user_no` 由后端在插入前随机生成；`promotion_user.id` 继续作为自增内部主键。`auth_verification_code` 和 `auth_password_reset_token` 表已移除，改用 Redis 存储（更高效、自动过期）。
 
@@ -305,7 +307,16 @@ mysql --host=127.0.0.1 --user=$env:SPRING_DATASOURCE_USERNAME --password --datab
 
 同步默认语言为 `ENGLISH`。全量使用 GoodShort `/open/book/initBooks`，增量使用 `/open/book/incrementBooks`；没有成功全量基线时，增量请求自动升级为全量。同一连接和语言只允许一个 FULL/INCREMENTAL 任务排队或运行。
 
-### 6.8 统一响应格式
+### 6.8 系统定时任务管理 API
+
+| 方法 | 路径 | 权限 | 说明 |
+|------|------|------|------|
+| GET | `/api/admin/system/scheduled-tasks` | ADMIN | 查询后端固定任务配置 |
+| PUT | `/api/admin/system/scheduled-tasks/{taskCode}` | SUPER_ADMIN | 修改执行周期、任务说明和启停状态 |
+
+当前固定任务为 `GOODSHORT_DRAMA_INCREMENTAL_SYNC`。页面可编辑周期、说明和是否开启，不能新增、删除、修改标题、任务编码或执行程序。普通管理员只读；首次全量同步不由该任务自动完成。
+
+### 6.9 统一响应格式
 
 所有接口返回统一结构 `ApiResponse<T>`：
 
@@ -320,7 +331,7 @@ mysql --host=127.0.0.1 --user=$env:SPRING_DATASOURCE_USERNAME --password --datab
 - `code=0`：成功
 - `code!=0`：失败（错误码定义见 [ErrorCode.java](src/main/java/com/kasi/backend/common/exception/ErrorCode.java)）
 
-### 6.9 技术实现要点
+### 6.10 技术实现要点
 
 - **密码存储**：BCrypt 哈希，使用 Spring Security `PasswordEncoder`
 - **JWT**：HMAC-SHA256 签名，载荷包含 `userId`、`subjectType`、登录标识、`jti`、`sessionVersion`，过期时间 7200 秒；每次受保护请求都校验 Redis 会话状态
