@@ -83,6 +83,8 @@ public class SecurityConfig {
                                 "/api/admin/drama/providers/*/connection/test").hasRole("SUPER_ADMIN")
                         .requestMatchers(HttpMethod.PUT,
                                 "/api/admin/drama/providers/*/filing-mode").hasRole("SUPER_ADMIN")
+                        .requestMatchers(HttpMethod.PUT,
+                                "/api/admin/system/scheduled-tasks/*").hasRole("SUPER_ADMIN")
                         .requestMatchers("/api/admin/drama/**").hasRole("ADMIN")
                         // 管理员接口：仅ADMIN角色可访问
                         .requestMatchers("/api/admin/**").hasRole("ADMIN")
