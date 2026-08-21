@@ -169,6 +169,71 @@ afterEach(() => {
 afterAll(() => server.close())
 
 describe('App', () => {
+  it('routes regular administrators to the drama catalog menu', async () => {
+    let catalogRequestCount = 0
+    server.use(
+      http.get('/api/admin/drama/providers', () =>
+        HttpResponse.json({
+          code: 0,
+          message: 'ok',
+          data: [
+            {
+              id: 1,
+              providerCode: 'GOODSHORT',
+              providerName: 'GoodShort',
+              status: 1,
+              capabilities: ['FULL_DRAMA_SYNC', 'INCREMENTAL_DRAMA_SYNC'],
+              connection: {
+                id: 11,
+                connectionName: 'GoodShort production',
+                baseUrl: 'https://example.com',
+                partnerId: 'pid',
+                currency: 'USD',
+                status: 1,
+                credentialConfigured: true,
+                createdAt: '2026-08-20T08:00:00',
+                updatedAt: '2026-08-20T08:00:00',
+              },
+            },
+          ],
+        }),
+      ),
+      http.get('/api/admin/drama/catalog', () => {
+        catalogRequestCount += 1
+        return HttpResponse.json({
+          code: 0,
+          message: 'ok',
+          data: { list: [], page: 1, size: 20, total: 0 },
+        })
+      }),
+    )
+    useAuthStore.getState().setSession({
+      accessToken: 'test-token',
+      tokenType: 'Bearer',
+      expiresIn: 7200,
+      admin: {
+        id: 2,
+        username: 'operator01',
+        realName: '运营管理员',
+        mobile: null,
+        email: null,
+        avatarUrl: null,
+        isSuperAdmin: 0,
+      },
+    })
+    window.history.replaceState({}, '', '/drama/catalog')
+
+    render(<App />)
+
+    expect(
+      await screen.findByRole('heading', { name: '短剧目录' }),
+    ).toBeInTheDocument()
+    expect(screen.getByText('短剧管理')).toBeInTheDocument()
+    expect(screen.getByText('短剧目录', { selector: 'a' })).toBeInTheDocument()
+    expect(window.location.pathname).toBe('/drama/catalog')
+    await waitFor(() => expect(catalogRequestCount).toBeGreaterThanOrEqual(2))
+  })
+
   it('renders the administrator login entry', async () => {
     render(<App />)
 

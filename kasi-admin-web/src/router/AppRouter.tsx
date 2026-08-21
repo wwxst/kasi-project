@@ -45,6 +45,11 @@ const MediaAccountFilingPage = lazy(() =>
     default: module.MediaAccountFilingPage,
   })),
 )
+const DramaCatalogPage = lazy(() =>
+  import('../pages/drama/DramaCatalogPage').then((module) => ({
+    default: module.DramaCatalogPage,
+  })),
+)
 
 function ProtectedRoute() {
   const accessToken = useAuthStore((state) => state.accessToken)
@@ -81,6 +86,7 @@ export function AppRouter() {
                 path="/promotion/media-accounts"
                 element={<MediaAccountFilingPage />}
               />
+              <Route path="/drama/catalog" element={<DramaCatalogPage />} />
               <Route
                 path="/system-config/drama-api"
                 element={<ProviderManagementPage />}

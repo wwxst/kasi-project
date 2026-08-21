@@ -19,6 +19,7 @@ import {
   ChevronRight,
   Gauge,
   Languages,
+  LibraryBig,
   LogOut,
   Maximize2,
   Menu as MenuIcon,
@@ -96,6 +97,18 @@ export function AdminLayout() {
             ],
           },
           {
+            key: 'drama-management',
+            icon: <LibraryBig size={18} strokeWidth={1.8} />,
+            label: '短剧管理',
+            children: [
+              {
+                key: '/drama/catalog',
+                icon: <Clapperboard size={18} strokeWidth={1.8} />,
+                label: <Link to="/drama/catalog">短剧目录</Link>,
+              },
+            ],
+          },
+          {
             key: 'promotion-management',
             icon: <BadgeCheck size={18} strokeWidth={1.8} />,
             label: '推广管理',
@@ -120,7 +133,11 @@ export function AdminLayout() {
             ],
           },
         ]}
-        defaultOpenKeys={['promotion-management', 'system-config']}
+        defaultOpenKeys={[
+          'drama-management',
+          'promotion-management',
+          'system-config',
+        ]}
         onClick={() => setMobileMenuOpen(false)}
       />
     </nav>
