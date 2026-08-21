@@ -4,6 +4,7 @@ import org.flywaydb.core.Flyway;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.core.io.FileSystemResource;
+import org.springframework.core.io.support.EncodedResource;
 import org.springframework.dao.DataAccessException;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.datasource.DriverManagerDataSource;
@@ -41,8 +42,14 @@ class GoodShortDramaCatalogSeedTest {
                 .stream()
                 .collect(Collectors.toMap(row -> (String) row.get("EXTERNAL_CONTENT_ID"),
                         row -> ((Number) row.get("ID")).longValue()));
+        Long connectionIdBefore = jdbc.queryForObject("SELECT id FROM short_drama_connection", Long.class);
+        Map<String, Long> checkpointIdsBefore = jdbc.queryForList(
+                        "SELECT sync_type, language, id FROM provider_sync_checkpoint")
+                .stream()
+                .collect(Collectors.toMap(row -> row.get("SYNC_TYPE") + ":" + row.get("LANGUAGE"),
+                        row -> ((Number) row.get("ID")).longValue()));
 
-        Long connectionId = jdbc.queryForObject("SELECT id FROM short_drama_connection", Long.class);
+        Long connectionId = connectionIdBefore;
         jdbc.update("INSERT INTO provider_drama (connection_id, external_drama_id, title, language, local_status) "
                         + "VALUES (?, '88000001', 'Out of range drama', 'ENGLISH', 'DRAFT')", connectionId);
         Long extraDramaId = jdbc.queryForObject(
@@ -51,6 +58,8 @@ class GoodShortDramaCatalogSeedTest {
         executeSeed(jdbc);
 
         assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM short_drama_connection", Long.class)).isEqualTo(1L);
+        assertThat(jdbc.queryForObject("SELECT id FROM short_drama_connection", Long.class))
+                .isEqualTo(connectionIdBefore);
         Map<String, Object> connection = jdbc.queryForMap(
                 "SELECT connection_name, currency, status, filing_mode, partner_id, api_key_ciphertext, base_url "
                         + "FROM short_drama_connection");
@@ -141,6 +150,12 @@ class GoodShortDramaCatalogSeedTest {
                         row -> ((Number) row.get("ID")).longValue()));
         assertThat(dramaIdsAfter).isEqualTo(dramaIdsBefore);
         assertThat(contentIdsAfter).isEqualTo(contentIdsBefore);
+        Map<String, Long> checkpointIdsAfter = jdbc.queryForList(
+                        "SELECT sync_type, language, id FROM provider_sync_checkpoint")
+                .stream()
+                .collect(Collectors.toMap(row -> row.get("SYNC_TYPE") + ":" + row.get("LANGUAGE"),
+                        row -> ((Number) row.get("ID")).longValue()));
+        assertThat(checkpointIdsAfter).isEqualTo(checkpointIdsBefore);
     }
 
     @Test
@@ -156,6 +171,10 @@ class GoodShortDramaCatalogSeedTest {
 
         assertThatThrownBy(() -> executeSeed(jdbc)).isInstanceOf(DataAccessException.class);
         assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM provider_drama", Long.class)).isZero();
+        executeSeedContinueOnError(jdbc);
+        assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM provider_drama", Long.class)).isZero();
+        assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM provider_drama_content", Long.class)).isZero();
+        assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM provider_sync_checkpoint", Long.class)).isZero();
         Map<String, Object> connection = jdbc.queryForMap(
                 "SELECT partner_id, status FROM short_drama_connection WHERE provider_id = ?", providerId);
         assertThat(connection.get("PARTNER_ID")).isEqualTo("partner-live");
@@ -166,6 +185,18 @@ class GoodShortDramaCatalogSeedTest {
         FileSystemResource resource = new FileSystemResource(SEED_SCRIPT);
         jdbc.execute((Connection connection) -> {
             ScriptUtils.executeSqlScript(connection, resource);
+            return null;
+        });
+    }
+
+    private static void executeSeedContinueOnError(JdbcTemplate jdbc) {
+        FileSystemResource resource = new FileSystemResource(SEED_SCRIPT);
+        EncodedResource encodedResource = new EncodedResource(resource);
+        jdbc.execute((Connection connection) -> {
+            ScriptUtils.executeSqlScript(connection, encodedResource, true, false,
+                    ScriptUtils.DEFAULT_STATEMENT_SEPARATOR, ScriptUtils.DEFAULT_COMMENT_PREFIX,
+                    ScriptUtils.DEFAULT_BLOCK_COMMENT_START_DELIMITER,
+                    ScriptUtils.DEFAULT_BLOCK_COMMENT_END_DELIMITER);
             return null;
         });
     }
