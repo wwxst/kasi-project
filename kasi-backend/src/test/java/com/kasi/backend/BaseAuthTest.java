@@ -89,6 +89,7 @@ public abstract class BaseAuthTest {
         jdbcTemplate.execute("DELETE FROM provider_drama");
         jdbcTemplate.execute("DELETE FROM provider_sync_checkpoint");
         jdbcTemplate.execute("DELETE FROM provider_media_filing");
+        jdbcTemplate.execute("DELETE FROM provider_commission_rule");
         jdbcTemplate.execute("DELETE FROM promotion_media_account");
         jdbcTemplate.execute("DELETE FROM short_drama_connection");
         jdbcTemplate.execute("DELETE FROM short_drama_provider");
