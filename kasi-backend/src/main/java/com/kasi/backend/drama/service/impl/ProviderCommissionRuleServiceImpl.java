@@ -137,7 +137,7 @@ public class ProviderCommissionRuleServiceImpl implements ProviderCommissionRule
     }
 
     private void requireProviderForWrite(Long providerId) {
-        if (providerMapper.findById(providerId) == null) {
+        if (providerMapper.findByIdForUpdate(providerId) == null) {
             throw new BusinessException(ErrorCode.PROVIDER_NOT_FOUND);
         }
     }

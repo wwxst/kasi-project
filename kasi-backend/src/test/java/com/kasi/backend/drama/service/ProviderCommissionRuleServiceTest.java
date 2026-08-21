@@ -27,6 +27,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
+import org.mockito.InOrder;
 
 @DisplayName("平台分佣规则服务")
 class ProviderCommissionRuleServiceTest {
@@ -41,6 +42,7 @@ class ProviderCommissionRuleServiceTest {
         Clock clock = Clock.fixed(Instant.parse("2026-08-21T08:00:00Z"), ZoneOffset.UTC);
         service = new ProviderCommissionRuleServiceImpl(ruleMapper, providerMapper, clock);
         when(providerMapper.findById(7L)).thenReturn(provider(7L));
+        when(providerMapper.findByIdForUpdate(7L)).thenReturn(provider(7L));
         when(ruleMapper.insert(any(ProviderCommissionRule.class))).thenReturn(1);
         when(ruleMapper.update(any(ProviderCommissionRule.class))).thenReturn(1);
         when(ruleMapper.updateEffectiveTo(anyLong(), anyLong(), any(), anyLong())).thenReturn(1);
@@ -61,6 +63,20 @@ class ProviderCommissionRuleServiceTest {
         assertThat(captor.getValue().getChannelFeeRate()).isEqualByComparingTo("0.3000");
         assertThat(result.getChannelFeeRate()).isEqualByComparingTo("30");
         assertThat(result.getStatus()).isEqualTo(CommissionRuleStatus.ACTIVE);
+    }
+
+    @Test
+    @DisplayName("写入时先锁定平台再检查规则冲突")
+    void writeLocksProviderBeforeCheckingOverlap() {
+        when(ruleMapper.countOverlapping(eq(7L), isNull(), any(), isNull())).thenReturn(0L);
+
+        service.create(1L, 7L, createRequest(
+                LocalDateTime.of(2026, 9, 1, 0, 0), null));
+
+        InOrder order = inOrder(providerMapper, ruleMapper);
+        order.verify(providerMapper).findByIdForUpdate(7L);
+        order.verify(ruleMapper).countOverlapping(eq(7L), isNull(), any(), isNull());
+        order.verify(ruleMapper).insert(any(ProviderCommissionRule.class));
     }
 
     @Test
