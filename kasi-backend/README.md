@@ -316,7 +316,7 @@ $env:SPRING_DATASOURCE_PASSWORD = '<database-password>'
 ```json
 {
   "code": 0,
-  "message": "success",
+  "message": "成功",
   "data": { ... }
 }
 ```

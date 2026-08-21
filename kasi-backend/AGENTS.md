@@ -120,7 +120,7 @@ java -version
 ## 错误码管理规范
 
 - [ErrorCode.java](src/main/java/com/kasi/backend/common/exception/ErrorCode.java) 是所有错误码的**唯一真理源**。
-- 新增错误码必须遵循分段规则：`1xxx`通用、`2xxx`管理员、`3xxx`用户、`4xxx`验证码、`5xxx`密码重置。
+- 新增错误码必须遵循分段规则：`1xxx`通用、`2xxx`管理员、`3xxx`用户、`4xxx`验证码、`5xxx`密码重置、`6xxx`短剧平台/短剧领域。
 - 只保留当前业务路径能够实际返回的错误码；不要为尚未实现或无法区分的状态预留不可达枚举值。
 - 不要硬编码数字错误码 —— 始终使用 `ErrorCode` 枚举引用。
 - 不要在 Controller 中直接构造错误码字符串 —— 通过 `throw new BusinessException(ErrorCode.XXX)` 交给全局异常处理器。
