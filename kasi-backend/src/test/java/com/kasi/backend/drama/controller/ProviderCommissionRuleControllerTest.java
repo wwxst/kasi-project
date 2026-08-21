@@ -145,9 +145,31 @@ class ProviderCommissionRuleControllerTest extends BaseAuthTest {
         String token = loginAsAdmin();
         mockMvc.perform(get(path(999L)).header("Authorization", "Bearer " + token))
                 .andExpect(status().isOk()).andExpect(jsonPath("$.code").value(6001));
-        mockMvc.perform(put(itemPath(providerId(), 999L)).header("Authorization", "Bearer " + token)
+        long originalProviderId = providerId();
+        mockMvc.perform(put(itemPath(originalProviderId, 999L)).header("Authorization", "Bearer " + token)
                         .contentType(MediaType.APPLICATION_JSON).content(ruleJson(now().plusMinutes(10), null, 30)))
                 .andExpect(status().isOk()).andExpect(jsonPath("$.code").value(6011));
+
+        jdbcTemplate.update(
+                "INSERT INTO short_drama_provider (provider_code, provider_name, status) VALUES (?, ?, ?)",
+                "OTHER", "Other", 1);
+        long otherProviderId = jdbcTemplate.queryForObject(
+                "SELECT id FROM short_drama_provider WHERE provider_code = 'OTHER'", Long.class);
+        LocalDateTime future = now().plusMinutes(10);
+        String response = mockMvc.perform(post(path(originalProviderId))
+                        .header("Authorization", "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(ruleJson(future, null, 30)))
+                .andExpect(jsonPath("$.code").value(0))
+                .andReturn().getResponse().getContentAsString();
+        long originalRuleId = objectMapper.readTree(response).get("data").get("id").longValue();
+
+        mockMvc.perform(put(itemPath(otherProviderId, originalRuleId))
+                        .header("Authorization", "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(ruleJson(future.plusMinutes(1), null, 40)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(6011));
     }
 
     private LocalDateTime now() {
