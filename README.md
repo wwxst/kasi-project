@@ -6,7 +6,7 @@
 
 这是卡司推广平台的后端仓库，基于 Spring Boot 4.0.7 + MyBatis 4.0.1 + MySQL 8 + JWT 构建。
 
-**当前已完成**：管理员（ADMIN）和推广用户（USER）双认证体系、两类账号管理 CRUD、短剧平台接入与 GoodShort 账号报备，以及 GoodShort 短剧目录全量/增量同步、管理员目录管理和定时调度。详见 [§6 API、认证与业务边界](#6-api认证与业务边界)。
+**当前已完成**：管理员（ADMIN）和推广用户（USER）双认证体系、两类账号管理 CRUD、短剧平台接入与 GoodShort 账号报备、GoodShort 短剧目录全量/增量同步、管理员目录管理和定时调度，以及短剧平台级分佣规则版本管理与 `BigDecimal` 计算器。详见 [§6 API、认证与业务边界](#6-api认证与业务边界)。
 
 ## 2. 当前结构
 
@@ -60,7 +60,7 @@ src/
         vo/                                 # 不含平台密钥的管理响应 VO
         service/                            # 密钥加密与接入账号管理服务接口
         service/impl/                       # AES-GCM 与接入账号管理实现
-      drama/                                # 短剧目录、剧集、同步检查点、管理员 API 和调度
+      drama/                                # 短剧目录、同步、平台级分佣规则、计算器和管理员 API
       common/                               # 公共组件
         response/ApiResponse.java           # 统一响应体
         exception/ErrorCode.java            # 错误码枚举
@@ -71,10 +71,14 @@ src/
       application.properties                # 数据源、Flyway、MyBatis、JWT、验证码配置
       db/migration/
         V1__kasi_promotion.sql              # 基础账号表和默认超级管理员
-        V2__media_account_filing.sql       # 平台接入、媒体账号和通用报备表
-        V4__media_filing_task_version.sql  # 报备任务资料版本隔离
+        V2__media_account_filing.sql        # 平台接入、媒体账号和通用报备表
+        V3__provider_connection_base_url.sql # 平台接入接口 URL
+        V4__media_filing_task_version.sql   # 报备任务资料版本隔离
+        V5__provider_filing_mode.sql        # API/人工报备模式
+        V6__manual_filing_operator.sql      # 人工报备操作审计
         V7__drama_catalog_sync.sql          # 短剧目录、剧集与同步检查点
-      mapper/                               # 2个 MyBatis XML 映射文件
+        V8__provider_commission_rule.sql     # 平台级分佣规则版本
+      mapper/                               # MyBatis XML 映射文件
   test/
     java/com/kasi/backend/
       BaseAuthTest.java                     # 测试基类（H2 + 数据初始化）
@@ -150,7 +154,7 @@ $env:SPRING_DATASOURCE_PASSWORD = '<database-password>'
 .\mvnw.cmd spring-boot:run
 ```
 
-首次启动时 Flyway 会按版本扫描 `db/migration/`，执行 V1 至 V7：V1 创建账号表并植入唯一的初始超级管理员；V2 至 V6 创建平台接入、媒体账号、通用报备及人工报备相关表和字段；V7 创建短剧目录、剧集和同步检查点表。由 V1 植入的初始超级管理员为：
+首次启动时 Flyway 会按版本扫描 `db/migration/`，依次执行 V1 至 V8，创建账号、平台接入、媒体账号、通用报备、短剧目录、同步检查点和平台分佣规则等表，并由 V1 植入唯一的初始超级管理员：
 
 - 账号：`kasiadmin`
 - 初始密码：`kasi123456`
@@ -175,9 +179,9 @@ mysql --host=127.0.0.1 --user=$env:SPRING_DATASOURCE_USERNAME --password --datab
 
 ## 5. 数据库现状
 
-### 已实现的表结构（V1 至 V7）
+### 已实现的表结构（V1 至 V8）
 
-迁移脚本 V1 至 V7 定义当前数据库持久表，验证码和密码重置 Token 等临时数据由 Redis 管理：
+迁移脚本 V1 至 V8 定义当前数据库持久表，验证码和密码重置 Token 等临时数据由 Redis 管理：
 
 | 存储 | 表/Key | 说明 | 核心字段 |
 |------|--------|------|----------|
@@ -190,6 +194,7 @@ mysql --host=127.0.0.1 --user=$env:SPRING_DATASOURCE_USERNAME --password --datab
 | MySQL | `provider_drama` | 按接入账号保存的短剧目录，本地状态与远端状态分离 | connection_id, external_drama_id, language, remote_show_status, local_status |
 | MySQL | `provider_drama_content` | 短剧剧集元数据 | drama_id, external_content_id, sequence_no, is_free, duration_seconds |
 | MySQL | `provider_sync_checkpoint` | 全量/增量同步断点、统计、错误和数据库租约 | connection_id, sync_type, language, page_no, update_time, lease_owner, lease_until |
+| MySQL | `provider_commission_rule` | 平台级五费率规则版本；当前、未来接入账号及平台下短剧共用 | provider_id, 五项 0..1 高精度费率, effective_from, effective_to, created_by, updated_by |
 | Redis | `vc:*` | 验证码（临时） | 5分钟过期，60秒重发间隔，每日上限10次 |
 | Redis | `pwd:*` | 密码重置 Token（临时） | 10分钟过期，一次性消费后删除 |
 | Redis | `auth:version:*` | 账号会话版本（含 `ACTIVE:*` 或 `MUTATING:*`） | TTL 不超过 JWT 有效期加宽限期 |
@@ -199,7 +204,9 @@ mysql --host=127.0.0.1 --user=$env:SPRING_DATASOURCE_USERNAME --password --datab
 
 当前已完成平台定义与接入账号持久层、AES-GCM 密钥加密、不暴露密钥的管理服务和管理员 API，以及 GoodShort 签名和连接探测适配器。媒体账号绑定与通用报备模块也已完成后端闭环：推广用户可绑定多个媒体账号，同一媒体平台账号全局唯一；创建媒体账号时不选择单个平台，系统会为所有已启用、接入配置完整且适配器声明支持账号报备的平台分别建立报备记录；系统通过 GoodShort `/open/filing/report` 和 `/open/filing/query` 完成报备提交与审核查询，持久任务支持租约、资料版本隔离、临时失败重试和三态（审核中、已加白、已失败）；用户和管理员查询/重试接口已接入，绑定媒体账号的推广用户只能禁用不能物理删除。平台接入配置支持 API 自动报备和人工报备两种模式：API 模式必须填写接口 URL、PID、KEY，人工模式无需保存这些 API 凭据，由管理员维护报备状态。
 
-当前已实现 GoodShort 短剧目录全量 `initBooks`、增量 `incrementBooks`、断点恢复、数据库租约、定时/手动触发、管理员查询详情和本地上下架；远端未返回记录不会物理删除，本地状态不会被同步覆盖。当前仍未实现推广链接、订单、佣金计算、导出和转化分析；推广用户端页面仍待接入。
+当前已实现 GoodShort 短剧目录全量 `initBooks`、增量 `incrementBooks`、断点恢复、数据库租约、定时/手动触发、管理员查询详情和本地上下架；远端未返回记录不会物理删除，本地状态不会被同步覆盖。V8 已实现每个平台一套带版本时间段的五费率规则：API 使用 `0..100` 百分比，数据库保存 `0..1` 高精度比例，同平台区间采用 `[effectiveFrom, effectiveTo)` 且不得重叠；当前和未来增加的接入账号以及平台下所有短剧共用平台规则。规则计算器使用 `BigDecimal`，中间保持高精度并在最终结果按两位小数 `HALF_UP`。
+
+当前仍未实现推广链接、订单同步、订单费率快照、订单导出、钱包/结算和转化分析；平台规则匹配及计算器只是后续订单预计佣金的基础，不代表订单级佣金流程已经交付。推广用户端页面仍待接入。
 
 > **说明**：`sys_sequence` 表已移除，`user_no` 由后端在插入前随机生成；`promotion_user.id` 继续作为自增内部主键。`auth_verification_code` 和 `auth_password_reset_token` 表已移除，改用 Redis 存储（更高效、自动过期）。
 
@@ -305,14 +312,28 @@ mysql --host=127.0.0.1 --user=$env:SPRING_DATASOURCE_USERNAME --password --datab
 
 同步默认语言为 `ENGLISH`。全量使用 GoodShort `/open/book/initBooks`，增量使用 `/open/book/incrementBooks`；没有成功全量基线时，增量请求自动升级为全量。同一连接和语言只允许一个 FULL/INCREMENTAL 任务排队或运行。
 
-### 6.8 统一响应格式
+### 6.8 短剧平台分佣规则管理 API
+
+`GET` 允许普通管理员和超级管理员只读访问；其余写接口仅允许超级管理员。所有写操作先锁定对应 `short_drama_provider` 平台行，再执行同平台时间段重叠校验和持久化，避免并发创建重叠规则。
+
+| 方法 | 路径 | 权限 | 说明 |
+|------|------|------|------|
+| GET | `/api/admin/drama/providers/{providerId}/commission-rules` | ADMIN | 按开始时间倒序查询规则及派生状态 |
+| POST | `/api/admin/drama/providers/{providerId}/commission-rules` | SUPER_ADMIN | 创建当前或未来规则 |
+| PUT | `/api/admin/drama/providers/{providerId}/commission-rules/{ruleId}` | SUPER_ADMIN | 编辑 `PENDING` 规则的费率和时间段 |
+| PATCH | `/api/admin/drama/providers/{providerId}/commission-rules/{ruleId}/end-time` | SUPER_ADMIN | 提前结束 `ACTIVE` 规则 |
+| DELETE | `/api/admin/drama/providers/{providerId}/commission-rules/{ruleId}` | SUPER_ADMIN | 删除 `PENDING` 规则 |
+
+规则状态由当前时间派生：`PENDING` 可编辑和删除，`ACTIVE` 只能提前结束，`ENDED` 只读。五项费率请求和响应均为 `0..100` 百分比，持久层转换为 `0..1` 高精度比例；时间段使用左闭右开区间 `[effectiveFrom, effectiveTo)`。
+
+### 6.9 统一响应格式
 
 所有接口返回统一结构 `ApiResponse<T>`：
 
 ```json
 {
   "code": 0,
-  "message": "success",
+  "message": "成功",
   "data": { ... }
 }
 ```
@@ -320,7 +341,7 @@ mysql --host=127.0.0.1 --user=$env:SPRING_DATASOURCE_USERNAME --password --datab
 - `code=0`：成功
 - `code!=0`：失败（错误码定义见 [ErrorCode.java](src/main/java/com/kasi/backend/common/exception/ErrorCode.java)）
 
-### 6.9 技术实现要点
+### 6.10 技术实现要点
 
 - **密码存储**：BCrypt 哈希，使用 Spring Security `PasswordEncoder`
 - **JWT**：HMAC-SHA256 签名，载荷包含 `userId`、`subjectType`、登录标识、`jti`、`sessionVersion`，过期时间 7200 秒；每次受保护请求都校验 Redis 会话状态
@@ -354,6 +375,12 @@ mysql --host=127.0.0.1 --user=$env:SPRING_DATASOURCE_USERNAME --password --datab
 | `UserAuthControllerTest` | 用户注册、登录、获取信息、退出、修改密码、忘记密码流程（13 个用例） |
 | `SecurityPermissionTest` | 角色隔离：ADMIN/USER Token 不可互访、无 Token 返回 401（5 个用例） |
 | `KasiBackendApplicationTests` | Spring 上下文加载测试 |
+| `ProviderCommissionRuleMigrationTest` | 在隔离 H2 MySQL 模式数据库中执行 V1 至 V8 并验证分佣规则表 |
+| `ProviderCommissionRulePersistenceTest` | 五项费率精度、平台查询、指定时间匹配和相邻区间 |
+| `ProviderCommissionCalculatorTest` | `BigDecimal` 五费率公式与最终两位 `HALF_UP` |
+| `ProviderCommissionRuleServiceTest` | 规则状态、编辑/删除/提前结束、时间窗口与重叠校验 |
+| `ProviderCommissionRuleConcurrencyTest` | 平台行锁下的并发重叠写入保护 |
+| `ProviderCommissionRuleControllerTest` | 五个管理 API、校验、资源归属和 ADMIN/SUPER_ADMIN 权限边界 |
 
 ### 运行测试
 
@@ -363,6 +390,9 @@ mysql --host=127.0.0.1 --user=$env:SPRING_DATASOURCE_USERNAME --password --datab
 
 # 运行全部测试
 .\mvnw.cmd test
+
+# 平台分佣规则聚焦测试（PowerShell 使用 --% 原样传递逗号列表）
+.\mvnw.cmd --% -Dtest=ProviderCommissionRuleMigrationTest,ProviderCommissionRulePersistenceTest,ProviderCommissionCalculatorTest,ProviderCommissionRuleServiceTest,ProviderCommissionRuleConcurrencyTest,ProviderCommissionRuleControllerTest test
 ```
 
 Java 21 下编译会因 `release 25` 失败，必须使用 Java 25。
