@@ -29,15 +29,24 @@ class GoodShortDramaCatalogSeedTest {
 
         executeSeed(jdbc);
         Map<String, Long> dramaIdsBefore = jdbc.queryForList(
-                        "SELECT external_drama_id, id FROM provider_drama ORDER BY external_drama_id")
+                        "SELECT external_drama_id, id FROM provider_drama "
+                                + "WHERE external_drama_id LIKE '990000%' ORDER BY external_drama_id")
                 .stream()
                 .collect(Collectors.toMap(row -> (String) row.get("EXTERNAL_DRAMA_ID"),
                         row -> ((Number) row.get("ID")).longValue()));
         Map<String, Long> contentIdsBefore = jdbc.queryForList(
-                        "SELECT external_content_id, id FROM provider_drama_content ORDER BY external_content_id")
+                        "SELECT c.external_content_id, c.id FROM provider_drama_content c "
+                                + "JOIN provider_drama d ON d.id = c.drama_id "
+                                + "WHERE d.external_drama_id LIKE '990000%' ORDER BY c.external_content_id")
                 .stream()
                 .collect(Collectors.toMap(row -> (String) row.get("EXTERNAL_CONTENT_ID"),
                         row -> ((Number) row.get("ID")).longValue()));
+
+        Long connectionId = jdbc.queryForObject("SELECT id FROM short_drama_connection", Long.class);
+        jdbc.update("INSERT INTO provider_drama (connection_id, external_drama_id, title, language, local_status) "
+                        + "VALUES (?, '88000001', 'Out of range drama', 'ENGLISH', 'DRAFT')", connectionId);
+        Long extraDramaId = jdbc.queryForObject(
+                "SELECT id FROM provider_drama WHERE external_drama_id = '88000001'", Long.class);
 
         executeSeed(jdbc);
 
@@ -53,7 +62,10 @@ class GoodShortDramaCatalogSeedTest {
         assertThat(connection.get("API_KEY_CIPHERTEXT")).isNull();
         assertThat(connection.get("BASE_URL")).isNull();
 
-        assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM provider_drama", Long.class)).isEqualTo(24L);
+        assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM provider_drama", Long.class)).isEqualTo(25L);
+        assertThat(jdbc.queryForObject(
+                "SELECT COUNT(*) FROM provider_drama WHERE external_drama_id LIKE '990000%'", Long.class))
+                .isEqualTo(24L);
         assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM provider_drama_content", Long.class)).isEqualTo(204L);
         assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM provider_sync_checkpoint", Long.class)).isEqualTo(4L);
         assertThat(jdbc.queryForObject(
@@ -63,7 +75,7 @@ class GoodShortDramaCatalogSeedTest {
                         + "AND last_error_message IS NULL AND lease_owner IS NULL AND lease_until IS NULL", Long.class))
                 .isEqualTo(4L);
         assertThat(jdbc.queryForObject(
-                "SELECT COUNT(*) FROM provider_drama WHERE language = 'ENGLISH'", Long.class)).isEqualTo(12L);
+                "SELECT COUNT(*) FROM provider_drama WHERE language = 'ENGLISH'", Long.class)).isEqualTo(13L);
         assertThat(jdbc.queryForObject(
                 "SELECT COUNT(*) FROM provider_drama WHERE language = 'SPANISH'", Long.class)).isEqualTo(12L);
         assertThat(jdbc.queryForObject(
@@ -72,6 +84,9 @@ class GoodShortDramaCatalogSeedTest {
                 .containsExactlyInAnyOrder("DRAFT", "PUBLISHED", "OFFLINE");
         assertThat(jdbc.queryForObject(
                 "SELECT COUNT(*) FROM provider_drama WHERE cover_url IS NULL", Long.class)).isGreaterThan(0L);
+        assertThat(jdbc.queryForObject(
+                "SELECT COUNT(*) FROM provider_drama WHERE cover_url IS NOT NULL "
+                        + "AND cover_url NOT LIKE 'https://placehold.co/%'", Long.class)).isZero();
         assertThat(jdbc.queryForObject(
                 "SELECT COUNT(*) FROM provider_drama_content WHERE is_free = 0", Long.class)).isGreaterThan(0L);
         assertThat(jdbc.queryForObject(
@@ -85,6 +100,24 @@ class GoodShortDramaCatalogSeedTest {
         assertThat(jdbc.queryForObject(
                 "SELECT COUNT(*) FROM provider_drama_content WHERE sequence_no <= 2 AND is_free = 1", Long.class))
                 .isEqualTo(48L);
+        assertThat(jdbc.queryForObject(
+                "SELECT COUNT(*) FROM provider_drama_content WHERE drama_id = ?", Long.class, extraDramaId))
+                .isZero();
+        assertThat(jdbc.queryForObject(
+                "SELECT COUNT(*) FROM provider_drama_content c JOIN provider_drama d ON d.id = c.drama_id "
+                        + "WHERE d.external_drama_id LIKE '990000%'", Long.class)).isEqualTo(204L);
+        List<Map<String, Object>> checkpoints = jdbc.queryForList(
+                "SELECT sync_type, language, total_fetched, total_upserted, inserted_count, updated_count, skipped_count "
+                        + "FROM provider_sync_checkpoint ORDER BY sync_type, language");
+        assertThat(checkpoints).containsExactlyInAnyOrder(
+                Map.of("SYNC_TYPE", "FULL", "LANGUAGE", "ENGLISH", "TOTAL_FETCHED", 12, "TOTAL_UPSERTED", 12,
+                        "INSERTED_COUNT", 12, "UPDATED_COUNT", 0, "SKIPPED_COUNT", 0),
+                Map.of("SYNC_TYPE", "FULL", "LANGUAGE", "SPANISH", "TOTAL_FETCHED", 12, "TOTAL_UPSERTED", 12,
+                        "INSERTED_COUNT", 12, "UPDATED_COUNT", 0, "SKIPPED_COUNT", 0),
+                Map.of("SYNC_TYPE", "INCREMENTAL", "LANGUAGE", "ENGLISH", "TOTAL_FETCHED", 12, "TOTAL_UPSERTED", 11,
+                        "INSERTED_COUNT", 2, "UPDATED_COUNT", 9, "SKIPPED_COUNT", 1),
+                Map.of("SYNC_TYPE", "INCREMENTAL", "LANGUAGE", "SPANISH", "TOTAL_FETCHED", 12, "TOTAL_UPSERTED", 11,
+                        "INSERTED_COUNT", 1, "UPDATED_COUNT", 10, "SKIPPED_COUNT", 1));
         List<Integer> episodeCounts = jdbc.queryForList(
                 "SELECT COUNT(*) FROM provider_drama_content GROUP BY drama_id ORDER BY drama_id", Integer.class);
         assertThat(episodeCounts).hasSize(24);
@@ -94,12 +127,15 @@ class GoodShortDramaCatalogSeedTest {
                 5, 6, 7, 8, 9, 10, 11, 12);
 
         Map<String, Long> dramaIdsAfter = jdbc.queryForList(
-                        "SELECT external_drama_id, id FROM provider_drama ORDER BY external_drama_id")
+                        "SELECT external_drama_id, id FROM provider_drama "
+                                + "WHERE external_drama_id LIKE '990000%' ORDER BY external_drama_id")
                 .stream()
                 .collect(Collectors.toMap(row -> (String) row.get("EXTERNAL_DRAMA_ID"),
                         row -> ((Number) row.get("ID")).longValue()));
         Map<String, Long> contentIdsAfter = jdbc.queryForList(
-                        "SELECT external_content_id, id FROM provider_drama_content ORDER BY external_content_id")
+                        "SELECT c.external_content_id, c.id FROM provider_drama_content c "
+                                + "JOIN provider_drama d ON d.id = c.drama_id "
+                                + "WHERE d.external_drama_id LIKE '990000%' ORDER BY c.external_content_id")
                 .stream()
                 .collect(Collectors.toMap(row -> (String) row.get("EXTERNAL_CONTENT_ID"),
                         row -> ((Number) row.get("ID")).longValue()));
