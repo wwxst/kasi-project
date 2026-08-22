@@ -443,3 +443,6 @@ Java 21 下编译会因 `release 25` 失败，必须使用 Java 25。
 - 提交规范：使用 [Conventional Commits](https://www.conventionalcommits.org/) 格式（`feat:`、`fix:`、`docs:`、`refactor:`、`test:` 等）。
 - 任何代理开始工作前都应先查看 `git status --short --branch`，只修改任务涉及的文件，不使用 `git reset --hard` 或 `git checkout --` 丢弃现有改动。
 - 提交前运行 `git diff --check` 检查空白字符问题。
+# 当前分佣规则契约（2026-08-22）
+
+平台分佣规则已调整为默认配置：每个平台一条记录、无时间限制、无状态、不可删除；首次使用 POST，后续由超级管理员使用 PUT 直接覆盖五项费率。旧文档中关于 PENDING/ACTIVE/ENDED、提前结束和历史版本的描述不再是当前契约。
