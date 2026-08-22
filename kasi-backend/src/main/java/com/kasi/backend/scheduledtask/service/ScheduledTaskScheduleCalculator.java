@@ -19,14 +19,30 @@ public class ScheduledTaskScheduleCalculator {
                                  Integer dayOfMonth,
                                  Integer monthOfYear,
                                  LocalDateTime base) {
+        return nextRun(cycleType, intervalValue, 0, 0, timeOfDay,
+                dayOfWeek, dayOfMonth, monthOfYear, base);
+    }
+
+    public LocalDateTime nextRun(ScheduledTaskCycleType cycleType,
+                                 Integer intervalValue,
+                                 Integer intervalHoursPart,
+                                 Integer intervalMinutesPart,
+                                 LocalTime timeOfDay,
+                                 Integer dayOfWeek,
+                                 Integer dayOfMonth,
+                                 Integer monthOfYear,
+                                 LocalDateTime base) {
         if (cycleType == null || base == null) {
             throw new IllegalArgumentException("cycleType and base are required");
         }
         return switch (cycleType) {
             case INTERVAL_SECONDS -> base.plusSeconds(requirePositive(intervalValue));
             case INTERVAL_MINUTES -> base.plusMinutes(requirePositive(intervalValue));
-            case INTERVAL_HOURS -> base.plusHours(requirePositive(intervalValue));
-            case INTERVAL_DAYS -> base.plusDays(requirePositive(intervalValue));
+            case INTERVAL_HOURS -> base.plusHours(requirePositive(intervalValue))
+                    .plusMinutes(requirePart(intervalMinutesPart, 0, 59, "intervalMinutesPart"));
+            case INTERVAL_DAYS -> base.plusDays(requirePositive(intervalValue))
+                    .plusHours(requirePart(intervalHoursPart, 0, 23, "intervalHoursPart"))
+                    .plusMinutes(requirePart(intervalMinutesPart, 0, 59, "intervalMinutesPart"));
             case DAILY -> nextDaily(timeOfDay, base);
             case WEEKLY -> nextWeekly(timeOfDay, dayOfWeek, base);
             case MONTHLY -> nextMonthly(timeOfDay, dayOfMonth, base);
@@ -84,6 +100,12 @@ public class ScheduledTaskScheduleCalculator {
             throw new IllegalArgumentException("intervalValue must be positive");
         }
         return value;
+    }
+
+    private int requirePart(Integer value, int min, int max, String field) {
+        int actual = value == null ? 0 : value;
+        requireRange(actual, min, max, field);
+        return actual;
     }
 
     private void requireTime(LocalTime value) {

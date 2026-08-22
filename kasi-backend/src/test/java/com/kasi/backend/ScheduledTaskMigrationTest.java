@@ -20,7 +20,8 @@ class ScheduledTaskMigrationTest {
 
         assertThat(tableExists(jdbc, "SYSTEM_SCHEDULED_TASK")).isTrue();
         Map<String, Object> task = jdbc.queryForMap("""
-                SELECT task_code, title, description, cycle_type, interval_value, interval_minutes, enabled
+                SELECT task_code, title, description, cycle_type, interval_value,
+                       interval_hours_part, interval_minutes_part, interval_minutes, enabled
                 FROM system_scheduled_task
                 WHERE task_code = 'GOODSHORT_DRAMA_INCREMENTAL_SYNC'
                 """);
@@ -29,6 +30,8 @@ class ScheduledTaskMigrationTest {
         assertThat(task.get("DESCRIPTION")).isEqualTo("每隔60分钟执行一次GoodShort短剧目录增量同步");
         assertThat(task.get("CYCLE_TYPE")).isEqualTo("INTERVAL_MINUTES");
         assertThat(((Number) task.get("INTERVAL_VALUE")).intValue()).isEqualTo(60);
+        assertThat(((Number) task.get("INTERVAL_HOURS_PART")).intValue()).isZero();
+        assertThat(((Number) task.get("INTERVAL_MINUTES_PART")).intValue()).isZero();
         assertThat(((Number) task.get("INTERVAL_MINUTES")).intValue()).isEqualTo(60);
         assertThat(((Number) task.get("ENABLED")).intValue()).isEqualTo(1);
     }

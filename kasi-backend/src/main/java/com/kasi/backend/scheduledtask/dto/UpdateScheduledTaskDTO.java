@@ -23,6 +23,14 @@ public class UpdateScheduledTaskDTO {
     @Max(1440)
     private Integer intervalValue;
 
+    @Min(0)
+    @Max(23)
+    private Integer intervalHoursPart;
+
+    @Min(0)
+    @Max(59)
+    private Integer intervalMinutesPart;
+
     private LocalTime timeOfDay;
 
     @Min(1)

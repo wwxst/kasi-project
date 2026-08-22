@@ -16,7 +16,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 class DefaultSuperAdminMigrationTest {
 
     private static final String DEFAULT_USERNAME = "admin";
-    private static final String DEFAULT_PASSWORD = "kasi123456";
+    private static final String DEFAULT_PASSWORD = "12345678";
 
     @Test
     @DisplayName("V1迁移植入可登录的默认超级管理员")

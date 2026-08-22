@@ -15,15 +15,14 @@ class ScheduledTaskScheduleCalculatorTest {
     private final LocalDateTime base = LocalDateTime.of(2026, 8, 21, 10, 30);
 
     @Test
-    @DisplayName("间隔秒数计算下一次执行时间")
+    @DisplayName("interval seconds")
     void intervalSeconds() {
         assertThat(calculator.nextRun(ScheduledTaskCycleType.INTERVAL_SECONDS, 30,
-                null, null, null, null, base))
-                .isEqualTo(base.plusSeconds(30));
+                null, null, null, null, base)).isEqualTo(base.plusSeconds(30));
     }
 
     @Test
-    @DisplayName("间隔分钟小时天数计算下一次执行时间")
+    @DisplayName("interval units")
     void intervalUnits() {
         assertThat(calculator.nextRun(ScheduledTaskCycleType.INTERVAL_MINUTES, 15,
                 null, null, null, null, base)).isEqualTo(base.plusMinutes(15));
@@ -34,7 +33,18 @@ class ScheduledTaskScheduleCalculatorTest {
     }
 
     @Test
-    @DisplayName("每天按时间计算下一次执行时间")
+    @DisplayName("composite interval units")
+    void intervalCompositeUnits() {
+        assertThat(calculator.nextRun(ScheduledTaskCycleType.INTERVAL_HOURS,
+                1, null, 10, null, null, null, null, base))
+                .isEqualTo(base.plusHours(1).plusMinutes(10));
+        assertThat(calculator.nextRun(ScheduledTaskCycleType.INTERVAL_DAYS,
+                1, 1, 10, null, null, null, null, base))
+                .isEqualTo(base.plusDays(1).plusHours(1).plusMinutes(10));
+    }
+
+    @Test
+    @DisplayName("daily")
     void daily() {
         assertThat(calculator.nextRun(ScheduledTaskCycleType.DAILY, null,
                 LocalTime.of(9, 0), null, null, null, base))
@@ -42,7 +52,7 @@ class ScheduledTaskScheduleCalculatorTest {
     }
 
     @Test
-    @DisplayName("每周按星期和时间计算下一次执行时间")
+    @DisplayName("weekly")
     void weekly() {
         assertThat(calculator.nextRun(ScheduledTaskCycleType.WEEKLY, null,
                 LocalTime.of(9, 0), 1, null, null, base))
@@ -50,7 +60,7 @@ class ScheduledTaskScheduleCalculatorTest {
     }
 
     @Test
-    @DisplayName("每月超过当月天数时按月末执行")
+    @DisplayName("monthly clamps to month end")
     void monthlyClampsToMonthEnd() {
         LocalDateTime march = LocalDateTime.of(2026, 2, 20, 10, 30);
         assertThat(calculator.nextRun(ScheduledTaskCycleType.MONTHLY, null,
@@ -59,7 +69,7 @@ class ScheduledTaskScheduleCalculatorTest {
     }
 
     @Test
-    @DisplayName("每年按月份日期和时间计算下一次执行时间")
+    @DisplayName("yearly")
     void yearly() {
         assertThat(calculator.nextRun(ScheduledTaskCycleType.YEARLY, null,
                 LocalTime.of(9, 0), null, 1, 12, base))

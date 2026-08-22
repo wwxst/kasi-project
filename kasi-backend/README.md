@@ -6,7 +6,7 @@
 
 这是卡司推广平台的后端仓库，基于 Spring Boot 4.0.7 + MyBatis 4.0.1 + MySQL 8 + JWT 构建。
 
-**当前已完成**：管理员（ADMIN）和推广用户（USER）双认证体系、两类账号管理 CRUD、短剧平台接入与 GoodShort 账号报备、GoodShort 短剧目录全量/增量同步、管理员目录管理和定时调度，以及短剧平台级分佣规则版本管理与 `BigDecimal` 计算器。详见 [§6 API、认证与业务边界](#6-api认证与业务边界)。
+**当前已完成**：管理员（ADMIN）和推广用户（USER）双认证体系、两类账号管理 CRUD、短剧平台接入与 GoodShort 账号报备、GoodShort 短剧目录全量/增量同步、管理员目录管理和定时调度，以及短剧平台级分佣规则与 `BigDecimal` 计算器。详见 [§6 API、认证与业务边界](#6-api认证与业务边界)。
 
 ## 2. 当前结构
 
@@ -148,10 +148,12 @@ $env:SPRING_DATASOURCE_PASSWORD = '<database-password>'
 .\mvnw.cmd spring-boot:run
 ```
 
-首次启动时 Flyway 会扫描 `db/migration/V1__kasi_promotion.sql`，一次创建账号、平台接入、媒体账号、通用报备、短剧目录、同步检查点、平台分佣规则、固定定时任务和推广链接等表，并植入唯一的初始超级管理员：
+首次启动时 Flyway 会扫描 `db/migration/V1__kasi_promotion.sql`，一次创建账号、平台接入、媒体账号、通用报备、短剧目录、同步检查点、平台分佣规则、固定定时任务和推广链接等表，并植入唯一的初始超级管理员及一个初始推广用户：
 
-- 账号：`kasiadmin`
-- 初始密码：`kasi123456`
+- 管理员账号：`admin`
+- 管理员初始密码：`12345678`
+- 推广用户邮箱：`19193171667@163.com`
+- 推广用户初始密码：`12345678`
 
 密码在数据库中保存为 BCrypt 哈希。首次登录后应立即通过 `PUT /api/admin/auth/password` 修改默认密码。项目当前仍处于可重建数据库的开发阶段；如果开发数据库已经执行过旧版 `V1`，应删除并重新创建数据库，不能在保留旧 Flyway 校验和的情况下直接替换迁移脚本。
 
@@ -188,20 +190,20 @@ mysql --host=127.0.0.1 --user=$env:SPRING_DATASOURCE_USERNAME --password --datab
 | MySQL | `provider_drama` | 按接入账号保存的短剧目录，本地状态与远端状态分离 | connection_id, external_drama_id, language, remote_show_status, local_status |
 | MySQL | `provider_drama_content` | 短剧剧集元数据 | drama_id, external_content_id, sequence_no, is_free, duration_seconds |
 | MySQL | `provider_sync_checkpoint` | 全量/增量同步断点、统计、错误和数据库租约 | connection_id, sync_type, language, page_no, update_time, lease_owner, lease_until |
-| MySQL | `provider_commission_rule` | 平台级五费率规则版本；当前、未来接入账号及平台下短剧共用 | provider_id, 五项 0..1 高精度费率, effective_from, effective_to, created_by, updated_by |
-| MySQL | `system_scheduled_task` | 后端固定任务的结构化周期、启停和入队租约 | task_code, cycle_type, interval_value, time_of_day, day_of_week, day_of_month, month_of_year, enabled, next_run_at |
+| MySQL | `provider_commission_rule` | 平台级五费率默认规则；每个平台一条，当前、未来接入账号及平台下短剧共用 | provider_id, 五项 0..1 高精度费率, created_by, updated_by |
+| MySQL | `system_scheduled_task` | 后端固定任务的结构化周期、启停和入队租约 | task_code, cycle_type, interval_value, interval_hours_part, interval_minutes_part, time_of_day, day_of_week, day_of_month, month_of_year, enabled, next_run_at |
 | Redis | `vc:*` | 验证码（临时） | 5分钟过期，60秒重发间隔，每日上限10次 |
 | Redis | `pwd:*` | 密码重置 Token（临时） | 10分钟过期，一次性消费后删除 |
 | Redis | `auth:version:*` | 账号会话版本（含 `ACTIVE:*` 或 `MUTATING:*`） | TTL 不超过 JWT 有效期加宽限期 |
 | Redis | `auth:session:*` | 单个 JWT 会话（按 `jti`） | TTL 与 JWT 有效期一致，退出时删除 |
 
-`V1__kasi_promotion.sql` 按当前完整结构一次建库，并在建表后直接插入 `kasiadmin`，固定写入 `status=1`、`is_super_admin=1`。该初始化同时用于开发环境重建和未来生产环境首次建库，不会在应用每次启动时重复执行；不植入任何平台接入密钥。
+`V1__kasi_promotion.sql` 按当前完整结构一次建库，并在建表后直接插入 `admin` 超级管理员和一个启用的初始推广用户。管理员固定写入 `status=1`、`is_super_admin=1`；推广用户使用邮箱登录，密码和管理员密码均只以 BCrypt 哈希保存。该初始化同时用于开发环境重建和未来生产环境首次建库，不会在应用每次启动时重复执行；不植入任何平台接入密钥。
 
 当前已完成平台定义与接入账号持久层、AES-GCM 密钥加密、不暴露密钥的管理服务和管理员 API，以及 GoodShort 签名和连接探测适配器。媒体账号绑定与通用报备模块也已完成后端闭环：推广用户可绑定多个媒体账号，同一媒体平台账号全局唯一；创建媒体账号时不选择单个平台，系统会为所有已启用、接入配置完整且适配器声明支持账号报备的平台分别建立报备记录；系统通过 GoodShort `/open/filing/report` 和 `/open/filing/query` 完成报备提交与审核查询，持久任务支持租约、资料版本隔离、临时失败重试和三态（审核中、已加白、已失败）；用户和管理员查询/重试接口已接入，绑定媒体账号的推广用户只能禁用不能物理删除。平台接入配置支持 API 自动报备和人工报备两种模式：API 模式必须填写接口 URL、PID、KEY，人工模式无需保存这些 API 凭据，由管理员维护报备状态。
 
 当前已实现 GoodShort 短剧目录全量 `initBooks`、增量 `incrementBooks`、断点恢复、数据库租约、定时/手动触发、管理员查询详情和本地上下架；远端未返回记录不会物理删除，本地状态不会被同步覆盖。V8 已实现每个平台一套带版本时间段的五费率规则：API 使用 `0..100` 百分比，数据库保存 `0..1` 高精度比例，同平台区间采用 `[effectiveFrom, effectiveTo)` 且不得重叠；当前和未来增加的接入账号以及平台下所有短剧共用平台规则。规则计算器使用 `BigDecimal`，中间保持高精度并在最终结果按两位小数 `HALF_UP`。
 
-当前已实现 GoodShort 短剧目录全量 `initBooks`、增量 `incrementBooks`、断点恢复、数据库租约、定时/手动触发、固定定时任务入队、管理员查询详情和本地上下架；首次全量同步仍由管理员手动发起，只有成功全量基线存在时每小时自动创建增量任务，已有任务或缺少基线时不会重复入队。固定任务支持间隔秒/分钟/小时/天及每天、每周、每月、每年日历周期，后端根据结构化字段计算下一次执行时间；固定任务每分钟扫描到期配置，现有目录执行器继续每 5 分钟领取并执行已入队任务。远端未返回记录不会物理删除，本地状态不会被同步覆盖。V8 已实现平台分佣规则版本管理和 `BigDecimal` 计算器。V12 已实现推广用户可用的已上架短剧查询、本人媒体账号筛选、GoodShort 推广链接/口令生成和本人链接查询；生成接口使用 requestKey 幂等并保存 trackingNo。订单同步、订单费率快照、订单导出、钱包/结算和转化分析仍未实现。
+当前已实现 GoodShort 短剧目录全量 `initBooks`、增量 `incrementBooks`、断点恢复、数据库租约、定时/手动触发、固定定时任务入队、管理员查询详情和本地上下架；首次全量同步仍由管理员手动发起，只有成功全量基线存在时每小时自动创建增量任务，已有任务或缺少基线时不会重复入队。固定任务支持间隔秒/分钟/小时/天及每天、每周、每月、每年日历周期，后端根据结构化字段计算下一次执行时间；固定任务每分钟扫描到期配置，现有目录执行器继续每 5 分钟领取并执行已入队任务。远端未返回记录不会物理删除，本地状态不会被同步覆盖。平台分佣规则按平台保存一条默认配置，使用 `BigDecimal` 计算器。V12 已实现推广用户可用的已上架短剧查询、本人媒体账号筛选、GoodShort 推广链接/口令生成和本人链接查询；生成接口使用 requestKey 幂等并保存 trackingNo。订单同步、订单费率快照、订单导出、钱包/结算和转化分析仍未实现。
 
 > **说明**：`sys_sequence` 表已移除，`user_no` 由后端在插入前随机生成；`promotion_user.id` 继续作为自增内部主键。`auth_verification_code` 和 `auth_password_reset_token` 表已移除，改用 Redis 存储（更高效、自动过期）。
 
@@ -327,7 +329,7 @@ mysql --host=127.0.0.1 --user=$env:SPRING_DATASOURCE_USERNAME --password --datab
 | GET | `/api/admin/system/scheduled-tasks` | ADMIN | 查询后端固定任务配置 |
 | PUT | `/api/admin/system/scheduled-tasks/{taskCode}` | SUPER_ADMIN | 修改执行周期、任务说明和启停状态 |
 
-当前固定任务为 `GOODSHORT_DRAMA_INCREMENTAL_SYNC`。页面可编辑周期类型、间隔值、执行时间、星期/日期、说明和是否开启，不能新增、删除、修改标题、任务编码或执行程序。普通管理员只读；首次全量同步不由该任务自动完成。
+当前固定任务为 `GOODSHORT_DRAMA_INCREMENTAL_SYNC`。页面可编辑周期类型、间隔值及小时/分钟余量、执行时间、星期/日期、说明和是否开启，不能新增、删除、修改标题、任务编码或执行程序。普通管理员只读；首次全量同步不由该任务自动完成。`INTERVAL_HOURS` 使用小时数加分钟余量，`INTERVAL_DAYS` 使用天数加小时和分钟余量。
 
 ### 6.10 统一响应格式
 

@@ -101,6 +101,7 @@ public class ScheduledTaskDispatchServiceImpl implements ScheduledTaskDispatchSe
             return now.plusMinutes(task.getIntervalMinutes());
         }
         return scheduleCalculator.nextRun(task.getCycleType(), task.getIntervalValue(),
+                task.getIntervalHoursPart(), task.getIntervalMinutesPart(),
                 task.getTimeOfDay(), task.getDayOfWeek(), task.getDayOfMonth(),
                 task.getMonthOfYear(), now);
     }

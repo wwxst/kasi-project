@@ -15,6 +15,8 @@ public class SystemScheduledTask {
     private String description;
     private ScheduledTaskCycleType cycleType;
     private Integer intervalValue;
+    private Integer intervalHoursPart;
+    private Integer intervalMinutesPart;
     private LocalTime timeOfDay;
     private Integer dayOfWeek;
     private Integer dayOfMonth;

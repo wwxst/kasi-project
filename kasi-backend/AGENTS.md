@@ -37,7 +37,7 @@
 - 短剧平台分佣规则 API 位于 `/api/admin/drama/providers/{providerId}/commission-rules`：普通管理员和超级管理员均可 `GET` 只读查询，只有超级管理员可 `POST` 创建、`PUT` 编辑、`PATCH .../{ruleId}/end-time` 提前结束和 `DELETE` 删除。规则按平台配置，当前和未来接入账号及平台下所有短剧共用；API 使用 `0..100` 百分比，数据库使用 `0..1` 高精度比例，同平台 `[effectiveFrom,effectiveTo)` 时间段不得重叠。
 - 分佣规则状态由时间派生：`PENDING` 可编辑和删除，`ACTIVE` 只能提前结束，`ENDED` 永久只读。所有写操作先锁定 `short_drama_provider` 平台行再校验重叠；计算器全程使用 `BigDecimal`，中间保持高精度，最终金额保留两位并按 `HALF_UP` 四舍五入。
 - 推广链接生成已实现：用户可查询已上架且远端有效的短剧、查询本人链接并通过 `/api/user/promotion/links` 生成 GoodShort 链接/口令；V1 中的推广链接表使用 requestKey 幂等并保存 trackingNo。订单同步、订单费率快照、订单导出、钱包/结算和转化分析仍未实现；不得把平台分佣规则或纯计算器描述为订单级佣金闭环。
-- 定时任务管理 API 位于 `/api/admin/system/scheduled-tasks`；固定任务 `GOODSHORT_DRAMA_INCREMENTAL_SYNC` 默认每 60 分钟入队，首次全量同步必须手动完成且成功基线存在后才会自动创建增量任务。周期支持 `INTERVAL_SECONDS/MINUTES/HOURS/DAYS`、`DAILY`、`WEEKLY`、`MONTHLY`、`YEARLY`，日历型周期同时保存执行时间及对应星期/日期字段。每分钟调度器只负责入队，现有短剧执行器继续每 5 分钟领取并执行；普通管理员只读，超级管理员可编辑周期、说明和启停状态。
+- 定时任务管理 API 位于 `/api/admin/system/scheduled-tasks`；固定任务 `GOODSHORT_DRAMA_INCREMENTAL_SYNC` 默认每 60 分钟入队，首次全量同步必须手动完成且成功基线存在后才会自动创建增量任务。周期支持 `INTERVAL_SECONDS/MINUTES/HOURS/DAYS`、`DAILY`、`WEEKLY`、`MONTHLY`、`YEARLY`，`INTERVAL_HOURS` 使用小时数和 `interval_minutes_part` 分钟余量，`INTERVAL_DAYS` 使用天数、`interval_hours_part` 小时余量和 `interval_minutes_part` 分钟余量；日历型周期同时保存执行时间及对应星期/日期字段。每分钟调度器只负责入队，现有短剧执行器继续每 5 分钟领取并执行；普通管理员只读，超级管理员可编辑周期、说明和启停状态。
 - Git 仓库：`https://github.com/wwxst/kasi-backend.git`，远程 `origin`，分支 `master`。
 - 在文档和代码审查中，请将当前架构与规划架构区分开来。不要将规划中的模块描述为已实现的模块。
 
@@ -162,7 +162,7 @@ java -version
 
 - 仅引入 Security Starter 并不构成一个认证设计方案。在暴露账号端点之前，请先定义登录机制、会话或令牌生命周期、密码哈希、角色以及 401/403 行为。
 - 切勿比较或持久化原始密码。使用强 `PasswordEncoder`，并同时测试认证成功和被拒绝的路径。
-- 固定初始超级管理员凭据是当前明确的建库契约；不得把明文密码写入数据库、日志或 API 响应，并应在首次登录后立即修改默认密码。
+- 固定初始超级管理员账号为 `admin`，初始推广用户邮箱为 `19193171667@163.com`；两者密码只以 BCrypt 哈希写入 V1，首次登录后应立即修改默认密码。不得把明文密码写入数据库、日志或 API 响应。
 - 将 `is_super_admin` 和 `status` 视为领域规则，而非受信任的请求字段。
 - 验证码发送器按 profile 隔离：`local` 仅使用 `ConsoleVerificationCodeSender`，`test` 使用测试 sender；生产环境必须提供真实 sender，不能以 Console 输出代替实际投递。
 
