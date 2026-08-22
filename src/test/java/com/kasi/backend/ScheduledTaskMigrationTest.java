@@ -14,7 +14,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 class ScheduledTaskMigrationTest {
 
     @Test
-    @DisplayName("V10创建定时任务配置并植入GoodShort增量同步任务")
+    @DisplayName("V1创建定时任务配置并植入GoodShort增量同步任务")
     void migrateCreatesScheduledTaskConfig() {
         JdbcTemplate jdbc = migrateAllMigrations();
 

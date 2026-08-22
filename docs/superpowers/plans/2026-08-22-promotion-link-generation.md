@@ -13,15 +13,15 @@
 ### Task 1: 固化数据库与领域状态
 
 **Files:**
-- Create: `src/main/resources/db/migration/V12__promotion_link.sql`
+- Modify: `src/main/resources/db/migration/V1__kasi_promotion.sql`（开发库重建时将推广链接表并入单一初始化迁移）
 - Modify: `src/test/resources/test-schema.sql`
 - Create: `src/main/java/com/kasi/backend/promotion/enums/PromotionLinkStatus.java`
 - Create: `src/main/java/com/kasi/backend/promotion/entity/PromotionLink.java`
 - Test: `src/test/java/com/kasi/backend/PromotionLinkMigrationTest.java`
 
-- [ ] 写迁移失败测试：执行 V1-V12 后存在 `promotion_link`，`tracking_no` 和 `(user_id, request_key)` 唯一约束生效，状态默认 `PENDING`。
+- [ ] 写迁移失败测试：执行单一 V1 后存在 `promotion_link`，`tracking_no` 和 `(user_id, request_key)` 唯一约束生效，状态默认 `PENDING`。
 - [ ] 运行迁移测试确认先失败。
-- [ ] 添加 V12 表、状态枚举、Entity 和 H2 测试表结构。
+- [ ] 将推广链接表并入 V1，添加状态枚举、Entity 和 H2 测试表结构。
 - [ ] 运行迁移测试确认通过。
 
 ### Task 2: 定义平台推广链接 SPI 和 GoodShort 映射

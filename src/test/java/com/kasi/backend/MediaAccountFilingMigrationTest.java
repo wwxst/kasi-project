@@ -16,7 +16,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 class MediaAccountFilingMigrationTest {
 
     @Test
-    @DisplayName("V2和V3创建平台接入、媒体账号、报备表及接口域名")
+    @DisplayName("V1创建平台接入、媒体账号、报备表及接口域名")
     void migrateCreatesMediaAccountFilingSchemaAndBaseUrl() {
         JdbcTemplate jdbc = migrateAllMigrations();
 

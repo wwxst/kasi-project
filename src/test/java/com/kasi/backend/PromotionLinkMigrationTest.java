@@ -14,7 +14,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 class PromotionLinkMigrationTest {
 
     @Test
-    @DisplayName("V12创建推广链接表并约束用户幂等键和追踪号")
+    @DisplayName("V1创建推广链接表并约束用户幂等键和追踪号")
     void migrationCreatesPromotionLinkTable() {
         JdbcTemplate jdbc = migrateAll();
 
