@@ -130,6 +130,13 @@ export function AdminLayout() {
                   <Link to="/system-config/scheduled-tasks">定时任务</Link>
                 ),
               },
+              {
+                key: '/system-config/commission-rules',
+                icon: <Clapperboard size={18} strokeWidth={1.8} />,
+                label: (
+                  <Link to="/system-config/commission-rules">分佣规则</Link>
+                ),
+              },
             ],
           },
         ]}
