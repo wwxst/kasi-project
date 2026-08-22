@@ -55,6 +55,11 @@ const ScheduledTaskPage = lazy(() =>
     default: module.ScheduledTaskPage,
   })),
 )
+const CommissionRulePage = lazy(() =>
+  import('../pages/system/CommissionRulePage').then((module) => ({
+    default: module.CommissionRulePage,
+  })),
+)
 
 function ProtectedRoute() {
   const accessToken = useAuthStore((state) => state.accessToken)
@@ -99,6 +104,10 @@ export function AppRouter() {
               <Route
                 path="/system-config/scheduled-tasks"
                 element={<ScheduledTaskPage />}
+              />
+              <Route
+                path="/system-config/commission-rules"
+                element={<CommissionRulePage />}
               />
               <Route
                 path="/provider-management"

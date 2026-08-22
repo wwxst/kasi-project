@@ -1,0 +1,41 @@
+.commission-rule-page .commission-rule-toolbar {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  margin: 20px 0;
+}
+
+.commission-rule-page .commission-rule-rate-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0 16px;
+}
+
+.commission-rule-unconfigured {
+  margin-top: 16px;
+  border-top: 1px solid var(--ant-color-border-secondary);
+}
+
+.commission-rule-unconfigured-row {
+  display: grid;
+  grid-template-columns: 1fr 120px 80px;
+  align-items: center;
+  min-height: 48px;
+  border-bottom: 1px solid var(--ant-color-border-secondary);
+}
+
+@media (max-width: 720px) {
+  .commission-rule-page .commission-rule-toolbar {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .commission-rule-page .commission-rule-rate-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .commission-rule-unconfigured-row {
+    grid-template-columns: 1fr auto auto;
+    gap: 8px;
+  }
+}

@@ -3,10 +3,8 @@ import {
   Alert,
   App,
   Button,
-  DatePicker,
   Form,
   Input,
-  InputNumber,
   Modal,
   Result,
   Radio,
@@ -18,30 +16,13 @@ import {
   Tooltip,
 } from 'antd'
 import { PageContainer } from '@ant-design/pro-components'
-import {
-  CheckCircle2,
-  FlaskConical,
-  Pencil,
-  Plus,
-  Save,
-  Trash2,
-} from 'lucide-react'
-import dayjs, { type Dayjs } from 'dayjs'
+import { CheckCircle2, FlaskConical, Save } from 'lucide-react'
 import { useAuthStore } from '../../features/auth/authStore'
 import {
-  createCommissionRule,
-  deleteCommissionRule,
-  endCommissionRule,
-  listCommissionRules,
   listProviders,
   testProviderConnection,
-  updateCommissionRule,
   upsertProviderConnection,
 } from '../../features/provider/providerApi'
-import type {
-  CommissionRule,
-  CommissionRuleRequest,
-} from '../../features/provider/commissionRuleTypes'
 import type { FilingMode } from '../../features/promotion/filingModeTypes'
 import type {
   DramaProvider,
@@ -57,16 +38,6 @@ interface ProviderFormValues {
   status: boolean
 }
 
-interface CommissionRuleFormValues {
-  channelFeeRate: number
-  principalFeeRate: number
-  principalCommissionRate: number
-  downstreamFeeRate: number
-  downstreamCommissionRate: number
-  effectiveFrom: Dayjs
-  effectiveTo?: Dayjs
-}
-
 export function ProviderManagementPage() {
   const [form] = Form.useForm<ProviderFormValues>()
   const { message } = App.useApp()
@@ -79,12 +50,6 @@ export function ProviderManagementPage() {
   const [testResult, setTestResult] =
     useState<ProviderConnectionTestResult | null>(null)
   const [filingMode, setFilingMode] = useState<FilingMode>('API')
-  const [commissionRules, setCommissionRules] = useState<CommissionRule[]>([])
-  const [rulesLoading, setRulesLoading] = useState(false)
-  const [ruleModalOpen, setRuleModalOpen] = useState(false)
-  const [editingRule, setEditingRule] = useState<CommissionRule | null>(null)
-  const [ruleSaving, setRuleSaving] = useState(false)
-  const [ruleForm] = Form.useForm<CommissionRuleFormValues>()
 
   const activeProvider = useMemo(
     () =>
@@ -130,26 +95,6 @@ export function ProviderManagementPage() {
     })
     setFilingMode(activeProvider.connection?.filingMode ?? 'API')
   }, [activeProvider, form])
-
-  const loadCommissionRules = useCallback(async () => {
-    if (!activeProvider) {
-      setCommissionRules([])
-      return
-    }
-    setRulesLoading(true)
-    try {
-      setCommissionRules(await listCommissionRules(activeProvider.id))
-    } catch (error) {
-      setCommissionRules([])
-      message.error(error instanceof Error ? error.message : '分佣规则加载失败')
-    } finally {
-      setRulesLoading(false)
-    }
-  }, [activeProvider, message])
-
-  useEffect(() => {
-    void loadCommissionRules()
-  }, [loadCommissionRules])
 
   const handleSave = async () => {
     if (!activeProvider) return
@@ -198,106 +143,6 @@ export function ProviderManagementPage() {
   const testDisabledReason = activeProvider
     ? getTestDisabledReason(activeProvider)
     : '暂无可测试的平台'
-
-  const openCreateRule = () => {
-    setEditingRule(null)
-    ruleForm.resetFields()
-    ruleForm.setFieldsValue({
-      channelFeeRate: 0,
-      principalFeeRate: 0,
-      principalCommissionRate: 0,
-      downstreamFeeRate: 0,
-      downstreamCommissionRate: 0,
-      effectiveFrom: dayjs(),
-    })
-    setRuleModalOpen(true)
-  }
-
-  const openEditRule = (rule: CommissionRule) => {
-    setEditingRule(rule)
-    ruleForm.setFieldsValue({
-      channelFeeRate: rule.channelFeeRate,
-      principalFeeRate: rule.principalFeeRate,
-      principalCommissionRate: rule.principalCommissionRate,
-      downstreamFeeRate: rule.downstreamFeeRate,
-      downstreamCommissionRate: rule.downstreamCommissionRate,
-      effectiveFrom: dayjs(rule.effectiveFrom),
-      effectiveTo: rule.effectiveTo ? dayjs(rule.effectiveTo) : undefined,
-    })
-    setRuleModalOpen(true)
-  }
-
-  const handleRuleSave = async () => {
-    if (!activeProvider) return
-    try {
-      const values = await ruleForm.validateFields()
-      const request: CommissionRuleRequest = {
-        channelFeeRate: values.channelFeeRate,
-        principalFeeRate: values.principalFeeRate,
-        principalCommissionRate: values.principalCommissionRate,
-        downstreamFeeRate: values.downstreamFeeRate,
-        downstreamCommissionRate: values.downstreamCommissionRate,
-        effectiveFrom: values.effectiveFrom.format('YYYY-MM-DDTHH:mm:ss'),
-        effectiveTo: values.effectiveTo?.format('YYYY-MM-DDTHH:mm:ss') ?? null,
-      }
-      setRuleSaving(true)
-      if (editingRule) {
-        await updateCommissionRule(activeProvider.id, editingRule.id, request)
-      } else {
-        await createCommissionRule(activeProvider.id, request)
-      }
-      message.success(editingRule ? '分佣规则已更新' : '分佣规则已创建')
-      setRuleModalOpen(false)
-      await loadCommissionRules()
-    } catch (error) {
-      if (isValidationError(error)) return
-      message.error(error instanceof Error ? error.message : '分佣规则保存失败')
-    } finally {
-      setRuleSaving(false)
-    }
-  }
-
-  const handleEndRule = (rule: CommissionRule) => {
-    let endTime = dayjs().add(1, 'day')
-    Modal.confirm({
-      title: '提前结束分佣规则',
-      content: (
-        <DatePicker
-          showTime
-          defaultValue={endTime}
-          onChange={(value) => {
-            if (value) endTime = value
-          }}
-        />
-      ),
-      onOk: async () => {
-        if (!activeProvider) return
-        if (!endTime.isAfter(dayjs())) {
-          message.error('结束时间必须晚于当前时间')
-          return Promise.reject(new Error('invalid end time'))
-        }
-        await endCommissionRule(activeProvider.id, rule.id, {
-          effectiveTo: endTime.format('YYYY-MM-DDTHH:mm:ss'),
-        })
-        message.success('分佣规则已提前结束')
-        await loadCommissionRules()
-      },
-    })
-  }
-
-  const handleDeleteRule = (rule: CommissionRule) => {
-    Modal.confirm({
-      title: '删除未来分佣规则？',
-      content: '删除后不可恢复，请确认继续。',
-      okButtonProps: { danger: true },
-      onOk: async () => {
-        if (!activeProvider) return
-        await deleteCommissionRule(activeProvider.id, rule.id)
-        message.success('分佣规则已删除')
-        await loadCommissionRules()
-      },
-    })
-  }
 
   return (
     <PageContainer
@@ -440,16 +285,6 @@ export function ProviderManagementPage() {
                       />
                     </Form.Item>
                   </Form>
-
-                  <CommissionRuleSection
-                    rules={commissionRules}
-                    loading={rulesLoading}
-                    canWrite={isSuperAdmin}
-                    onCreate={openCreateRule}
-                    onEdit={openEditRule}
-                    onEnd={handleEndRule}
-                    onDelete={handleDeleteRule}
-                  />
                 </div>
               ) : null}
 
@@ -505,187 +340,8 @@ export function ProviderManagementPage() {
           />
         ) : null}
       </Modal>
-
-      {ruleModalOpen ? (
-        <Modal
-          title={editingRule ? '编辑分佣规则' : '新增分佣规则'}
-          open
-          confirmLoading={ruleSaving}
-          onOk={() => void handleRuleSave()}
-          onCancel={() => setRuleModalOpen(false)}
-          destroyOnHidden
-        >
-          <Form form={ruleForm} layout="vertical" preserve={false}>
-            <div className="commission-rule-rate-grid">
-              {[
-                ['channelFeeRate', '渠道费率'],
-                ['principalFeeRate', '甲方手续费率'],
-                ['principalCommissionRate', '甲方分佣比例'],
-                ['downstreamFeeRate', '我方手续费率'],
-                ['downstreamCommissionRate', '下游分佣比例'],
-              ].map(([name, label]) => (
-                <Form.Item
-                  key={name}
-                  label={label}
-                  name={name}
-                  rules={rateRules}
-                >
-                  <InputNumber min={0} max={100} precision={4} suffix="%" />
-                </Form.Item>
-              ))}
-            </div>
-            <Form.Item
-              label="生效时间"
-              name="effectiveFrom"
-              rules={[{ required: true, message: '请选择生效时间' }]}
-            >
-              <DatePicker showTime format="YYYY-MM-DD HH:mm:ss" />
-            </Form.Item>
-            <Form.Item label="结束时间" name="effectiveTo">
-              <DatePicker showTime format="YYYY-MM-DD HH:mm:ss" />
-            </Form.Item>
-          </Form>
-        </Modal>
-      ) : null}
     </PageContainer>
   )
-}
-
-const rateRules = [
-  { required: true, message: '请输入费率' },
-  { type: 'number' as const, min: 0, max: 100, message: '费率范围为 0 到 100' },
-]
-
-function CommissionRuleSection({
-  rules,
-  loading,
-  canWrite,
-  onCreate,
-  onEdit,
-  onEnd,
-  onDelete,
-}: {
-  rules: CommissionRule[]
-  loading: boolean
-  canWrite: boolean
-  onCreate: () => void
-  onEdit: (rule: CommissionRule) => void
-  onEnd: (rule: CommissionRule) => void
-  onDelete: (rule: CommissionRule) => void
-}) {
-  return (
-    <section
-      className="commission-rule-section"
-      aria-labelledby="commission-rule-title"
-    >
-      <div className="commission-rule-heading">
-        <div>
-          <h3 id="commission-rule-title">分佣规则</h3>
-          <span>当前平台所有短剧和接入账号共用此规则</span>
-        </div>
-        {canWrite ? (
-          <Button type="primary" icon={<Plus size={16} />} onClick={onCreate}>
-            新增规则
-          </Button>
-        ) : null}
-      </div>
-      <div className="commission-rule-table-wrap" aria-busy={loading}>
-        {loading ? <Spin size="small" /> : null}
-        <table className="commission-rule-table">
-          <thead>
-            <tr>
-              <th>渠道费率</th>
-              <th>甲方手续费率</th>
-              <th>甲方分佣比例</th>
-              <th>我方手续费率</th>
-              <th>下游分佣比例</th>
-              <th>生效区间</th>
-              <th>状态</th>
-              {canWrite ? <th>操作</th> : null}
-            </tr>
-          </thead>
-          <tbody>
-            {rules.length === 0 ? (
-              <tr>
-                <td colSpan={canWrite ? 8 : 7}>暂无分佣规则</td>
-              </tr>
-            ) : (
-              rules.map((rule) => (
-                <tr key={rule.id}>
-                  <td>{rule.channelFeeRate}%</td>
-                  <td>{rule.principalFeeRate}%</td>
-                  <td>{rule.principalCommissionRate}%</td>
-                  <td>{rule.downstreamFeeRate}%</td>
-                  <td>{rule.downstreamCommissionRate}%</td>
-                  <td>
-                    {formatDate(rule.effectiveFrom)} -{' '}
-                    {formatDate(rule.effectiveTo)}
-                  </td>
-                  <td>
-                    <Tag color={statusColor(rule.status)}>
-                      {statusLabel(rule.status)}
-                    </Tag>
-                  </td>
-                  {canWrite ? (
-                    <td>
-                      <Space size="small">
-                        {rule.status === 'PENDING' ? (
-                          <>
-                            <Button
-                              type="link"
-                              size="small"
-                              icon={<Pencil size={14} />}
-                              onClick={() => onEdit(rule)}
-                            >
-                              编辑
-                            </Button>
-                            <Button
-                              type="link"
-                              danger
-                              size="small"
-                              icon={<Trash2 size={14} />}
-                              onClick={() => onDelete(rule)}
-                            >
-                              删除
-                            </Button>
-                          </>
-                        ) : null}
-                        {rule.status === 'ACTIVE' ? (
-                          <Button
-                            type="link"
-                            size="small"
-                            onClick={() => onEnd(rule)}
-                          >
-                            提前结束
-                          </Button>
-                        ) : null}
-                      </Space>
-                    </td>
-                  ) : null}
-                </tr>
-              ))
-            )}
-          </tbody>
-        </table>
-      </div>
-    </section>
-  )
-}
-
-function statusLabel(status: CommissionRule['status']) {
-  return status === 'PENDING'
-    ? '待生效'
-    : status === 'ACTIVE'
-      ? '生效中'
-      : '已结束'
-}
-
-function statusColor(status: CommissionRule['status']) {
-  return status === 'PENDING'
-    ? 'blue'
-    : status === 'ACTIVE'
-      ? 'success'
-      : 'default'
 }
 
 function ConnectionTag({ provider }: { provider: DramaProvider }) {

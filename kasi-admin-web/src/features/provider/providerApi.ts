@@ -10,8 +10,6 @@ import type {
 
 export {
   createCommissionRule,
-  deleteCommissionRule,
-  endCommissionRule,
   listCommissionRules,
   updateCommissionRule,
 } from './commissionRuleApi'

@@ -4,7 +4,6 @@ import { unwrapApiResponse } from '../management/managementTypes'
 import type {
   CommissionRule,
   CommissionRuleRequest,
-  EndCommissionRuleRequest,
 } from './commissionRuleTypes'
 
 const basePath = '/api/admin/drama/providers'
@@ -39,26 +38,4 @@ export async function updateCommissionRule(
     request,
   )
   return unwrapApiResponse(response.data)
-}
-
-export async function endCommissionRule(
-  providerId: number,
-  ruleId: number,
-  request: EndCommissionRuleRequest,
-): Promise<CommissionRule> {
-  const response = await httpClient.patch<ApiResponse<CommissionRule>>(
-    `${basePath}/${providerId}/commission-rules/${ruleId}/end-time`,
-    request,
-  )
-  return unwrapApiResponse(response.data)
-}
-
-export async function deleteCommissionRule(
-  providerId: number,
-  ruleId: number,
-): Promise<void> {
-  const response = await httpClient.delete<ApiResponse<null>>(
-    `${basePath}/${providerId}/commission-rules/${ruleId}`,
-  )
-  unwrapApiResponse(response.data)
 }

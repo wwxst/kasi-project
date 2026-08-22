@@ -1,5 +1,3 @@
-export type CommissionRuleStatus = 'PENDING' | 'ACTIVE' | 'ENDED'
-
 export interface CommissionRule {
   id: number
   providerId: number
@@ -8,9 +6,6 @@ export interface CommissionRule {
   principalCommissionRate: number
   downstreamFeeRate: number
   downstreamCommissionRate: number
-  effectiveFrom: string
-  effectiveTo: string | null
-  status: CommissionRuleStatus
 }
 
 export interface CommissionRuleRequest {
@@ -19,10 +14,4 @@ export interface CommissionRuleRequest {
   principalCommissionRate: number
   downstreamFeeRate: number
   downstreamCommissionRate: number
-  effectiveFrom: string
-  effectiveTo: string | null
-}
-
-export interface EndCommissionRuleRequest {
-  effectiveTo: string
 }
