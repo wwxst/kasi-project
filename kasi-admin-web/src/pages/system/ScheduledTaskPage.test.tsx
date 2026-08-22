@@ -152,7 +152,8 @@ describe('ScheduledTaskPage', () => {
 
     await waitFor(() =>
       expect(requestBody).toEqual({
-        intervalMinutes: 30,
+        cycleType: 'INTERVAL_MINUTES',
+        intervalValue: 30,
         description: '每隔30分钟同步一次',
         enabled: false,
       }),
@@ -200,6 +201,29 @@ describe('ScheduledTaskPage', () => {
     expect(dialog.queryByText('分钟')).not.toBeInTheDocument()
   })
 
+  it.each([
+    ['每天', ['执行时间']],
+    ['每星期', ['执行时间', '星期']],
+    ['每月', ['执行时间', '日期']],
+    ['每年', ['执行时间', '日期', '月份']],
+  ])('shows the calendar fields for %s', async (label, fields) => {
+    renderPage()
+    await screen.findByText('GoodShort 短剧增量同步')
+    fireEvent.click(screen.getByRole('button', { name: '编辑' }))
+    fireEvent.mouseDown(screen.getByLabelText('周期类型'))
+    fireEvent.click(
+      await screen.findByText(label, {
+        selector: '.ant-select-item-option-content',
+      }),
+    )
+
+    const dialog = within(screen.getByRole('dialog'))
+    for (const field of fields) {
+      expect(dialog.getByText(field, { exact: true })).toBeInTheDocument()
+    }
+    expect(dialog.queryByText('执行周期', { exact: true })).toBeInTheDocument()
+  })
+
   it('allows a super administrator to toggle the row directly', async () => {
     let requestBody: unknown
     server.use(
@@ -222,7 +246,8 @@ describe('ScheduledTaskPage', () => {
 
     await waitFor(() =>
       expect(requestBody).toEqual({
-        intervalMinutes: 60,
+        cycleType: 'INTERVAL_MINUTES',
+        intervalValue: 60,
         description: task.description,
         enabled: false,
       }),

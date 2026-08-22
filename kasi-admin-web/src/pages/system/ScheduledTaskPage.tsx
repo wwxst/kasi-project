@@ -10,7 +10,9 @@ import {
   Space,
   Switch,
   Table,
+  TimePicker,
 } from 'antd'
+import dayjs, { type Dayjs } from 'dayjs'
 import type { ColumnsType } from 'antd/es/table'
 import { PageContainer } from '@ant-design/pro-components'
 import { useAuthStore } from '../../features/auth/authStore'
@@ -20,21 +22,16 @@ import {
 } from '../../features/scheduled-task/scheduledTaskApi'
 import type {
   ScheduledTask,
+  ScheduledTaskCycleType,
   UpdateScheduledTaskRequest,
 } from '../../features/scheduled-task/scheduledTaskTypes'
 import './scheduled-task-page.css'
 
-type CycleType =
-  | 'INTERVAL_SECONDS'
-  | 'INTERVAL_MINUTES'
-  | 'INTERVAL_HOURS'
-  | 'INTERVAL_DAYS'
-  | 'DAILY'
-  | 'WEEKLY'
-  | 'MONTHLY'
-  | 'YEARLY'
-
-const cycleOptions: { value: CycleType; label: string; unit?: string }[] = [
+const cycleOptions: {
+  value: ScheduledTaskCycleType
+  label: string
+  unit?: string
+}[] = [
   { value: 'INTERVAL_SECONDS', label: '每隔N秒', unit: '秒' },
   { value: 'INTERVAL_MINUTES', label: '每隔N分钟', unit: '分钟' },
   { value: 'INTERVAL_HOURS', label: '每隔N小时', unit: '小时' },
@@ -45,8 +42,15 @@ const cycleOptions: { value: CycleType; label: string; unit?: string }[] = [
   { value: 'YEARLY', label: '每年' },
 ]
 
+interface ScheduledTaskFormValues extends Omit<
+  UpdateScheduledTaskRequest,
+  'timeOfDay'
+> {
+  timeOfDay?: Dayjs
+}
+
 export function ScheduledTaskPage() {
-  const [form] = Form.useForm<UpdateScheduledTaskRequest>()
+  const [form] = Form.useForm<ScheduledTaskFormValues>()
   const { message } = App.useApp()
   const isSuperAdmin = useAuthStore((state) => state.admin?.isSuperAdmin === 1)
   const [tasks, setTasks] = useState<ScheduledTask[]>([])
@@ -54,8 +58,9 @@ export function ScheduledTaskPage() {
   const [editingTask, setEditingTask] = useState<ScheduledTask | null>(null)
   const [saving, setSaving] = useState(false)
   const [switchingTaskCode, setSwitchingTaskCode] = useState<string>()
-  const [cycleType, setCycleType] = useState<CycleType>('INTERVAL_MINUTES')
-  const intervalMinutes = Form.useWatch('intervalMinutes', form)
+  const [cycleType, setCycleType] =
+    useState<ScheduledTaskCycleType>('INTERVAL_MINUTES')
+  const intervalValue = Form.useWatch('intervalValue', form)
   const selectedCycle = cycleOptions.find(
     (option) => option.value === cycleType,
   )!
@@ -88,7 +93,12 @@ export function ScheduledTaskPage() {
     try {
       replaceTask(
         await updateScheduledTask(task.taskCode, {
-          intervalMinutes: task.intervalMinutes,
+          cycleType: task.cycleType ?? 'INTERVAL_MINUTES',
+          intervalValue: task.intervalValue ?? task.intervalMinutes,
+          timeOfDay: task.timeOfDay,
+          dayOfWeek: task.dayOfWeek,
+          dayOfMonth: task.dayOfMonth,
+          monthOfYear: task.monthOfYear,
           description: task.description,
           enabled,
         }),
@@ -105,10 +115,16 @@ export function ScheduledTaskPage() {
     setEditingTask(task)
     setCycleType('INTERVAL_MINUTES')
     form.setFieldsValue({
-      intervalMinutes: task.intervalMinutes,
+      cycleType: task.cycleType ?? 'INTERVAL_MINUTES',
+      intervalValue: task.intervalValue ?? task.intervalMinutes,
+      timeOfDay: task.timeOfDay ? dayjs(task.timeOfDay, 'HH:mm:ss') : undefined,
+      dayOfWeek: task.dayOfWeek,
+      dayOfMonth: task.dayOfMonth,
+      monthOfYear: task.monthOfYear,
       description: task.description,
       enabled: task.enabled,
     })
+    setCycleType(task.cycleType ?? 'INTERVAL_MINUTES')
   }
 
   const handleSave = async () => {
@@ -116,9 +132,11 @@ export function ScheduledTaskPage() {
     try {
       const values = await form.validateFields()
       setSaving(true)
+      const { timeOfDay, ...rest } = values
       replaceTask(
         await updateScheduledTask(editingTask.taskCode, {
-          ...values,
+          ...rest,
+          timeOfDay: timeOfDay?.format('HH:mm:ss'),
           description: values.description.trim(),
         }),
       )
@@ -139,7 +157,7 @@ export function ScheduledTaskPage() {
       title: '执行周期',
       dataIndex: 'intervalMinutes',
       width: 220,
-      render: (minutes: number) => `每隔${minutes}分钟执行一次`,
+      render: (_, task) => formatCycle(task),
     },
     {
       title: '是否开启',
@@ -209,20 +227,23 @@ export function ScheduledTaskPage() {
               <Select
                 value={cycleType ?? 'INTERVAL_MINUTES'}
                 options={cycleOptions}
-                onChange={(value: CycleType) => setCycleType(value)}
+                onChange={(value: ScheduledTaskCycleType) => {
+                  setCycleType(value)
+                  form.setFieldValue('cycleType', value)
+                }}
                 aria-label="周期类型"
               />
               {selectedCycle.unit ? (
                 <>
                   <Form.Item
-                    name="intervalMinutes"
+                    name="intervalValue"
                     noStyle
                     rules={[
                       { required: true, message: '请输入执行周期' },
                       {
                         type: 'number',
-                        min: 5,
-                        message: '执行周期不能少于5分钟',
+                        min: 1,
+                        message: '执行周期不能少于1',
                       },
                       {
                         type: 'number',
@@ -231,7 +252,7 @@ export function ScheduledTaskPage() {
                       },
                     ]}
                   >
-                    <InputNumber min={5} max={1440} aria-label="执行周期" />
+                  <InputNumber min={1} max={1440} aria-label="执行周期" />
                   </Form.Item>
                   <span className="scheduled-task-page__cycle-unit">
                     {selectedCycle.unit}
@@ -241,13 +262,57 @@ export function ScheduledTaskPage() {
             </Space.Compact>
             <div className="scheduled-task-page__cycle-help">
               {selectedCycle.unit
-                ? `每隔${intervalMinutes ?? 0}${selectedCycle.unit}执行一次`
+                ? `每隔${intervalValue ?? 0}${selectedCycle.unit}执行一次`
                 : `${selectedCycle.label}执行一次`}
             </div>
             {!selectedCycle.unit ? (
               <div className="scheduled-task-page__cycle-notice">
-                当前固定任务后端按分钟配置，保存时沿用现有分钟周期。
+                日历型周期会按所选时间和日期计算下一次执行时间。
               </div>
+            ) : null}
+            <Form.Item name="cycleType" hidden>
+              <Input />
+            </Form.Item>
+            {!selectedCycle.unit ? (
+              <Form.Item
+                name="timeOfDay"
+                label="执行时间"
+                rules={[{ required: true, message: '请选择执行时间' }]}
+              >
+                <TimePicker format="HH:mm" minuteStep={5} />
+              </Form.Item>
+            ) : null}
+            {cycleType === 'WEEKLY' ? (
+              <Form.Item
+                name="dayOfWeek"
+                label="星期"
+                rules={[{ required: true, message: '请选择星期' }]}
+              >
+                <Select
+                  options={[1, 2, 3, 4, 5, 6, 7].map((value) => ({
+                    value,
+                    label: `星期${value}`,
+                  }))}
+                />
+              </Form.Item>
+            ) : null}
+            {cycleType === 'MONTHLY' || cycleType === 'YEARLY' ? (
+              <Form.Item
+                name="dayOfMonth"
+                label="日期"
+                rules={[{ required: true, message: '请选择日期' }]}
+              >
+                <InputNumber min={1} max={31} />
+              </Form.Item>
+            ) : null}
+            {cycleType === 'YEARLY' ? (
+              <Form.Item
+                name="monthOfYear"
+                label="月份"
+                rules={[{ required: true, message: '请选择月份' }]}
+              >
+                <InputNumber min={1} max={12} />
+              </Form.Item>
             ) : null}
           </Form.Item>
 
@@ -273,4 +338,18 @@ export function ScheduledTaskPage() {
 
 function isValidationError(error: unknown) {
   return typeof error === 'object' && error !== null && 'errorFields' in error
+}
+
+function formatCycle(task: ScheduledTask) {
+  const type = task.cycleType ?? 'INTERVAL_MINUTES'
+  const value = task.intervalValue ?? task.intervalMinutes
+  const option = cycleOptions.find((item) => item.value === type)
+  if (option?.unit) return `每隔${value}${option.unit}执行一次`
+  if (type === 'DAILY')
+    return `每天${task.timeOfDay?.slice(0, 5) ?? ''}执行一次`
+  if (type === 'WEEKLY')
+    return `每星期${task.dayOfWeek ?? ''} ${task.timeOfDay?.slice(0, 5) ?? ''}执行一次`
+  if (type === 'MONTHLY')
+    return `每月${task.dayOfMonth ?? ''}日 ${task.timeOfDay?.slice(0, 5) ?? ''}执行一次`
+  return `每年${task.monthOfYear ?? ''}月${task.dayOfMonth ?? ''}日 ${task.timeOfDay?.slice(0, 5) ?? ''}执行一次`
 }
