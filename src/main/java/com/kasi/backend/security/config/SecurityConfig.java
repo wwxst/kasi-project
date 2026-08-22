@@ -87,10 +87,6 @@ public class SecurityConfig {
                                 "/api/admin/drama/providers/*/commission-rules").hasRole("SUPER_ADMIN")
                         .requestMatchers(HttpMethod.PUT,
                                 "/api/admin/drama/providers/*/commission-rules/*").hasRole("SUPER_ADMIN")
-                        .requestMatchers(HttpMethod.PATCH,
-                                "/api/admin/drama/providers/*/commission-rules/*/end-time").hasRole("SUPER_ADMIN")
-                        .requestMatchers(HttpMethod.DELETE,
-                                "/api/admin/drama/providers/*/commission-rules/*").hasRole("SUPER_ADMIN")
                         .requestMatchers(HttpMethod.PUT,
                                 "/api/admin/system/scheduled-tasks/*").hasRole("SUPER_ADMIN")
                         .requestMatchers("/api/admin/drama/**").hasRole("ADMIN")

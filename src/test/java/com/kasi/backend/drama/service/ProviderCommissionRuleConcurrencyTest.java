@@ -15,7 +15,6 @@ import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.support.TransactionTemplate;
 
 import java.math.BigDecimal;
-import java.time.LocalDateTime;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
@@ -46,7 +45,6 @@ class ProviderCommissionRuleConcurrencyTest extends BaseAuthTest {
     @DisplayName("同一平台并发创建重叠规则最多成功一条")
     void concurrentCreateSerializesOnProviderRow() throws Exception {
         Long providerId = providerMapper.findByCode("GOODSHORT").getId();
-        LocalDateTime from = LocalDateTime.of(2099, 9, 1, 0, 0);
         CountDownLatch providerLocked = new CountDownLatch(1);
         CountDownLatch secondLockAttempted = new CountDownLatch(1);
         CountDownLatch secondLockAcquired = new CountDownLatch(1);
@@ -73,7 +71,7 @@ class ProviderCommissionRuleConcurrencyTest extends BaseAuthTest {
                 assertThat(await(secondLockAcquired, 200, TimeUnit.MILLISECONDS))
                         .as("第二个事务不得在第一个事务提交前获得平台行锁")
                         .isFalse();
-                service.create(1L, providerId, request(from));
+                service.create(1L, providerId, request());
                 return null;
             }));
             if (!providerLocked.await(5, TimeUnit.SECONDS)) {
@@ -83,7 +81,7 @@ class ProviderCommissionRuleConcurrencyTest extends BaseAuthTest {
 
             Future<?> second = executor.submit(() -> {
                 secondThread.set(Thread.currentThread());
-                return service.create(1L, providerId, request(from));
+                return service.create(1L, providerId, request());
             });
             first.get(10, TimeUnit.SECONDS);
             assertThatThrownBusinessException(second);
@@ -99,20 +97,19 @@ class ProviderCommissionRuleConcurrencyTest extends BaseAuthTest {
             future.get(10, TimeUnit.SECONDS);
         } catch (ExecutionException exception) {
             assertThat(exception.getCause()).isInstanceOf(BusinessException.class);
-            assertThat(((BusinessException) exception.getCause()).getCode()).isEqualTo(6013);
+            assertThat(((BusinessException) exception.getCause()).getCode()).isEqualTo(6012);
             return;
         }
         throw new AssertionError("expected concurrent create to reject overlapping rule");
     }
 
-    private CreateCommissionRuleDTO request(LocalDateTime from) {
+    private CreateCommissionRuleDTO request() {
         CreateCommissionRuleDTO request = new CreateCommissionRuleDTO();
         request.setChannelFeeRate(new BigDecimal("30"));
         request.setPrincipalFeeRate(BigDecimal.ZERO);
         request.setPrincipalCommissionRate(new BigDecimal("80"));
         request.setDownstreamFeeRate(BigDecimal.ZERO);
         request.setDownstreamCommissionRate(new BigDecimal("70"));
-        request.setEffectiveFrom(from);
         return request;
     }
 

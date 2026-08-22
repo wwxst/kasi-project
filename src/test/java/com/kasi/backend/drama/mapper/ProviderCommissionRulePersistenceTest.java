@@ -8,13 +8,12 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 
 import java.math.BigDecimal;
-import java.time.LocalDateTime;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
-@DisplayName("平台分佣规则持久化")
+@DisplayName("平台默认分佣规则持久化")
 class ProviderCommissionRulePersistenceTest extends BaseAuthTest {
-
     @Autowired
     private ProviderCommissionRuleMapper mapper;
 
@@ -22,43 +21,28 @@ class ProviderCommissionRulePersistenceTest extends BaseAuthTest {
     private ShortDramaProviderMapper providerMapper;
 
     @Test
-    @DisplayName("平台规则按时间匹配并保留十位小数费率")
-    void ruleCanBeStoredAndResolvedByTime() {
-        Long providerId = providerId();
-        ProviderCommissionRule first = rule(providerId,
-                LocalDateTime.of(2026, 8, 1, 0, 0), LocalDateTime.of(2026, 9, 1, 0, 0));
-        ProviderCommissionRule second = rule(providerId,
-                LocalDateTime.of(2026, 9, 1, 0, 0), null);
-        assertThat(mapper.insert(first)).isEqualTo(1);
-        assertThat(mapper.insert(second)).isEqualTo(1);
+    @DisplayName("每个平台只保存一条默认规则并保留高精度费率")
+    void defaultRuleCanBeStoredAndRead() {
+        Long providerId = providerMapper.findByCode("GOODSHORT").getId();
+        ProviderCommissionRule rule = rule(providerId);
+        assertThat(mapper.insert(rule)).isEqualTo(1);
 
-        assertThat(mapper.findEffective(providerId, LocalDateTime.of(2026, 8, 31, 23, 59)).getId())
-                .isEqualTo(first.getId());
-        assertThat(mapper.findEffective(providerId, LocalDateTime.of(2026, 9, 1, 0, 0)).getId())
-                .isEqualTo(second.getId());
-        assertThat(mapper.findByIdAndProviderId(first.getId(), providerId).getChannelFeeRate())
+        assertThat(mapper.findByProviderId(providerId).getChannelFeeRate())
                 .isEqualByComparingTo("0.3000000000");
+        assertThat(mapper.findAllByProviderId(providerId)).hasSize(1);
     }
 
     @Test
-    @DisplayName("重叠查询允许相邻区间并拒绝交叉区间")
-    void overlapQueryUsesHalfOpenIntervals() {
-        Long providerId = providerId();
-        mapper.insert(rule(providerId, LocalDateTime.of(2026, 8, 1, 0, 0),
-                LocalDateTime.of(2026, 9, 1, 0, 0)));
+    @DisplayName("同一平台重复默认规则被唯一约束拒绝")
+    void duplicateProviderRuleIsRejected() {
+        Long providerId = providerMapper.findByCode("GOODSHORT").getId();
+        mapper.insert(rule(providerId));
 
-        assertThat(mapper.countOverlapping(providerId, null,
-                LocalDateTime.of(2026, 9, 1, 0, 0), null)).isZero();
-        assertThat(mapper.countOverlapping(providerId, null,
-                LocalDateTime.of(2026, 8, 15, 0, 0), LocalDateTime.of(2026, 9, 15, 0, 0)))
-                .isEqualTo(1);
+        assertThatThrownBy(() -> mapper.insert(rule(providerId)))
+                .isInstanceOf(Exception.class);
     }
 
-    private Long providerId() {
-        return providerMapper.findByCode("GOODSHORT").getId();
-    }
-
-    private ProviderCommissionRule rule(Long providerId, LocalDateTime from, LocalDateTime to) {
+    private ProviderCommissionRule rule(Long providerId) {
         ProviderCommissionRule rule = new ProviderCommissionRule();
         rule.setProviderId(providerId);
         rule.setChannelFeeRate(new BigDecimal("0.3000000000"));
@@ -66,8 +50,6 @@ class ProviderCommissionRulePersistenceTest extends BaseAuthTest {
         rule.setPrincipalCommissionRate(new BigDecimal("0.8000000000"));
         rule.setDownstreamFeeRate(BigDecimal.ZERO);
         rule.setDownstreamCommissionRate(new BigDecimal("0.7000000000"));
-        rule.setEffectiveFrom(from);
-        rule.setEffectiveTo(to);
         rule.setCreatedBy(1L);
         rule.setUpdatedBy(1L);
         return rule;
