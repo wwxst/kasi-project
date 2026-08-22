@@ -1,6 +1,5 @@
 package com.kasi.backend.drama.vo;
 
-import com.kasi.backend.drama.enums.CommissionRuleStatus;
 import lombok.Builder;
 import lombok.Data;
 
@@ -17,9 +16,6 @@ public class ProviderCommissionRuleVO {
     private BigDecimal principalCommissionRate;
     private BigDecimal downstreamFeeRate;
     private BigDecimal downstreamCommissionRate;
-    private LocalDateTime effectiveFrom;
-    private LocalDateTime effectiveTo;
-    private CommissionRuleStatus status;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
 }

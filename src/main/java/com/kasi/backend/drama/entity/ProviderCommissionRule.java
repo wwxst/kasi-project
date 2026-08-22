@@ -14,8 +14,6 @@ public class ProviderCommissionRule {
     private BigDecimal principalCommissionRate;
     private BigDecimal downstreamFeeRate;
     private BigDecimal downstreamCommissionRate;
-    private LocalDateTime effectiveFrom;
-    private LocalDateTime effectiveTo;
     private Long createdBy;
     private Long updatedBy;
     private LocalDateTime createdAt;

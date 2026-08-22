@@ -40,17 +40,14 @@ CREATE TABLE IF NOT EXISTS provider_commission_rule (
     principal_commission_rate DECIMAL(12, 10) NOT NULL,
     downstream_fee_rate DECIMAL(12, 10) NOT NULL,
     downstream_commission_rate DECIMAL(12, 10) NOT NULL,
-    effective_from TIMESTAMP NOT NULL,
-    effective_to TIMESTAMP,
     created_by BIGINT NOT NULL,
     updated_by BIGINT NOT NULL,
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE (provider_id),
     CONSTRAINT fk_test_provider_commission_provider
         FOREIGN KEY (provider_id) REFERENCES short_drama_provider (id)
 );
-CREATE INDEX IF NOT EXISTS idx_test_provider_commission_time
-    ON provider_commission_rule (provider_id, effective_from, effective_to);
 
 CREATE TABLE IF NOT EXISTS sys_admin_user (
     id BIGINT AUTO_INCREMENT PRIMARY KEY,
