@@ -49,14 +49,16 @@ public class ScheduledTaskManagementServiceImpl implements ScheduledTaskManageme
         LocalDateTime nextRunAt;
         try {
             nextRunAt = Boolean.TRUE.equals(request.getEnabled())
-                    ? scheduleCalculator.nextRun(cycleType, intervalValue, request.getTimeOfDay(),
+                    ? scheduleCalculator.nextRun(cycleType, intervalValue,
+                    request.getIntervalHoursPart(), request.getIntervalMinutesPart(), request.getTimeOfDay(),
                     request.getDayOfWeek(), request.getDayOfMonth(), request.getMonthOfYear(), now)
                     : null;
         } catch (IllegalArgumentException exception) {
             throw new BusinessException(ErrorCode.VALIDATION_ERROR);
         }
         int updated = taskMapper.updateConfig(taskCode, request.getDescription().trim(),
-                cycleType.name(), intervalValue, request.getTimeOfDay(), request.getDayOfWeek(),
+                cycleType.name(), intervalValue, request.getIntervalHoursPart(), request.getIntervalMinutesPart(),
+                request.getTimeOfDay(), request.getDayOfWeek(),
                 request.getDayOfMonth(), request.getMonthOfYear(), request.getEnabled(), nextRunAt);
         if (updated != 1) {
             throw new BusinessException(ErrorCode.SCHEDULED_TASK_NOT_FOUND);

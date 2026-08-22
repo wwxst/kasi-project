@@ -15,6 +15,8 @@ public class ScheduledTaskVO {
     private String description;
     private ScheduledTaskCycleType cycleType;
     private Integer intervalValue;
+    private Integer intervalHoursPart;
+    private Integer intervalMinutesPart;
     private LocalTime timeOfDay;
     private Integer dayOfWeek;
     private Integer dayOfMonth;
@@ -29,6 +31,8 @@ public class ScheduledTaskVO {
                 .description(task.getDescription())
                 .cycleType(task.getCycleType())
                 .intervalValue(task.getIntervalValue())
+                .intervalHoursPart(task.getIntervalHoursPart())
+                .intervalMinutesPart(task.getIntervalMinutesPart())
                 .timeOfDay(task.getTimeOfDay())
                 .dayOfWeek(task.getDayOfWeek())
                 .dayOfMonth(task.getDayOfMonth())

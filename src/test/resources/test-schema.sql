@@ -240,6 +240,8 @@ CREATE TABLE IF NOT EXISTS system_scheduled_task (
     description VARCHAR(255) NOT NULL,
     cycle_type VARCHAR(32) NOT NULL DEFAULT 'INTERVAL_MINUTES',
     interval_value INT DEFAULT 60,
+    interval_hours_part INT DEFAULT 0,
+    interval_minutes_part INT DEFAULT 0,
     time_of_day TIME,
     day_of_week TINYINT,
     day_of_month TINYINT,

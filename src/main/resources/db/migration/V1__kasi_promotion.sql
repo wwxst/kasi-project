@@ -70,9 +70,16 @@ CREATE TABLE `promotion_user`
 -- 初始超级管理员（首次登录后应立即修改默认密码）
 INSERT INTO `sys_admin_user` (`username`, `password`, `real_name`, `status`, `is_super_admin`)
 VALUES ('admin',
-        '$2a$10$mROjhwtfAn0JbImE7Cp4M.u3cBPvWwXGDesSyrBvB69jON/DwzeKm',
+        '$2a$10$eA5VNH.Ca3WaS1Z3.4fNxerBp75GO9qu.hzsRWiEQp6CU63fBn19u',
         '系统管理员',
         1,
+        1);
+
+-- 初始推广用户（首次登录后应立即修改密码）
+INSERT INTO `promotion_user` (`user_no`, `password`, `email`, `status`)
+VALUES ('191931716670',
+        '$2a$10$kjoq..xthy8OTRI2/WNJLuVCA9lfmYIK3u9/PIgIZTbJ42nWJWllC',
+        '19193171667@163.com',
         1);
 
 -- =========================================================
@@ -300,7 +307,7 @@ CREATE TABLE `provider_sync_checkpoint`
 -- =========================================================
 -- Merged source: V8__provider_commission_rule.sql
 -- =========================================================
--- 短剧平台分佣规则版本
+-- 短剧平台默认分佣规则
 CREATE TABLE `provider_commission_rule`
 (
     `id`                         BIGINT UNSIGNED NOT NULL AUTO_INCREMENT COMMENT '主键ID',
@@ -310,17 +317,15 @@ CREATE TABLE `provider_commission_rule`
     `principal_commission_rate`  DECIMAL(12, 10) NOT NULL COMMENT '甲方给我方分佣比例，0 到 1',
     `downstream_fee_rate`        DECIMAL(12, 10) NOT NULL COMMENT '我方手续费率，0 到 1',
     `downstream_commission_rate` DECIMAL(12, 10) NOT NULL COMMENT '我方给下游分佣比例，0 到 1',
-    `effective_from`             DATETIME        NOT NULL COMMENT '开始生效时间',
-    `effective_to`               DATETIME                 DEFAULT NULL COMMENT '结束时间，空表示长期有效',
     `created_by`                 BIGINT UNSIGNED NOT NULL COMMENT '创建管理员ID',
     `updated_by`                 BIGINT UNSIGNED NOT NULL COMMENT '最后修改管理员ID',
     `created_at`                 DATETIME        NOT NULL DEFAULT CURRENT_TIMESTAMP,
     `updated_at`                 DATETIME        NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     PRIMARY KEY (`id`),
-    KEY `idx_provider_commission_time` (`provider_id`, `effective_from`, `effective_to`),
+    UNIQUE KEY `uk_provider_commission_provider` (`provider_id`),
     CONSTRAINT `fk_provider_commission_provider`
         FOREIGN KEY (`provider_id`) REFERENCES `short_drama_provider` (`id`) ON DELETE RESTRICT
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='短剧平台分佣规则版本';
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='短剧平台默认分佣规则';
 
 -- =========================================================
 -- Merged source: V9__scheduled_task_config.sql
@@ -357,6 +362,8 @@ VALUES
 -- =========================================================
 ALTER TABLE `system_scheduled_task` ADD COLUMN `cycle_type` VARCHAR(32) NOT NULL DEFAULT 'INTERVAL_MINUTES' COMMENT '周期类型';
 ALTER TABLE `system_scheduled_task` ADD COLUMN `interval_value` INT DEFAULT NULL COMMENT '间隔值';
+ALTER TABLE `system_scheduled_task` ADD COLUMN `interval_hours_part` INT DEFAULT 0 COMMENT '间隔小时余数';
+ALTER TABLE `system_scheduled_task` ADD COLUMN `interval_minutes_part` INT DEFAULT 0 COMMENT '间隔分钟余数';
 ALTER TABLE `system_scheduled_task` ADD COLUMN `time_of_day` TIME DEFAULT NULL COMMENT '执行时间';
 ALTER TABLE `system_scheduled_task` ADD COLUMN `day_of_week` TINYINT DEFAULT NULL COMMENT '星期一至星期日';
 ALTER TABLE `system_scheduled_task` ADD COLUMN `day_of_month` TINYINT DEFAULT NULL COMMENT '每月日期';
@@ -366,56 +373,17 @@ UPDATE `system_scheduled_task`
 SET `cycle_type` = 'INTERVAL_MINUTES', `interval_value` = `interval_minutes`
 WHERE `cycle_type` IS NULL OR `interval_value` IS NULL;
 
--- =========================================================
--- Merged source: V11__default_provider_commission_rule.sql
--- =========================================================
 -- 灏嗘椂闂寸増鏈敹鏁氫负姣忎釜骞冲彴涓€鏉″彲鐩存帴瑕嗙洊鐨勯粯璁ゅ垎浣ｈ鍒�
-CREATE TABLE `provider_commission_rule_keep`
-AS
-SELECT id
-FROM (
-    SELECT id,
-           ROW_NUMBER() OVER (
-               PARTITION BY provider_id
-               ORDER BY CASE
-                            WHEN effective_from <= CURRENT_TIMESTAMP
-                                 AND (effective_to IS NULL OR effective_to > CURRENT_TIMESTAMP)
-                            THEN 0 ELSE 1
-                        END,
-                        effective_from DESC,
-                        id DESC
-           ) AS row_no
-    FROM `provider_commission_rule`
-) ranked
-WHERE row_no = 1;
-
-DELETE FROM `provider_commission_rule`
-WHERE id NOT IN (SELECT id FROM `provider_commission_rule_keep`);
-
-DROP TABLE `provider_commission_rule_keep`;
-
-ALTER TABLE `provider_commission_rule`
-    DROP INDEX `idx_provider_commission_time`;
-
-ALTER TABLE `provider_commission_rule`
-    DROP COLUMN `effective_from`;
-
-ALTER TABLE `provider_commission_rule`
-    DROP COLUMN `effective_to`;
-
-ALTER TABLE `provider_commission_rule`
-    ADD UNIQUE KEY `uk_provider_commission_provider` (`provider_id`);
-
 -- =========================================================
 -- Merged source: V12__promotion_link.sql
 -- =========================================================
 CREATE TABLE `promotion_link` (
-    `id` BIGINT NOT NULL AUTO_INCREMENT,
-    `user_id` BIGINT NOT NULL COMMENT '推广用户内部 ID',
-    `provider_id` BIGINT NOT NULL COMMENT '短剧平台 ID',
-    `connection_id` BIGINT NOT NULL COMMENT '平台接入账号 ID',
-    `drama_id` BIGINT NOT NULL COMMENT '本地短剧 ID',
-    `media_account_id` BIGINT NOT NULL COMMENT '推广用户媒体账号 ID',
+    `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+    `user_id` BIGINT UNSIGNED NOT NULL COMMENT '推广用户内部 ID',
+    `provider_id` BIGINT UNSIGNED NOT NULL COMMENT '短剧平台 ID',
+    `connection_id` BIGINT UNSIGNED NOT NULL COMMENT '平台接入账号 ID',
+    `drama_id` BIGINT UNSIGNED NOT NULL COMMENT '本地短剧 ID',
+    `media_account_id` BIGINT UNSIGNED NOT NULL COMMENT '推广用户媒体账号 ID',
     `request_key` VARCHAR(64) NOT NULL COMMENT '用户请求幂等键',
     `tracking_no` VARCHAR(64) NOT NULL COMMENT '本地推广追踪号',
     `campaign_name` VARCHAR(128) DEFAULT NULL COMMENT '推广名称',

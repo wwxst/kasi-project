@@ -3,15 +3,45 @@ package com.kasi.backend;
 import org.flywaydb.core.Flyway;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.springframework.core.io.ClassPathResource;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.datasource.DriverManagerDataSource;
 
 import java.math.BigDecimal;
+import java.nio.charset.StandardCharsets;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
 class ProviderCommissionRuleMigrationTest {
+
+    @Test
+    @DisplayName("V1直接定义最终分佣规则结构而不执行旧版清理")
+    void v1DefinesFinalCommissionRuleShapeWithoutLegacyCleanup() throws Exception {
+        String migration = new ClassPathResource("db/migration/V1__kasi_promotion.sql")
+                .getContentAsString(StandardCharsets.UTF_8);
+
+        assertThat(migration)
+                .contains("UNIQUE KEY `uk_provider_commission_provider` (`provider_id`)")
+                .doesNotContain("effective_from")
+                .doesNotContain("effective_to")
+                .doesNotContain("idx_provider_commission_time")
+                .doesNotContain("provider_commission_rule_keep");
+    }
+
+    @Test
+    @DisplayName("推广链接外键列与关联主键使用相同的无符号类型")
+    void promotionLinkForeignKeysMatchUnsignedPrimaryKeys() throws Exception {
+        String migration = new ClassPathResource("db/migration/V1__kasi_promotion.sql")
+                .getContentAsString(StandardCharsets.UTF_8);
+
+        assertThat(migration)
+                .contains("`user_id` BIGINT UNSIGNED NOT NULL")
+                .contains("`provider_id` BIGINT UNSIGNED NOT NULL")
+                .contains("`connection_id` BIGINT UNSIGNED NOT NULL")
+                .contains("`drama_id` BIGINT UNSIGNED NOT NULL")
+                .contains("`media_account_id` BIGINT UNSIGNED NOT NULL");
+    }
 
     @Test
     @DisplayName("默认分佣迁移创建每个平台唯一规则并保存高精度费率")

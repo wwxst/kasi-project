@@ -21,6 +21,8 @@ public interface SystemScheduledTaskMapper {
                      @Param("description") String description,
                      @Param("cycleType") String cycleType,
                      @Param("intervalValue") Integer intervalValue,
+                     @Param("intervalHoursPart") Integer intervalHoursPart,
+                     @Param("intervalMinutesPart") Integer intervalMinutesPart,
                      @Param("timeOfDay") LocalTime timeOfDay,
                      @Param("dayOfWeek") Integer dayOfWeek,
                      @Param("dayOfMonth") Integer dayOfMonth,
@@ -31,7 +33,17 @@ public interface SystemScheduledTaskMapper {
     default int updateConfig(ScheduledTaskCode taskCode, String description,
                              int intervalMinutes, boolean enabled, LocalDateTime nextRunAt) {
         return updateConfig(taskCode, description, "INTERVAL_MINUTES", intervalMinutes,
-                null, null, null, null, enabled, nextRunAt);
+                null, null, null, null, null, null, enabled, nextRunAt);
+    }
+
+    default int updateConfig(ScheduledTaskCode taskCode, String description,
+                             String cycleType, Integer intervalValue,
+                             LocalTime timeOfDay, Integer dayOfWeek,
+                             Integer dayOfMonth, Integer monthOfYear,
+                             boolean enabled, LocalDateTime nextRunAt) {
+        return updateConfig(taskCode, description, cycleType, intervalValue,
+                null, null, timeOfDay, dayOfWeek, dayOfMonth, monthOfYear,
+                enabled, nextRunAt);
     }
 
     int claimLease(@Param("id") Long id,

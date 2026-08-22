@@ -11,6 +11,8 @@
         <result column="description" property="description"/>
         <result column="cycle_type" property="cycleType"/>
         <result column="interval_value" property="intervalValue"/>
+        <result column="interval_hours_part" property="intervalHoursPart"/>
+        <result column="interval_minutes_part" property="intervalMinutesPart"/>
         <result column="time_of_day" property="timeOfDay"/>
         <result column="day_of_week" property="dayOfWeek"/>
         <result column="day_of_month" property="dayOfMonth"/>
@@ -48,6 +50,8 @@
         SET description = #{description},
             cycle_type = #{cycleType},
             interval_value = #{intervalValue},
+            interval_hours_part = #{intervalHoursPart},
+            interval_minutes_part = #{intervalMinutesPart},
             time_of_day = #{timeOfDay},
             day_of_week = #{dayOfWeek},
             day_of_month = #{dayOfMonth},
