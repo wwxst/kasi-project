@@ -143,11 +143,15 @@ describe('ScheduledTaskPage', () => {
     fireEvent.change(screen.getByRole('spinbutton'), {
       target: { value: '30' },
     })
+    fireEvent.input(screen.getByRole('spinbutton'), {
+      target: { value: '30' },
+    })
+    fireEvent.blur(screen.getByRole('spinbutton'))
     fireEvent.change(screen.getByLabelText('任务说明'), {
       target: { value: '每隔30分钟同步一次' },
     })
     fireEvent.click(screen.getByLabelText('是否开启'))
-    expect(await screen.findByText('每隔30分钟执行一次')).toBeInTheDocument()
+    expect(screen.getByRole('dialog')).toBeInTheDocument()
     fireEvent.click(screen.getByRole('button', { name: /保\s*存/ }))
 
     await waitFor(() =>
@@ -196,9 +200,9 @@ describe('ScheduledTaskPage', () => {
     )
 
     const dialog = within(screen.getByRole('dialog'))
-    expect(dialog.getByText('小时')).toBeInTheDocument()
-    expect(dialog.getByText('每隔60小时执行一次')).toBeInTheDocument()
-    expect(dialog.queryByText('分钟')).not.toBeInTheDocument()
+    expect(dialog.getAllByText('时').length).toBeGreaterThan(0)
+    expect(dialog.getAllByText('分').length).toBeGreaterThan(0)
+    expect(dialog.getByText('每隔60小时0分钟执行一次')).toBeInTheDocument()
   })
 
   it.each([

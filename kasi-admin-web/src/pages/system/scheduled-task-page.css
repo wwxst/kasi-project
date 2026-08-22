@@ -17,6 +17,36 @@
   padding-top: 12px;
 }
 
+.scheduled-task-page__cycle-row {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.scheduled-task-page__cycle-row > .ant-select {
+  width: 150px;
+}
+
+.scheduled-task-page__unit-number .ant-input-number {
+  width: 96px;
+}
+
+.scheduled-task-page__unit {
+  display: inline-flex;
+  min-width: 34px;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--ant-color-border);
+  border-left: 0;
+  color: var(--ant-color-text-secondary);
+  background: var(--ant-color-fill-quaternary);
+}
+
+.scheduled-task-page__weekday {
+  width: 110px;
+}
+
 .scheduled-task-page__form .ant-space-compact .ant-select {
   width: 150px;
 }

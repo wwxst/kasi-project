@@ -16,6 +16,8 @@ export interface ScheduledTask {
   description: string
   cycleType?: ScheduledTaskCycleType
   intervalValue?: number
+  intervalHoursPart?: number
+  intervalMinutesPart?: number
   timeOfDay?: string
   dayOfWeek?: number
   dayOfMonth?: number
@@ -27,6 +29,8 @@ export interface ScheduledTask {
 export interface UpdateScheduledTaskRequest {
   cycleType?: ScheduledTaskCycleType
   intervalValue?: number
+  intervalHoursPart?: number
+  intervalMinutesPart?: number
   timeOfDay?: string
   dayOfWeek?: number
   dayOfMonth?: number
