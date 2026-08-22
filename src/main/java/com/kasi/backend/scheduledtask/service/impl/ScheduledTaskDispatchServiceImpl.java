@@ -8,8 +8,10 @@ import com.kasi.backend.scheduledtask.config.ScheduledTaskProperties;
 import com.kasi.backend.scheduledtask.entity.SystemScheduledTask;
 import com.kasi.backend.scheduledtask.mapper.SystemScheduledTaskMapper;
 import com.kasi.backend.scheduledtask.service.ScheduledTaskDispatchService;
+import com.kasi.backend.scheduledtask.service.ScheduledTaskScheduleCalculator;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.support.TransactionTemplate;
@@ -29,7 +31,9 @@ public class ScheduledTaskDispatchServiceImpl implements ScheduledTaskDispatchSe
     private final DramaSyncProperties dramaProperties;
     private final Clock clock;
     private final String workerId;
+    private final ScheduledTaskScheduleCalculator scheduleCalculator;
 
+    @Autowired
     public ScheduledTaskDispatchServiceImpl(SystemScheduledTaskMapper taskMapper,
                                             ShortDramaProviderMapper providerMapper,
                                             DramaCatalogSyncService syncService,
@@ -38,7 +42,8 @@ public class ScheduledTaskDispatchServiceImpl implements ScheduledTaskDispatchSe
                                             DramaSyncProperties dramaProperties,
                                             Clock clock,
                                             @Value("${app.scheduled-task.worker-id:${random.uuid}}")
-                                            String workerId) {
+                                            String workerId,
+                                            ScheduledTaskScheduleCalculator scheduleCalculator) {
         this.taskMapper = taskMapper;
         this.providerMapper = providerMapper;
         this.syncService = syncService;
@@ -47,6 +52,19 @@ public class ScheduledTaskDispatchServiceImpl implements ScheduledTaskDispatchSe
         this.dramaProperties = dramaProperties;
         this.clock = clock;
         this.workerId = workerId;
+        this.scheduleCalculator = scheduleCalculator;
+    }
+
+    public ScheduledTaskDispatchServiceImpl(SystemScheduledTaskMapper taskMapper,
+                                            ShortDramaProviderMapper providerMapper,
+                                            DramaCatalogSyncService syncService,
+                                            PlatformTransactionManager transactionManager,
+                                            ScheduledTaskProperties properties,
+                                            DramaSyncProperties dramaProperties,
+                                            Clock clock,
+                                            String workerId) {
+        this(taskMapper, providerMapper, syncService, transactionManager, properties,
+                dramaProperties, clock, workerId, new ScheduledTaskScheduleCalculator());
     }
 
     @Override
@@ -66,7 +84,7 @@ public class ScheduledTaskDispatchServiceImpl implements ScheduledTaskDispatchSe
                 log.error("系统定时任务执行失败: taskCode={}", task.getTaskCode(), exception);
             } finally {
                 taskMapper.completeRun(task.getId(), workerId,
-                        now.plusMinutes(task.getIntervalMinutes()));
+                        nextRun(task, now));
             }
         }
     }
@@ -76,6 +94,15 @@ public class ScheduledTaskDispatchServiceImpl implements ScheduledTaskDispatchSe
                 taskMapper.claimLease(task.getId(), workerId, now,
                         now.plus(properties.getLeaseDuration())) == 1);
         return Boolean.TRUE.equals(claimed);
+    }
+
+    private LocalDateTime nextRun(SystemScheduledTask task, LocalDateTime now) {
+        if (task.getCycleType() == null || task.getIntervalValue() == null) {
+            return now.plusMinutes(task.getIntervalMinutes());
+        }
+        return scheduleCalculator.nextRun(task.getCycleType(), task.getIntervalValue(),
+                task.getTimeOfDay(), task.getDayOfWeek(), task.getDayOfMonth(),
+                task.getMonthOfYear(), now);
     }
 
     private void dispatch(SystemScheduledTask task) {

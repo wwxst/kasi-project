@@ -36,6 +36,22 @@ class SystemScheduledTaskPersistenceTest extends BaseAuthTest {
     }
 
     @Test
+    @DisplayName("大于一天的结构化周期仍兼容旧分钟字段约束")
+    void structuredDayCycleClampsLegacyIntervalMinutes() {
+        SystemScheduledTask task = mapper.findByTaskCode(
+                ScheduledTaskCode.GOODSHORT_DRAMA_INCREMENTAL_SYNC);
+
+        assertThat(mapper.updateConfig(task.getTaskCode(), "每天执行", "INTERVAL_DAYS", 3,
+                null, null, null, null, true, LocalDateTime.now().plusDays(3)))
+                .isEqualTo(1);
+
+        SystemScheduledTask stored = mapper.findByTaskCode(task.getTaskCode());
+        assertThat(stored.getCycleType().name()).isEqualTo("INTERVAL_DAYS");
+        assertThat(stored.getIntervalValue()).isEqualTo(3);
+        assertThat(stored.getIntervalMinutes()).isEqualTo(1440);
+    }
+
+    @Test
     @DisplayName("同一个到期任务只能被一个实例领取")
     void dueTaskHasSingleLeaseOwner() {
         SystemScheduledTask task = mapper.findByTaskCode(

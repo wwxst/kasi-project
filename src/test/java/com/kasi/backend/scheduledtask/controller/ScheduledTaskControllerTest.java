@@ -80,6 +80,31 @@ class ScheduledTaskControllerTest extends BaseAuthTest {
     }
 
     @Test
+    @DisplayName("超级管理员可以保存结构化小时周期")
+    void superAdminCanSaveStructuredCycle() throws Exception {
+        mockMvc.perform(put(BASE_PATH + "/{taskCode}", TASK_CODE)
+                        .header("Authorization", "Bearer " + loginAsAdmin())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "cycleType": "INTERVAL_HOURS",
+                                  "intervalValue": 2,
+                                  "description": "每隔2小时同步一次",
+                                  "enabled": true
+                                }
+                                """))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(0))
+                .andExpect(jsonPath("$.data.cycleType").value("INTERVAL_HOURS"))
+                .andExpect(jsonPath("$.data.intervalValue").value(2))
+                .andExpect(jsonPath("$.data.intervalMinutes").value(120));
+
+        assertThat(jdbcTemplate.queryForObject(
+                "SELECT cycle_type FROM system_scheduled_task WHERE task_code = ?",
+                String.class, TASK_CODE)).isEqualTo("INTERVAL_HOURS");
+    }
+
+    @Test
     @DisplayName("非法编辑字段返回统一参数校验错误")
     void invalidUpdatesReturnValidationError() throws Exception {
         String token = loginAsAdmin();
