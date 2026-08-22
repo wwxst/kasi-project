@@ -99,11 +99,11 @@ public abstract class BaseAuthTest {
 
         jdbcTemplate.update("""
                 INSERT INTO system_scheduled_task
-                    (task_code, title, description, interval_minutes, enabled, next_run_at)
-                VALUES (?, ?, ?, ?, ?, TIMESTAMPADD(MINUTE, 60, CURRENT_TIMESTAMP))
+                    (task_code, title, description, cycle_type, interval_value, interval_minutes, enabled, next_run_at)
+                VALUES (?, ?, ?, 'INTERVAL_MINUTES', ?, ?, ?, TIMESTAMPADD(MINUTE, 60, CURRENT_TIMESTAMP))
                 """,
                 "GOODSHORT_DRAMA_INCREMENTAL_SYNC", "GoodShort 短剧增量同步",
-                "每隔60分钟执行一次GoodShort短剧目录增量同步", 60, 1);
+                "每隔60分钟执行一次GoodShort短剧目录增量同步", 60, 60, 1);
 
         jdbcTemplate.update(
                 "INSERT INTO short_drama_provider (provider_code, provider_name, status) VALUES (?, ?, ?)",

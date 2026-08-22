@@ -139,7 +139,7 @@ $env:Path = "$env:JAVA_HOME\bin;$env:Path"
 | 平台密钥主密钥 | 必须通过 `PROVIDER_CREDENTIAL_MASTER_KEY` 注入 Base64 编码的 32 字节密钥；不得提交到仓库或写入日志 |
 | GoodShort 探测 | 接口 URL 从平台接入配置读取，连接超时 3 秒、读取超时 10 秒；平台密钥从数据库密文解密后仅在适配器调用链内使用 |
 | 短剧目录同步 | 默认语言 `ENGLISH`、每页 100 条、每 5 分钟执行已入队任务；支持配置语言、批量、分页、租约和调度开关 |
-| 固定定时任务 | V9 提供 GoodShort 增量同步配置，默认每 60 分钟入队；仅成功全量基线存在时自动创建增量任务 |
+| 固定定时任务 | V9/V10 提供 GoodShort 增量同步配置和结构化周期，默认每 60 分钟入队；仅成功全量基线存在时自动创建增量任务 |
 
 应用要连接 MySQL，至少需要提供：
 
@@ -155,7 +155,7 @@ $env:SPRING_DATASOURCE_PASSWORD = '<database-password>'
 .\mvnw.cmd spring-boot:run
 ```
 
-首次启动时 Flyway 会按版本扫描 `db/migration/`，依次执行 V1 至 V9，创建账号、平台接入、媒体账号、通用报备、短剧目录、同步检查点、平台分佣规则和固定定时任务等表，并由 V1 植入唯一的初始超级管理员：
+首次启动时 Flyway 会按版本扫描 `db/migration/`，依次执行 V1 至 V10，创建账号、平台接入、媒体账号、通用报备、短剧目录、同步检查点、平台分佣规则和固定定时任务等表，并由 V1 植入唯一的初始超级管理员：
 
 - 账号：`kasiadmin`
 - 初始密码：`kasi123456`
@@ -180,9 +180,9 @@ mysql --host=127.0.0.1 --user=$env:SPRING_DATASOURCE_USERNAME --password --datab
 
 ## 5. 数据库现状
 
-### 已实现的表结构（V1 至 V9）
+### 已实现的表结构（V1 至 V10）
 
-迁移脚本 V1 至 V9 定义当前数据库持久表，验证码和密码重置 Token 等临时数据由 Redis 管理：
+迁移脚本 V1 至 V10 定义当前数据库持久表，验证码和密码重置 Token 等临时数据由 Redis 管理：
 
 | 存储 | 表/Key | 说明 | 核心字段 |
 |------|--------|------|----------|
@@ -196,7 +196,7 @@ mysql --host=127.0.0.1 --user=$env:SPRING_DATASOURCE_USERNAME --password --datab
 | MySQL | `provider_drama_content` | 短剧剧集元数据 | drama_id, external_content_id, sequence_no, is_free, duration_seconds |
 | MySQL | `provider_sync_checkpoint` | 全量/增量同步断点、统计、错误和数据库租约 | connection_id, sync_type, language, page_no, update_time, lease_owner, lease_until |
 | MySQL | `provider_commission_rule` | 平台级五费率规则版本；当前、未来接入账号及平台下短剧共用 | provider_id, 五项 0..1 高精度费率, effective_from, effective_to, created_by, updated_by |
-| MySQL | `system_scheduled_task` | 后端固定任务的周期、启停和入队租约 | task_code, description, interval_minutes, enabled, next_run_at, lease_owner, lease_until |
+| MySQL | `system_scheduled_task` | 后端固定任务的结构化周期、启停和入队租约 | task_code, cycle_type, interval_value, time_of_day, day_of_week, day_of_month, month_of_year, enabled, next_run_at |
 | Redis | `vc:*` | 验证码（临时） | 5分钟过期，60秒重发间隔，每日上限10次 |
 | Redis | `pwd:*` | 密码重置 Token（临时） | 10分钟过期，一次性消费后删除 |
 | Redis | `auth:version:*` | 账号会话版本（含 `ACTIVE:*` 或 `MUTATING:*`） | TTL 不超过 JWT 有效期加宽限期 |
@@ -208,7 +208,7 @@ mysql --host=127.0.0.1 --user=$env:SPRING_DATASOURCE_USERNAME --password --datab
 
 当前已实现 GoodShort 短剧目录全量 `initBooks`、增量 `incrementBooks`、断点恢复、数据库租约、定时/手动触发、管理员查询详情和本地上下架；远端未返回记录不会物理删除，本地状态不会被同步覆盖。V8 已实现每个平台一套带版本时间段的五费率规则：API 使用 `0..100` 百分比，数据库保存 `0..1` 高精度比例，同平台区间采用 `[effectiveFrom, effectiveTo)` 且不得重叠；当前和未来增加的接入账号以及平台下所有短剧共用平台规则。规则计算器使用 `BigDecimal`，中间保持高精度并在最终结果按两位小数 `HALF_UP`。
 
-当前已实现 GoodShort 短剧目录全量 `initBooks`、增量 `incrementBooks`、断点恢复、数据库租约、定时/手动触发、固定定时任务入队、管理员查询详情和本地上下架；首次全量同步仍由管理员手动发起，只有成功全量基线存在时每小时自动创建增量任务，已有任务或缺少基线时不会重复入队。固定任务每分钟扫描到期配置，现有目录执行器继续每 5 分钟领取并执行已入队任务；远端未返回记录不会物理删除，本地状态不会被同步覆盖。V8 已实现平台分佣规则版本管理和 `BigDecimal` 计算器；当前仍未实现推广链接、订单同步、订单费率快照、订单导出、钱包/结算和转化分析；推广用户端页面仍待接入。
+当前已实现 GoodShort 短剧目录全量 `initBooks`、增量 `incrementBooks`、断点恢复、数据库租约、定时/手动触发、固定定时任务入队、管理员查询详情和本地上下架；首次全量同步仍由管理员手动发起，只有成功全量基线存在时每小时自动创建增量任务，已有任务或缺少基线时不会重复入队。固定任务支持间隔秒/分钟/小时/天及每天、每周、每月、每年日历周期，后端根据结构化字段计算下一次执行时间；固定任务每分钟扫描到期配置，现有目录执行器继续每 5 分钟领取并执行已入队任务。远端未返回记录不会物理删除，本地状态不会被同步覆盖。V8 已实现平台分佣规则版本管理和 `BigDecimal` 计算器；当前仍未实现推广链接、订单同步、订单费率快照、订单导出、钱包/结算和转化分析；推广用户端页面仍待接入。
 
 > **说明**：`sys_sequence` 表已移除，`user_no` 由后端在插入前随机生成；`promotion_user.id` 继续作为自增内部主键。`auth_verification_code` 和 `auth_password_reset_token` 表已移除，改用 Redis 存储（更高效、自动过期）。
 
@@ -334,7 +334,7 @@ mysql --host=127.0.0.1 --user=$env:SPRING_DATASOURCE_USERNAME --password --datab
 | GET | `/api/admin/system/scheduled-tasks` | ADMIN | 查询后端固定任务配置 |
 | PUT | `/api/admin/system/scheduled-tasks/{taskCode}` | SUPER_ADMIN | 修改执行周期、任务说明和启停状态 |
 
-当前固定任务为 `GOODSHORT_DRAMA_INCREMENTAL_SYNC`。页面可编辑周期、说明和是否开启，不能新增、删除、修改标题、任务编码或执行程序。普通管理员只读；首次全量同步不由该任务自动完成。
+当前固定任务为 `GOODSHORT_DRAMA_INCREMENTAL_SYNC`。页面可编辑周期类型、间隔值、执行时间、星期/日期、说明和是否开启，不能新增、删除、修改标题、任务编码或执行程序。普通管理员只读；首次全量同步不由该任务自动完成。
 
 ### 6.10 统一响应格式
 
@@ -385,7 +385,7 @@ mysql --host=127.0.0.1 --user=$env:SPRING_DATASOURCE_USERNAME --password --datab
 | `UserAuthControllerTest` | 用户注册、登录、获取信息、退出、修改密码、忘记密码流程（13 个用例） |
 | `SecurityPermissionTest` | 角色隔离：ADMIN/USER Token 不可互访、无 Token 返回 401（5 个用例） |
 | `KasiBackendApplicationTests` | Spring 上下文加载测试 |
-| `ProviderCommissionRuleMigrationTest` | 在隔离 H2 MySQL 模式数据库中执行 V1 至 V9 并验证分佣规则表 |
+| `ProviderCommissionRuleMigrationTest` | 在隔离 H2 MySQL 模式数据库中执行 V1 至 V10 并验证分佣规则表 |
 | `ProviderCommissionRulePersistenceTest` | 五项费率精度、平台查询、指定时间匹配和相邻区间 |
 | `ProviderCommissionCalculatorTest` | `BigDecimal` 五费率公式与最终两位 `HALF_UP` |
 | `ProviderCommissionRuleServiceTest` | 规则状态、编辑/删除/提前结束、时间窗口与重叠校验 |

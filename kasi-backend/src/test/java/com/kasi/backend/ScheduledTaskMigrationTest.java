@@ -14,19 +14,21 @@ import static org.assertj.core.api.Assertions.assertThat;
 class ScheduledTaskMigrationTest {
 
     @Test
-    @DisplayName("V9创建定时任务配置并植入GoodShort增量同步任务")
+    @DisplayName("V10创建定时任务配置并植入GoodShort增量同步任务")
     void migrateCreatesScheduledTaskConfig() {
         JdbcTemplate jdbc = migrateAllMigrations();
 
         assertThat(tableExists(jdbc, "SYSTEM_SCHEDULED_TASK")).isTrue();
         Map<String, Object> task = jdbc.queryForMap("""
-                SELECT task_code, title, description, interval_minutes, enabled
+                SELECT task_code, title, description, cycle_type, interval_value, interval_minutes, enabled
                 FROM system_scheduled_task
                 WHERE task_code = 'GOODSHORT_DRAMA_INCREMENTAL_SYNC'
                 """);
         assertThat(task.get("TASK_CODE")).isEqualTo("GOODSHORT_DRAMA_INCREMENTAL_SYNC");
         assertThat(task.get("TITLE")).isEqualTo("GoodShort 短剧增量同步");
         assertThat(task.get("DESCRIPTION")).isEqualTo("每隔60分钟执行一次GoodShort短剧目录增量同步");
+        assertThat(task.get("CYCLE_TYPE")).isEqualTo("INTERVAL_MINUTES");
+        assertThat(((Number) task.get("INTERVAL_VALUE")).intValue()).isEqualTo(60);
         assertThat(((Number) task.get("INTERVAL_MINUTES")).intValue()).isEqualTo(60);
         assertThat(((Number) task.get("ENABLED")).intValue()).isEqualTo(1);
     }

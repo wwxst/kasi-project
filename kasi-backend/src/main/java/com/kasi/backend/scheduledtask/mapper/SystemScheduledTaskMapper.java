@@ -6,6 +6,7 @@ import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
 
 import java.time.LocalDateTime;
+import java.time.LocalTime;
 import java.util.List;
 
 @Mapper
@@ -18,9 +19,20 @@ public interface SystemScheduledTaskMapper {
 
     int updateConfig(@Param("taskCode") ScheduledTaskCode taskCode,
                      @Param("description") String description,
-                     @Param("intervalMinutes") int intervalMinutes,
+                     @Param("cycleType") String cycleType,
+                     @Param("intervalValue") Integer intervalValue,
+                     @Param("timeOfDay") LocalTime timeOfDay,
+                     @Param("dayOfWeek") Integer dayOfWeek,
+                     @Param("dayOfMonth") Integer dayOfMonth,
+                     @Param("monthOfYear") Integer monthOfYear,
                      @Param("enabled") boolean enabled,
                      @Param("nextRunAt") LocalDateTime nextRunAt);
+
+    default int updateConfig(ScheduledTaskCode taskCode, String description,
+                             int intervalMinutes, boolean enabled, LocalDateTime nextRunAt) {
+        return updateConfig(taskCode, description, "INTERVAL_MINUTES", intervalMinutes,
+                null, null, null, null, enabled, nextRunAt);
+    }
 
     int claimLease(@Param("id") Long id,
                    @Param("owner") String owner,

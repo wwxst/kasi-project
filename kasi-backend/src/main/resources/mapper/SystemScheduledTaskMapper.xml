@@ -9,6 +9,12 @@
         <result column="task_code" property="taskCode"/>
         <result column="title" property="title"/>
         <result column="description" property="description"/>
+        <result column="cycle_type" property="cycleType"/>
+        <result column="interval_value" property="intervalValue"/>
+        <result column="time_of_day" property="timeOfDay"/>
+        <result column="day_of_week" property="dayOfWeek"/>
+        <result column="day_of_month" property="dayOfMonth"/>
+        <result column="month_of_year" property="monthOfYear"/>
         <result column="interval_minutes" property="intervalMinutes"/>
         <result column="enabled" property="enabled"/>
         <result column="next_run_at" property="nextRunAt"/>
@@ -40,7 +46,18 @@
     <update id="updateConfig">
         UPDATE system_scheduled_task
         SET description = #{description},
-            interval_minutes = #{intervalMinutes},
+            cycle_type = #{cycleType},
+            interval_value = #{intervalValue},
+            time_of_day = #{timeOfDay},
+            day_of_week = #{dayOfWeek},
+            day_of_month = #{dayOfMonth},
+            month_of_year = #{monthOfYear},
+            interval_minutes = LEAST(1440, GREATEST(5, CASE
+                WHEN #{cycleType} = 'INTERVAL_SECONDS' THEN GREATEST(5, CEILING(#{intervalValue} / 60.0))
+                WHEN #{cycleType} = 'INTERVAL_MINUTES' THEN #{intervalValue}
+                WHEN #{cycleType} = 'INTERVAL_HOURS' THEN #{intervalValue} * 60
+                WHEN #{cycleType} = 'INTERVAL_DAYS' THEN #{intervalValue} * 1440
+                ELSE 60 END)),
             enabled = #{enabled},
             next_run_at = #{nextRunAt},
             lease_owner = NULL,
