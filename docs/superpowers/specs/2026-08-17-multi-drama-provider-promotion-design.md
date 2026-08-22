@@ -336,7 +336,7 @@ GoodShort `analyticalReport` 建议每天早上 8 点后拉取前一天数据。
 
 ## 13. 概念数据模型
 
-截至 2026-08-21，`short_drama_provider`、`short_drama_connection`、`promotion_media_account`、`provider_media_filing`、`provider_drama`、`provider_drama_content`、`provider_sync_checkpoint` 和 `provider_commission_rule` 已实现；`promotion_link`、`promotion_order`、`promotion_daily_metric` 和 `material_download_task` 仍为规划模型。
+截至 2026-08-22，`short_drama_provider`、`short_drama_connection`、`promotion_media_account`、`provider_media_filing`、`provider_drama`、`provider_drama_content`、`provider_sync_checkpoint`、`provider_commission_rule` 和 `promotion_link` 已实现；`promotion_order`、`promotion_daily_metric` 和 `material_download_task` 仍为规划模型。
 
 | 表 | 主要职责 | 关键约束 |
 |---|---|---|
@@ -473,7 +473,7 @@ analytics/  每日转化数据同步与查询
 2. ✅ GoodShort 短剧目录全量/增量同步与后台上下架。
 3. ✅ 推广用户媒体账号与 GoodShort 报备。
 4. ✅ 短剧平台分佣规则；“无有效规则不可推广”由后续推广链接模块消费现有内部查询能力。
-5. ⬜ 免费内容播放/下载与多推广链接生成。
+5. 🟨 推广链接生成已实现；免费内容播放/下载仍待实现。
 6. ⬜ 订单同步、归因、费率快照、预计佣金和管理员导出。
 7. ⬜ 每日转化数据同步与推广用户数据页面。
 

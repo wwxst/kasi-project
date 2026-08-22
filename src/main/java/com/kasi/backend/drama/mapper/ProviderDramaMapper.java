@@ -21,4 +21,6 @@ public interface ProviderDramaMapper {
     List<ProviderDramaContent> findContents(@Param("dramaId") Long dramaId);
     int upsertContent(ProviderDramaContent content);
     int updateLocalStatus(@Param("id") Long id, @Param("localStatus") DramaLocalStatus localStatus);
+    long countPublished();
+    List<ProviderDrama> pagePublished(@Param("offset") int offset, @Param("size") int size);
 }

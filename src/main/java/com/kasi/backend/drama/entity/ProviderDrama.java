@@ -8,6 +8,8 @@ import java.time.LocalDateTime;
 public class ProviderDrama {
     private Long id;
     private Long connectionId;
+    private Long providerId;
+    private String providerName;
     private String externalDramaId;
     private String title;
     private String originalTitle;

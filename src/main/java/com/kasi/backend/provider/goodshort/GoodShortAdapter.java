@@ -15,6 +15,9 @@ import com.kasi.backend.provider.spi.AccountFilingQuery;
 import com.kasi.backend.provider.spi.AccountFilingResult;
 import com.kasi.backend.provider.spi.AccountFilingSubmission;
 import com.kasi.backend.provider.spi.ProviderConnectionSecret;
+import com.kasi.backend.provider.spi.PromotionLinkProviderAdapter;
+import com.kasi.backend.provider.spi.PromotionLinkRequest;
+import com.kasi.backend.provider.spi.PromotionLinkResult;
 import com.kasi.backend.provider.spi.DramaCatalogFetchRequest;
 import com.kasi.backend.provider.spi.DramaCatalogPage;
 import com.kasi.backend.provider.spi.DramaCatalogProviderAdapter;
@@ -23,6 +26,7 @@ import com.kasi.backend.provider.spi.ProviderDramaRecord;
 import com.kasi.backend.provider.goodshort.dto.GoodShortBookData;
 import com.kasi.backend.provider.goodshort.dto.GoodShortCatalogResponse;
 import com.kasi.backend.provider.goodshort.dto.GoodShortEpisodeData;
+import com.kasi.backend.provider.goodshort.dto.GoodShortPromotionLinkResponse;
 import com.kasi.backend.provider.vo.ProviderConnectionTestVO;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Component;
@@ -41,7 +45,8 @@ import java.util.Map;
 import java.util.Set;
 
 @Component
-public class GoodShortAdapter implements AccountFilingProviderAdapter, DramaCatalogProviderAdapter {
+public class GoodShortAdapter implements AccountFilingProviderAdapter, DramaCatalogProviderAdapter,
+        PromotionLinkProviderAdapter {
 
     private static final String PROVIDER_CODE = "GOODSHORT";
     private static final String CONNECTION_PROBE_PATH = "/open/book/initBooks";
@@ -154,6 +159,26 @@ public class GoodShortAdapter implements AccountFilingProviderAdapter, DramaCata
     public DramaCatalogPage fetchIncrementalDramas(ProviderConnectionSecret connection,
                                                    DramaCatalogFetchRequest request) {
         return fetchCatalog(connection, request, INCREMENTAL_CATALOG_PATH, true);
+    }
+
+    @Override
+    public PromotionLinkResult generatePromotionLink(ProviderConnectionSecret connection,
+                                                      PromotionLinkRequest request) {
+        Map<String, Object> parameters = new LinkedHashMap<>();
+        parameters.put("pid", connection.getPartnerId());
+        parameters.put("bookId", request.externalDramaId());
+        parameters.put("customParams", request.trackingNo());
+        parameters.put("shareUrlType", "ONELINK".equalsIgnoreCase(request.landingType()) ? 2 : 1);
+        parameters.put("codeMedia", mapCodeMedia(request.mediaType()));
+        parameters.put("timestamp", clock.millis());
+        GoodShortPromotionLinkResponse response = postPromotionLink(connection,
+                "/open/inviteCode/generate/partner/code", parameters);
+        if (!successful(response) || response.getData() == null
+                || response.getData().getCode() == null || response.getData().getShareUrl() == null) {
+            throw new ProviderRemoteRejectedException("GoodShort推广链接生成被拒绝");
+        }
+        return new PromotionLinkResult(response.getData().getCode(), response.getData().getShareUrl(),
+                response.getData().getCustomParams());
     }
 
     private DramaCatalogPage fetchCatalog(ProviderConnectionSecret connection,
@@ -275,9 +300,44 @@ public class GoodShortAdapter implements AccountFilingProviderAdapter, DramaCata
                 && Boolean.TRUE.equals(response.getSuccess());
     }
 
+    private GoodShortPromotionLinkResponse postPromotionLink(ProviderConnectionSecret connection,
+                                                              String path,
+                                                              Map<String, Object> parameters) {
+        String signature = signer.sign(parameters, connection.getApiKey());
+        try {
+            return restClient.mutate().baseUrl(connection.getBaseUrl()).build().post().uri(path)
+                    .contentType(org.springframework.http.MediaType.APPLICATION_JSON).header("sign", signature)
+                    .body(parameters).retrieve().body(GoodShortPromotionLinkResponse.class);
+        } catch (ResourceAccessException exception) {
+            throw new ProviderTransientException("GoodShort网络暂时不可用");
+        } catch (RestClientResponseException exception) {
+            if (exception.getStatusCode().is5xxServerError() || exception.getStatusCode().value() == 429) {
+                throw new ProviderTransientException("GoodShort服务暂时不可用");
+            }
+            throw new ProviderRemoteRejectedException("GoodShort推广链接请求被拒绝");
+        } catch (RestClientException exception) {
+            throw new ProviderRemoteRejectedException("GoodShort推广链接响应格式错误");
+        }
+    }
+
     private boolean successful(GoodShortCatalogResponse response) {
         return response != null && Integer.valueOf(0).equals(response.getStatus())
                 && Boolean.TRUE.equals(response.getSuccess());
+    }
+
+    private boolean successful(GoodShortPromotionLinkResponse response) {
+        return response != null && Integer.valueOf(0).equals(response.getStatus())
+                && Boolean.TRUE.equals(response.getSuccess());
+    }
+
+    private String mapCodeMedia(MediaType mediaType) {
+        if (mediaType == null) return "UNKNOWN";
+        return switch (mediaType) {
+            case TIKTOK -> "TIKTOK";
+            case FACEBOOK -> "FACEBOOK";
+            case YOUTUBE -> "YOUTUBE";
+            case INSTAGRAM -> "INSTAGRAM";
+        };
     }
 
     private void putIfNotBlank(Map<String, Object> values, String key, String value) {

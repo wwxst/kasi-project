@@ -175,6 +175,35 @@ CREATE TABLE IF NOT EXISTS provider_drama_content (
     CONSTRAINT fk_test_drama_content_drama FOREIGN KEY (drama_id) REFERENCES provider_drama (id) ON DELETE CASCADE
 );
 
+CREATE TABLE IF NOT EXISTS promotion_link (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    user_id BIGINT NOT NULL,
+    provider_id BIGINT NOT NULL,
+    connection_id BIGINT NOT NULL,
+    drama_id BIGINT NOT NULL,
+    media_account_id BIGINT NOT NULL,
+    request_key VARCHAR(64) NOT NULL,
+    tracking_no VARCHAR(64) NOT NULL,
+    campaign_name VARCHAR(128),
+    provider_code VARCHAR(32) NOT NULL,
+    external_code VARCHAR(255),
+    share_url VARCHAR(2048),
+    custom_params VARCHAR(255),
+    landing_type VARCHAR(32) NOT NULL DEFAULT 'DEFAULT',
+    status VARCHAR(16) NOT NULL DEFAULT 'PENDING',
+    last_error_code VARCHAR(64),
+    last_error_message VARCHAR(512),
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE (tracking_no),
+    UNIQUE (user_id, request_key),
+    FOREIGN KEY (user_id) REFERENCES promotion_user (id),
+    FOREIGN KEY (provider_id) REFERENCES short_drama_provider (id),
+    FOREIGN KEY (connection_id) REFERENCES short_drama_connection (id),
+    FOREIGN KEY (drama_id) REFERENCES provider_drama (id),
+    FOREIGN KEY (media_account_id) REFERENCES promotion_media_account (id)
+);
+
 CREATE TABLE IF NOT EXISTS provider_sync_checkpoint (
     id BIGINT AUTO_INCREMENT PRIMARY KEY,
     connection_id BIGINT NOT NULL,
