@@ -10,8 +10,6 @@
         <result column="principal_commission_rate" property="principalCommissionRate"/>
         <result column="downstream_fee_rate" property="downstreamFeeRate"/>
         <result column="downstream_commission_rate" property="downstreamCommissionRate"/>
-        <result column="effective_from" property="effectiveFrom"/>
-        <result column="effective_to" property="effectiveTo"/>
         <result column="created_by" property="createdBy"/>
         <result column="updated_by" property="updatedBy"/>
         <result column="created_at" property="createdAt"/>
@@ -21,7 +19,7 @@
     <select id="findAllByProviderId" resultMap="RuleMap">
         SELECT * FROM provider_commission_rule
         WHERE provider_id = #{providerId}
-        ORDER BY effective_from DESC
+        ORDER BY id DESC
     </select>
 
     <select id="findByIdAndProviderId" resultMap="RuleMap">
@@ -29,31 +27,20 @@
         WHERE id = #{id} AND provider_id = #{providerId}
     </select>
 
-    <select id="findEffective" resultMap="RuleMap">
+    <select id="findByProviderId" resultMap="RuleMap">
         SELECT * FROM provider_commission_rule
         WHERE provider_id = #{providerId}
-          AND effective_from &lt;= #{at}
-          AND (effective_to IS NULL OR effective_to &gt; #{at})
-        ORDER BY effective_from DESC
         LIMIT 1
-    </select>
-
-    <select id="countOverlapping" resultType="long">
-        SELECT COUNT(*) FROM provider_commission_rule
-        WHERE provider_id = #{providerId}
-          <if test="excludeId != null">AND id != #{excludeId}</if>
-          AND (#{effectiveTo} IS NULL OR effective_from &lt; #{effectiveTo})
-          AND (effective_to IS NULL OR effective_to &gt; #{effectiveFrom})
     </select>
 
     <insert id="insert" useGeneratedKeys="true" keyProperty="id">
         INSERT INTO provider_commission_rule
         (provider_id, channel_fee_rate, principal_fee_rate, principal_commission_rate,
-         downstream_fee_rate, downstream_commission_rate, effective_from, effective_to,
+         downstream_fee_rate, downstream_commission_rate,
          created_by, updated_by)
         VALUES
         (#{providerId}, #{channelFeeRate}, #{principalFeeRate}, #{principalCommissionRate},
-         #{downstreamFeeRate}, #{downstreamCommissionRate}, #{effectiveFrom}, #{effectiveTo},
+         #{downstreamFeeRate}, #{downstreamCommissionRate},
          #{createdBy}, #{updatedBy})
     </insert>
 
@@ -64,23 +51,9 @@
             principal_commission_rate = #{principalCommissionRate},
             downstream_fee_rate = #{downstreamFeeRate},
             downstream_commission_rate = #{downstreamCommissionRate},
-            effective_from = #{effectiveFrom},
-            effective_to = #{effectiveTo},
             updated_by = #{updatedBy},
             updated_at = CURRENT_TIMESTAMP
         WHERE id = #{id} AND provider_id = #{providerId}
     </update>
 
-    <update id="updateEffectiveTo">
-        UPDATE provider_commission_rule
-        SET effective_to = #{effectiveTo},
-            updated_by = #{updatedBy},
-            updated_at = CURRENT_TIMESTAMP
-        WHERE id = #{id} AND provider_id = #{providerId}
-    </update>
-
-    <delete id="delete">
-        DELETE FROM provider_commission_rule
-        WHERE id = #{id} AND provider_id = #{providerId}
-    </delete>
 </mapper>

@@ -2,7 +2,6 @@ package com.kasi.backend.drama.controller;
 
 import com.kasi.backend.common.response.ApiResponse;
 import com.kasi.backend.drama.dto.CreateCommissionRuleDTO;
-import com.kasi.backend.drama.dto.EndCommissionRuleDTO;
 import com.kasi.backend.drama.dto.UpdateCommissionRuleDTO;
 import com.kasi.backend.drama.service.ProviderCommissionRuleService;
 import com.kasi.backend.drama.vo.ProviderCommissionRuleVO;
@@ -11,9 +10,7 @@ import jakarta.validation.Valid;
 import jakarta.validation.constraints.Positive;
 import lombok.RequiredArgsConstructor;
 import org.springframework.validation.annotation.Validated;
-import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
@@ -54,20 +51,4 @@ public class ProviderCommissionRuleController {
                 AuthContextHolder.getAdminId(), providerId, ruleId, request));
     }
 
-    @PatchMapping("/{ruleId}/end-time")
-    public ApiResponse<ProviderCommissionRuleVO> end(
-            @PathVariable @Positive Long providerId,
-            @PathVariable @Positive Long ruleId,
-            @Valid @RequestBody EndCommissionRuleDTO request) {
-        return ApiResponse.success(commissionRuleService.end(
-                AuthContextHolder.getAdminId(), providerId, ruleId, request));
-    }
-
-    @DeleteMapping("/{ruleId}")
-    public ApiResponse<Void> delete(
-            @PathVariable @Positive Long providerId,
-            @PathVariable @Positive Long ruleId) {
-        commissionRuleService.delete(AuthContextHolder.getAdminId(), providerId, ruleId);
-        return ApiResponse.success();
-    }
 }
