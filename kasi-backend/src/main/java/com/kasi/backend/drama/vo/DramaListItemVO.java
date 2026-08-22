@@ -10,6 +10,8 @@ import java.time.LocalDateTime;
 @Builder
 public class DramaListItemVO {
     private Long id;
+    private Long providerId;
+    private String providerName;
     private String externalDramaId;
     private String title;
     private String originalTitle;

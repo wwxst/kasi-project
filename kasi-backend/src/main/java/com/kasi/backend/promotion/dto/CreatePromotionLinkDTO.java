@@ -1,0 +1,25 @@
+package com.kasi.backend.promotion.dto;
+
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Pattern;
+import jakarta.validation.constraints.Size;
+import lombok.Data;
+
+@Data
+public class CreatePromotionLinkDTO {
+    @NotNull
+    private Long providerId;
+    @NotNull
+    private Long dramaId;
+    @NotNull
+    private Long mediaAccountId;
+    @NotBlank
+    @Pattern(regexp = "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-5][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}$")
+    private String requestKey;
+    @Size(max = 128)
+    private String campaignName;
+    @NotBlank
+    @Pattern(regexp = "DEFAULT|ONELINK")
+    private String landingType = "DEFAULT";
+}

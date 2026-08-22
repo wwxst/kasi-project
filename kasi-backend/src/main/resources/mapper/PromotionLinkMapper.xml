@@ -1,0 +1,53 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.kasi.backend.promotion.mapper.PromotionLinkMapper">
+    <resultMap id="PromotionLinkMap" type="com.kasi.backend.promotion.entity.PromotionLink">
+        <id column="id" property="id"/><result column="user_id" property="userId"/>
+        <result column="provider_id" property="providerId"/><result column="connection_id" property="connectionId"/>
+        <result column="drama_id" property="dramaId"/><result column="media_account_id" property="mediaAccountId"/>
+        <result column="provider_name" property="providerName"/><result column="drama_title" property="dramaTitle"/>
+        <result column="media_type" property="mediaType"/><result column="media_account_name" property="mediaAccountName"/>
+        <result column="request_key" property="requestKey"/><result column="tracking_no" property="trackingNo"/>
+        <result column="campaign_name" property="campaignName"/><result column="provider_code" property="providerCode"/>
+        <result column="external_code" property="externalCode"/><result column="share_url" property="shareUrl"/>
+        <result column="custom_params" property="customParams"/><result column="landing_type" property="landingType"/>
+        <result column="status" property="status"/><result column="last_error_code" property="lastErrorCode"/>
+        <result column="last_error_message" property="lastErrorMessage"/><result column="created_at" property="createdAt"/>
+        <result column="updated_at" property="updatedAt"/>
+    </resultMap>
+    <select id="findByUserAndRequestKey" resultMap="PromotionLinkMap">
+        SELECT * FROM promotion_link WHERE user_id = #{userId} AND request_key = #{requestKey}
+    </select>
+    <select id="findByUserAndRequestKeyForUpdate" resultMap="PromotionLinkMap">
+        SELECT * FROM promotion_link WHERE user_id = #{userId} AND request_key = #{requestKey} FOR UPDATE
+    </select>
+    <select id="countByUserId" resultType="long">SELECT COUNT(*) FROM promotion_link WHERE user_id = #{userId}</select>
+    <select id="findPageByUserId" resultMap="PromotionLinkMap">
+        SELECT l.*, p.provider_name, d.title AS drama_title, m.media_type, m.account_name AS media_account_name
+        FROM promotion_link l
+        JOIN short_drama_provider p ON p.id = l.provider_id
+        JOIN provider_drama d ON d.id = l.drama_id
+        JOIN promotion_media_account m ON m.id = l.media_account_id
+        WHERE l.user_id = #{userId} ORDER BY l.id DESC LIMIT #{offset}, #{size}
+    </select>
+    <insert id="insert" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO promotion_link
+        (user_id, provider_id, connection_id, drama_id, media_account_id, request_key, tracking_no,
+         campaign_name, provider_code, landing_type, status)
+        VALUES (#{userId}, #{providerId}, #{connectionId}, #{dramaId}, #{mediaAccountId}, #{requestKey}, #{trackingNo},
+                #{campaignName}, #{providerCode}, #{landingType}, #{status})
+    </insert>
+    <update id="markSuccess">
+        UPDATE promotion_link SET status = 'SUCCESS', external_code = #{externalCode}, share_url = #{shareUrl},
+            custom_params = #{customParams}, last_error_code = NULL, last_error_message = NULL,
+            updated_at = CURRENT_TIMESTAMP WHERE id = #{id}
+    </update>
+    <update id="markFailed">
+        UPDATE promotion_link SET status = 'FAILED', last_error_code = #{errorCode},
+            last_error_message = #{errorMessage}, updated_at = CURRENT_TIMESTAMP WHERE id = #{id}
+    </update>
+    <update id="resetPending">
+        UPDATE promotion_link SET status = #{status}, last_error_code = NULL, last_error_message = NULL,
+            updated_at = #{updatedAt} WHERE id = #{id}
+    </update>
+</mapper>

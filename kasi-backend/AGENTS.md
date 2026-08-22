@@ -38,7 +38,7 @@
 - 短剧目录管理员 API 位于 `/api/admin/drama/catalog`；普通管理员和超级管理员均可分页查询、查看详情、触发同步、查询同步状态和修改本地上下架。同步默认每 5 分钟处理到期任务，支持断点续跑、过期租约接管和同连接/语言跨 FULL、INCREMENTAL 互斥；远端同步不得覆盖 `local_status`，也不得物理删除本次未返回的历史短剧。
 - 短剧平台分佣规则 API 位于 `/api/admin/drama/providers/{providerId}/commission-rules`：普通管理员和超级管理员均可 `GET` 只读查询，只有超级管理员可 `POST` 创建、`PUT` 编辑、`PATCH .../{ruleId}/end-time` 提前结束和 `DELETE` 删除。规则按平台配置，当前和未来接入账号及平台下所有短剧共用；API 使用 `0..100` 百分比，数据库使用 `0..1` 高精度比例，同平台 `[effectiveFrom,effectiveTo)` 时间段不得重叠。
 - 分佣规则状态由时间派生：`PENDING` 可编辑和删除，`ACTIVE` 只能提前结束，`ENDED` 永久只读。所有写操作先锁定 `short_drama_provider` 平台行再校验重叠；计算器全程使用 `BigDecimal`，中间保持高精度，最终金额保留两位并按 `HALF_UP` 四舍五入。
-- 推广链接、订单同步、订单费率快照、订单导出、钱包/结算和转化分析仍未实现；不得把平台分佣规则或纯计算器描述为订单级佣金闭环。
+- 推广链接生成已实现：用户可查询已上架且远端有效的短剧、查询本人链接并通过 `/api/user/promotion/links` 生成 GoodShort 链接/口令；V12 使用 requestKey 幂等并保存 trackingNo。订单同步、订单费率快照、订单导出、钱包/结算和转化分析仍未实现；不得把平台分佣规则或纯计算器描述为订单级佣金闭环。
 - 定时任务管理 API 位于 `/api/admin/system/scheduled-tasks`；固定任务 `GOODSHORT_DRAMA_INCREMENTAL_SYNC` 默认每 60 分钟入队，首次全量同步必须手动完成且成功基线存在后才会自动创建增量任务。周期支持 `INTERVAL_SECONDS/MINUTES/HOURS/DAYS`、`DAILY`、`WEEKLY`、`MONTHLY`、`YEARLY`，日历型周期同时保存执行时间及对应星期/日期字段。每分钟调度器只负责入队，现有短剧执行器继续每 5 分钟领取并执行；普通管理员只读，超级管理员可编辑周期、说明和启停状态。
 - Git 仓库：`https://github.com/wwxst/kasi-backend.git`，远程 `origin`，分支 `master`。
 - 在文档和代码审查中，请将当前架构与规划架构区分开来。不要将规划中的模块描述为已实现的模块。
