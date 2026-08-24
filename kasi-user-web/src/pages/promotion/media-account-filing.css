@@ -1,0 +1,151 @@
+.media-account-page {
+  min-width: 0;
+}
+
+.media-account-breadcrumb {
+  margin-bottom: 8px;
+  color: #86909c;
+  font-size: 13px;
+}
+
+.media-account-breadcrumb span {
+  color: #4e5969;
+}
+
+.media-account-list-shell {
+  padding: 24px;
+  overflow: hidden;
+  background: #ffffff;
+  border: 1px solid #e7e7e7;
+}
+
+.media-account-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 16px;
+}
+
+.media-account-toolbar-left,
+.media-account-toolbar-right {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.media-account-toolbar-right .t-input {
+  width: 240px;
+}
+
+.media-account-count {
+  color: #86909c;
+  font-size: 13px;
+}
+
+.media-account-filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.media-account-actions,
+.drawer-footer-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.media-account-list-shell .t-table {
+  min-width: 620px;
+}
+
+.media-account-list-shell .t-table__header {
+  background: #f7f8fa;
+}
+
+.media-account-list-shell .t-table__th,
+.media-account-list-shell .t-table__td {
+  height: 52px;
+  padding: 0 16px;
+}
+
+.media-account-list-shell .t-table__th {
+  color: #4e5969;
+  font-weight: 600;
+}
+
+.media-account-list-shell .t-table__content {
+  overflow-x: auto;
+}
+
+.media-account-empty {
+  display: grid;
+  justify-items: center;
+  gap: 12px;
+  padding: 48px 20px;
+  color: #86909c;
+}
+
+.media-account-empty p {
+  margin: 0;
+}
+
+.media-account-alert {
+  margin: 16px 20px;
+}
+
+.media-account-detail {
+  padding: 4px 0 24px;
+}
+
+.media-account-detail .details-grid {
+  grid-template-columns: 1fr;
+  gap: 18px;
+  margin-top: 12px;
+  padding-top: 0;
+  border-top: 0;
+}
+
+.media-account-detail .details-grid-secondary {
+  margin-top: 24px;
+  padding-top: 20px;
+  border-top: 1px solid #e7e7e7;
+}
+
+.media-account-detail dd {
+  overflow-wrap: anywhere;
+}
+
+.media-account-form {
+  display: grid;
+  gap: 20px;
+  padding: 4px 4px 24px;
+}
+
+.media-account-form .t-form__item {
+  margin-bottom: 0;
+}
+
+@media (max-width: 760px) {
+  .media-account-list-shell {
+    padding: 16px 12px;
+  }
+
+  .media-account-toolbar {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .media-account-toolbar-left,
+  .media-account-toolbar-right {
+    display: grid;
+    grid-template-columns: 1fr;
+  }
+
+  .media-account-toolbar-left .t-button,
+  .media-account-toolbar-right .t-select,
+  .media-account-toolbar-right .t-input {
+    width: 100% !important;
+  }
+}
