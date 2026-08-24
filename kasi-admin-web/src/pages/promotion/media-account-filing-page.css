@@ -1,0 +1,105 @@
+.media-account-filing-page .ant-pro-table {
+  overflow: hidden;
+}
+
+.media-account-filing-page__drawer .ant-drawer-body,
+.media-account-filing-page__edit-drawer .ant-drawer-body {
+  padding: 24px;
+}
+
+.media-account-filing-page__section {
+  margin-bottom: 24px;
+  padding-bottom: 20px;
+  border-bottom: 1px solid var(--admin-border, #f0f0f0);
+}
+
+.media-account-filing-page__section:last-child {
+  margin-bottom: 0;
+  border-bottom: 0;
+}
+
+.media-account-filing-page__section-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 16px;
+  color: var(--admin-heading, #1f1f1f);
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.media-account-filing-page__marker {
+  width: 3px;
+  height: 16px;
+  border-radius: 2px;
+  background: #1677ff;
+}
+
+.media-account-filing-page__identity {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin-bottom: 18px;
+}
+
+.media-account-filing-page__identity strong {
+  display: block;
+  color: var(--admin-heading, #1f1f1f);
+  font-size: 17px;
+}
+
+.media-account-filing-page__identity span {
+  display: block;
+  margin-top: 4px;
+  color: var(--admin-muted, #8c8c8c);
+  font-size: 13px;
+}
+
+.media-account-filing-page__filing {
+  padding: 14px 0;
+  border-top: 1px solid var(--admin-border, #f0f0f0);
+}
+
+.media-account-filing-page__filing:first-of-type {
+  border-top: 0;
+}
+
+.media-account-filing-page__filing-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 10px;
+}
+
+.media-account-filing-page__filing-meta {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px 20px;
+  color: var(--admin-muted, #666);
+  font-size: 13px;
+}
+
+.media-account-filing-page__filing-error {
+  margin-top: 10px;
+  color: #cf1322;
+  font-size: 13px;
+  line-height: 1.6;
+}
+
+.media-account-filing-page__edit-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+@media (max-width: 760px) {
+  .media-account-filing-page__drawer .ant-drawer-body,
+  .media-account-filing-page__edit-drawer .ant-drawer-body {
+    padding: 16px;
+  }
+
+  .media-account-filing-page__filing-meta {
+    grid-template-columns: 1fr;
+  }
+}

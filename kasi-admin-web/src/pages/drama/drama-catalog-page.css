@@ -1,0 +1,184 @@
+.drama-catalog-page .ant-pro-card {
+  border-radius: 6px;
+}
+
+.drama-catalog-page__cover {
+  display: flex;
+  width: 48px;
+  height: 68px;
+  flex: 0 0 48px;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  border: 1px solid var(--ant-color-border-secondary);
+  border-radius: 4px;
+  color: var(--ant-color-text-tertiary);
+  background: var(--ant-color-fill-quaternary);
+}
+
+.drama-catalog-page__cover--large {
+  width: 96px;
+  height: 136px;
+  flex-basis: 96px;
+}
+
+.drama-catalog-page__cover .ant-image,
+.drama-catalog-page__cover .ant-image-img {
+  width: 100%;
+  height: 100%;
+}
+
+.drama-catalog-page__cover .ant-image-img {
+  object-fit: cover;
+}
+
+.drama-catalog-page__title-cell {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.drama-catalog-page__title-cell strong,
+.drama-catalog-page__title-cell span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.drama-catalog-page__title-cell span {
+  color: var(--ant-color-text-tertiary);
+  font-size: 12px;
+}
+
+.drama-catalog-page__detail {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.drama-catalog-page__identity {
+  display: flex;
+  align-items: flex-start;
+  gap: 18px;
+  padding-bottom: 20px;
+  border-bottom: 1px solid var(--ant-color-border-secondary);
+}
+
+.drama-catalog-page__identity > div:last-child {
+  min-width: 0;
+  padding-top: 4px;
+}
+
+.drama-catalog-page__identity h2 {
+  margin: 0 0 8px;
+  font-size: 20px;
+  line-height: 1.35;
+}
+
+.drama-catalog-page__identity p {
+  margin: 0 0 10px;
+  color: var(--ant-color-text-secondary);
+}
+
+.drama-catalog-page__identity span {
+  color: var(--ant-color-text-tertiary);
+  font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
+  font-size: 12px;
+}
+
+.drama-catalog-page__section h3 {
+  margin: 0 0 14px;
+  font-size: 15px;
+}
+
+.drama-catalog-page__section-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.drama-catalog-page__section-heading span {
+  color: var(--ant-color-text-tertiary);
+  font-size: 12px;
+}
+
+.drama-catalog-page__description {
+  display: block;
+  max-width: 680px;
+  line-height: 1.7;
+  white-space: pre-wrap;
+}
+
+.drama-catalog-page__modal-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.drama-catalog-page__status-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
+.drama-catalog-page__status-toolbar .ant-select {
+  width: min(280px, calc(100% - 40px));
+}
+
+.drama-catalog-page__sync-task,
+.drama-catalog-page__sync-result {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.drama-catalog-page__sync-task span,
+.drama-catalog-page__sync-result span {
+  color: var(--ant-color-text-tertiary);
+  font-size: 12px;
+}
+
+.drama-catalog-page__sync-statistics {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(64px, 1fr));
+  gap: 4px 8px;
+  font-size: 12px;
+}
+
+.drama-catalog-page__sync-result code {
+  color: var(--ant-color-error);
+  font-size: 11px;
+  white-space: normal;
+  word-break: break-word;
+}
+
+.drama-catalog-page__sync-result strong {
+  color: var(--ant-color-error-text);
+  font-size: 12px;
+  font-weight: 400;
+  line-height: 1.5;
+  white-space: normal;
+  word-break: break-word;
+}
+
+@media (max-width: 720px) {
+  .drama-catalog-page__drawer .ant-drawer-content-wrapper {
+    width: 100% !important;
+  }
+
+  .drama-catalog-page__status-drawer .ant-drawer-content-wrapper {
+    width: 100% !important;
+  }
+
+  .drama-catalog-page__identity {
+    align-items: center;
+  }
+
+  .drama-catalog-page__cover--large {
+    width: 72px;
+    height: 102px;
+    flex-basis: 72px;
+  }
+}

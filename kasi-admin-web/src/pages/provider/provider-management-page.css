@@ -1,0 +1,185 @@
+.provider-config-page {
+  width: auto;
+  margin: -18px -28px -28px;
+}
+
+.provider-config-page .ant-pro-page-container-children-container {
+  min-width: 0;
+}
+
+.provider-config-panel {
+  min-height: 560px;
+  border: 1px solid var(--ant-color-border-secondary, #f0f0f0);
+  background: var(--ant-color-bg-container, #ffffff);
+}
+
+.provider-config-tabs {
+  padding: 12px 24px 0;
+}
+
+.provider-config-tabs .ant-tabs-nav {
+  margin-bottom: 0;
+}
+
+.provider-config-content {
+  padding: 24px 30px 8px;
+}
+
+.provider-config-heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 24px;
+  margin-bottom: 28px;
+}
+
+.provider-config-heading h2 {
+  margin: 0 0 6px;
+  font-size: 16px;
+  font-weight: 600;
+  letter-spacing: 0;
+}
+
+.provider-config-heading > div > span {
+  color: var(--ant-color-text-secondary, rgb(0 0 0 / 65%));
+}
+
+.provider-config-content .ant-alert {
+  max-width: 740px;
+  margin-bottom: 24px;
+}
+
+.provider-config-form {
+  max-width: 780px;
+}
+
+.provider-config-form .ant-form-item {
+  margin-bottom: 28px;
+}
+
+.provider-config-footer {
+  position: sticky;
+  z-index: 2;
+  bottom: 0;
+  display: flex;
+  gap: 12px;
+  padding: 16px 30px;
+  border-top: 1px solid var(--ant-color-border-secondary, #f0f0f0);
+  background: rgb(255 255 255 / 96%);
+  backdrop-filter: blur(8px);
+}
+
+.provider-config-test-copy {
+  line-height: 1.8;
+}
+
+.commission-rule-section {
+  margin-top: 32px;
+  padding-top: 24px;
+  border-top: 1px solid var(--ant-color-border-secondary, #f0f0f0);
+}
+
+.commission-rule-heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 16px;
+}
+
+.commission-rule-heading h3 {
+  margin: 0 0 6px;
+  font-size: 16px;
+  font-weight: 600;
+  letter-spacing: 0;
+}
+
+.commission-rule-heading span {
+  color: var(--ant-color-text-secondary, rgb(0 0 0 / 65%));
+}
+
+.commission-rule-table-wrap {
+  min-height: 52px;
+  overflow-x: auto;
+}
+
+.commission-rule-table {
+  width: 100%;
+  min-width: 980px;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+
+.commission-rule-table th,
+.commission-rule-table td {
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--ant-color-border-secondary, #f0f0f0);
+  text-align: left;
+  white-space: nowrap;
+}
+
+.commission-rule-table th {
+  color: var(--ant-color-text-secondary, rgb(0 0 0 / 65%));
+  font-weight: 500;
+  background: var(--ant-color-fill-quaternary, #fafafa);
+}
+
+.commission-rule-table td[colspan] {
+  padding: 24px;
+  color: var(--ant-color-text-secondary, rgb(0 0 0 / 65%));
+  text-align: center;
+}
+
+.commission-rule-rate-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0 16px;
+}
+
+.commission-rule-rate-grid .ant-input-number {
+  width: 100%;
+}
+
+@media (max-width: 760px) {
+  .provider-config-page {
+    margin: -14px -16px -20px;
+  }
+
+  .provider-config-panel {
+    min-height: 520px;
+  }
+
+  .provider-config-tabs {
+    padding: 8px 16px 0;
+  }
+
+  .provider-config-content {
+    padding: 20px 16px 4px;
+  }
+
+  .provider-config-heading {
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .provider-config-form .ant-form-item-row {
+    display: block;
+  }
+
+  .provider-config-form .ant-form-item-label,
+  .provider-config-form .ant-form-item-control {
+    max-width: 100%;
+  }
+
+  .provider-config-footer {
+    padding: 14px 16px;
+  }
+
+  .commission-rule-heading {
+    flex-direction: column;
+  }
+
+  .commission-rule-rate-grid {
+    grid-template-columns: 1fr;
+  }
+}
