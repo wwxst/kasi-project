@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.kasi.backend.drama.mapper.ProviderDramaMapper">
+    <resultMap id="DramaMap" type="com.kasi.backend.drama.entity.ProviderDrama">
+        <id column="id" property="id"/><result column="connection_id" property="connectionId"/>
+        <result column="provider_id" property="providerId"/><result column="provider_name" property="providerName"/>
+        <result column="external_drama_id" property="externalDramaId"/><result column="title" property="title"/>
+        <result column="original_title" property="originalTitle"/><result column="description" property="description"/>
+        <result column="cover_url" property="coverUrl"/><result column="language" property="language"/>
+        <result column="drama_type" property="dramaType"/><result column="remote_show_status" property="remoteShowStatus"/>
+        <result column="local_status" property="localStatus"/><result column="remote_updated_at" property="remoteUpdatedAt"/>
+        <result column="commission_scope" property="commissionScope"/><result column="promotion_description" property="promotionDescription"/>
+        <result column="last_seen_at" property="lastSeenAt"/><result column="created_at" property="createdAt"/><result column="updated_at" property="updatedAt"/>
+    </resultMap>
+    <resultMap id="ContentMap" type="com.kasi.backend.drama.entity.ProviderDramaContent">
+        <id column="id" property="id"/><result column="drama_id" property="dramaId"/><result column="external_content_id" property="externalContentId"/>
+        <result column="sequence_no" property="sequenceNo"/><result column="title" property="title"/><result column="is_free" property="free"/>
+        <result column="duration_seconds" property="durationSeconds"/><result column="remote_updated_at" property="remoteUpdatedAt"/>
+        <result column="created_at" property="createdAt"/><result column="updated_at" property="updatedAt"/>
+    </resultMap>
+    <select id="findById" resultMap="DramaMap">SELECT * FROM provider_drama WHERE id = #{id}</select>
+    <select id="findByConnectionAndExternalId" resultMap="DramaMap">SELECT * FROM provider_drama WHERE connection_id = #{connectionId} AND external_drama_id = #{externalDramaId}</select>
+    <sql id="filters"><where><if test="connectionId != null">connection_id = #{connectionId}</if><if test="title != null and title != ''">AND title LIKE CONCAT('%',#{title},'%')</if><if test="language != null and language != ''">AND language = #{language}</if><if test="remoteShowStatus != null and remoteShowStatus != ''">AND remote_show_status = #{remoteShowStatus}</if><if test="localStatus != null">AND local_status = #{localStatus}</if></where></sql>
+    <select id="count" resultType="long">SELECT COUNT(*) FROM provider_drama <include refid="filters"/></select>
+    <select id="page" resultMap="DramaMap">SELECT * FROM provider_drama <include refid="filters"/> ORDER BY id DESC LIMIT #{offset}, #{size}</select>
+    <insert id="upsert" useGeneratedKeys="true" keyProperty="id">INSERT INTO provider_drama (connection_id,external_drama_id,title,original_title,description,cover_url,language,drama_type,remote_show_status,remote_updated_at,last_seen_at) VALUES (#{connectionId},#{externalDramaId},#{title},#{originalTitle},#{description},#{coverUrl},#{language},#{dramaType},#{remoteShowStatus},#{remoteUpdatedAt},#{lastSeenAt}) ON DUPLICATE KEY UPDATE title=VALUES(title),original_title=VALUES(original_title),description=VALUES(description),cover_url=VALUES(cover_url),language=VALUES(language),drama_type=VALUES(drama_type),remote_show_status=VALUES(remote_show_status),remote_updated_at=VALUES(remote_updated_at),last_seen_at=VALUES(last_seen_at),updated_at=CURRENT_TIMESTAMP</insert>
+    <select id="findContents" resultMap="ContentMap">SELECT * FROM provider_drama_content WHERE drama_id = #{dramaId} ORDER BY sequence_no ASC</select>
+    <insert id="upsertContent" useGeneratedKeys="true" keyProperty="id">INSERT INTO provider_drama_content (drama_id,external_content_id,sequence_no,title,is_free,duration_seconds,remote_updated_at) VALUES (#{dramaId},#{externalContentId},#{sequenceNo},#{title},#{free},#{durationSeconds},#{remoteUpdatedAt}) ON DUPLICATE KEY UPDATE external_content_id=VALUES(external_content_id),title=VALUES(title),is_free=VALUES(is_free),duration_seconds=VALUES(duration_seconds),remote_updated_at=VALUES(remote_updated_at),updated_at=CURRENT_TIMESTAMP</insert>
+    <update id="updateLocalStatus">UPDATE provider_drama SET local_status=#{localStatus},updated_at=CURRENT_TIMESTAMP WHERE id=#{id}</update>
+    <update id="updatePromotionMetadata">UPDATE provider_drama SET commission_scope=#{commissionScope},promotion_description=#{promotionDescription},updated_at=CURRENT_TIMESTAMP WHERE id=#{id}</update>
+    <select id="countPublished" resultType="long">SELECT COUNT(*) FROM provider_drama WHERE local_status = 'PUBLISHED' AND remote_show_status = '1'</select>
+    <select id="pagePublished" resultMap="DramaMap">SELECT d.*, c.provider_id, p.provider_name FROM provider_drama d JOIN short_drama_connection c ON c.id = d.connection_id JOIN short_drama_provider p ON p.id = c.provider_id WHERE d.local_status = 'PUBLISHED' AND d.remote_show_status = '1' ORDER BY d.id DESC LIMIT #{offset}, #{size}</select>
+</mapper>

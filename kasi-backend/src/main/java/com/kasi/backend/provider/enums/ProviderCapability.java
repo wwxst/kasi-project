@@ -1,0 +1,16 @@
+package com.kasi.backend.provider.enums;
+
+public enum ProviderCapability {
+    FULL_DRAMA_SYNC,
+    INCREMENTAL_DRAMA_SYNC,
+    FREE_CONTENT_PREVIEW,
+    SINGLE_DOWNLOAD,
+    BATCH_DOWNLOAD,
+    ACCOUNT_FILING,
+    FILING_STATUS_QUERY,
+    PROMOTION_LINK,
+    PROMOTION_CODE,
+    TIKTOK_ANCHOR,
+    ORDER_SYNC,
+    ANALYTICS_SYNC
+}
