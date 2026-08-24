@@ -1,0 +1,17 @@
+**/node_modules/
+**/dist/
+**/coverage/
+**/target/
+**/build/
+**/*.tsbuildinfo
+**/.env
+**/.env.local
+**/dump.rdb
+**/.superpowers/
+**/.worktrees/
+*.log
+**/.idea/
+**/.vscode/*
+!**/.vscode/extensions.json
+**/.DS_Store
+**/*.iml

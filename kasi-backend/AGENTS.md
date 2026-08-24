@@ -1,5 +1,7 @@
 # Agent 指南
 
+> 根级规则优先：请先阅读 [仓库 AGENTS.md](../AGENTS.md) 和 [DEVELOPMENT.md](../DEVELOPMENT.md)。本文件只补充后端 Java、Spring、数据库、认证和测试的项目特有约束。
+
 ## 适用范围
 
 - 本文件适用于仓库根目录 `E:/JavaProjects/kasi-project/kasi-backend`。
@@ -17,7 +19,7 @@
 5. **最小改动优先**：只改动导致问题和验证所必需的代码，不为未发布 API 保留无意义兼容层，也不因“以后可能需要”提前引入抽象或复杂系统。
 6. **先定义验证**：实现前确定失败路径、成功路径和边界条件的测试或可重复检查；涉及安全、并发、事务、迁移和外部平台时，必须覆盖对应风险。
 7. **完成后再宣称**：运行与变更风险匹配的测试、编译、迁移/结构检查和 `git diff --check`；没有最新的零错误输出，不得宣称已修复或测试健康。
-8. **同步沉淀**：行为、边界、命令、迁移或架构发生变化时，同步更新 `README.md`、模块文档或 `DEVELOPMENT.md`；重要架构决策按 [docs/architecture-decisions.md](docs/architecture-decisions.md) 记录。
+8. **同步沉淀**：行为、边界、命令、迁移或架构发生变化时，同步更新 `README.md`、模块文档或 `DEVELOPMENT.md`；重要架构决策按 [根级 ADR](../docs/adr/ADR-0001-root-monorepo.md) 或后续 ADR 记录。
 9. **保持当前/规划分离**：文档、代码审查和交接中必须明确“当前已实现”“已批准但未实施”“建议/缺口”，不得把计划描述成现状。
 10. **保留用户改动**：禁止用 `git reset --hard`、`git checkout --` 或批量暂存覆盖无关改动；提交时按意图逐文件暂存并复核 diff。
 

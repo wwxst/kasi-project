@@ -1,5 +1,7 @@
 # Kasi 用户中心
 
+> 本文件只记录用户端技术栈、页面和命令。跨项目规则见 [根 README](../README.md)、[DEVELOPMENT.md](../DEVELOPMENT.md)、[文档索引](../docs/README.md) 和 [用户端项目说明](../docs/projects/kasi-user-web.md)。
+
 Kasi 推广平台的独立用户端前端，后端项目位于同级目录
 `../kasi-backend`。应用面向电脑浏览器设计，并保留移动端基本可用性。
 
