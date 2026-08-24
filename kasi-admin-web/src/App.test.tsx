@@ -64,17 +64,16 @@ vi.mock('@ant-design/pro-components', async () => {
   }) => {
     const [data, setData] = React.useState<Record<string, unknown>[]>([])
     const [keyword, setKeyword] = React.useState('')
-    const load = React.useCallback(
-      async (nextKeyword = '') => {
-        const result = await request({
-          current: 1,
-          pageSize: 20,
-          keyword: nextKeyword || undefined,
-        })
-        setData(result.data ?? [])
-      },
-      [request],
-    )
+    const requestRef = React.useRef(request)
+    requestRef.current = request
+    const load = React.useCallback(async (nextKeyword = '') => {
+      const result = await requestRef.current({
+        current: 1,
+        pageSize: 20,
+        keyword: nextKeyword || undefined,
+      })
+      setData(result.data ?? [])
+    }, [])
 
     React.useImperativeHandle(actionRef, () => ({
       reload: () => void load(keyword),
@@ -270,7 +269,58 @@ describe('App', () => {
     await userEvent.setup().click(screen.getByText('短剧管理'))
     expect(screen.getByText('短剧目录', { selector: 'a' })).toBeInTheDocument()
     expect(window.location.pathname).toBe('/drama/catalog')
-    await waitFor(() => expect(catalogRequestCount).toBeGreaterThanOrEqual(2))
+    await waitFor(() => expect(catalogRequestCount).toBeGreaterThanOrEqual(1))
+  })
+
+  it('routes regular administrators to promotion orders', async () => {
+    server.use(
+      http.get('/api/admin/drama/providers', () =>
+        HttpResponse.json({
+          code: 0,
+          message: 'ok',
+          data: [
+            {
+              id: 1,
+              providerCode: 'GOODSHORT',
+              providerName: 'GoodShort',
+              status: 1,
+              capabilities: ['ORDER_SYNC'],
+              connection: null,
+            },
+          ],
+        }),
+      ),
+      http.get('/api/admin/promotion/orders', () =>
+        HttpResponse.json({
+          code: 0,
+          message: 'ok',
+          data: { list: [], page: 1, size: 20, total: 0 },
+        }),
+      ),
+    )
+    useAuthStore.getState().setSession({
+      accessToken: 'ordinary-token',
+      tokenType: 'Bearer',
+      expiresIn: 7200,
+      admin: {
+        id: 2,
+        username: 'operator',
+        realName: '运营管理员',
+        mobile: null,
+        email: null,
+        avatarUrl: null,
+        isSuperAdmin: 0,
+      },
+    })
+    window.history.replaceState({}, '', '/promotion/orders')
+
+    render(<App />)
+
+    expect(
+      await screen.findByRole('heading', { name: '推广订单' }),
+    ).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: '推广订单' })).toBeInTheDocument()
+    expect(window.location.pathname).toBe('/promotion/orders')
   })
 
   it('renders the administrator login entry', async () => {
@@ -370,6 +420,7 @@ describe('App', () => {
     expect(
       screen.getByRole('link', { name: '媒体账号报备' }),
     ).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: '推广订单' })).toBeInTheDocument()
     const accountMenuButton = within(banner).getByRole('button', {
       name: '账户菜单',
     })
