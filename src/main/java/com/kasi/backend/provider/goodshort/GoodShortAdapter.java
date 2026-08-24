@@ -27,7 +27,14 @@ import com.kasi.backend.provider.goodshort.dto.GoodShortBookData;
 import com.kasi.backend.provider.goodshort.dto.GoodShortCatalogResponse;
 import com.kasi.backend.provider.goodshort.dto.GoodShortEpisodeData;
 import com.kasi.backend.provider.goodshort.dto.GoodShortPromotionLinkResponse;
+import com.kasi.backend.provider.goodshort.dto.GoodShortOrderResponse;
 import com.kasi.backend.provider.vo.ProviderConnectionTestVO;
+import com.kasi.backend.provider.spi.OrderSyncProviderAdapter;
+import com.kasi.backend.provider.spi.OrderSyncRequest;
+import com.kasi.backend.provider.spi.ProviderOrderPage;
+import com.kasi.backend.provider.spi.ProviderOrderRecord;
+import com.kasi.backend.provider.spi.ProviderOrderStatus;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.ResourceAccessException;
@@ -40,13 +47,16 @@ import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.OffsetDateTime;
 import java.time.format.DateTimeFormatter;
+import java.math.BigDecimal;
+import java.math.RoundingMode;
+import java.util.List;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Set;
 
 @Component
 public class GoodShortAdapter implements AccountFilingProviderAdapter, DramaCatalogProviderAdapter,
-        PromotionLinkProviderAdapter {
+        PromotionLinkProviderAdapter, OrderSyncProviderAdapter {
 
     private static final String PROVIDER_CODE = "GOODSHORT";
     private static final String CONNECTION_PROBE_PATH = "/open/book/initBooks";
@@ -54,6 +64,7 @@ public class GoodShortAdapter implements AccountFilingProviderAdapter, DramaCata
     private static final String FILING_QUERY_PATH = "/open/filing/query";
     private static final String FULL_CATALOG_PATH = "/open/book/initBooks";
     private static final String INCREMENTAL_CATALOG_PATH = "/open/book/incrementBooks";
+    private static final String ORDER_PATH = "/open/partner/orders";
     private static final Set<ProviderCapability> CAPABILITIES = Set.of(
             ProviderCapability.FULL_DRAMA_SYNC,
             ProviderCapability.INCREMENTAL_DRAMA_SYNC,
@@ -64,22 +75,31 @@ public class GoodShortAdapter implements AccountFilingProviderAdapter, DramaCata
             ProviderCapability.FILING_STATUS_QUERY,
             ProviderCapability.PROMOTION_LINK,
             ProviderCapability.PROMOTION_CODE,
-            ProviderCapability.ORDER_SYNC,
-            ProviderCapability.ANALYTICS_SYNC);
+            ProviderCapability.ORDER_SYNC);
     private static final DateTimeFormatter REMOTE_DATE_FORMAT =
             DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss.SSSZ");
     private static final DateTimeFormatter REMOTE_DATE_FORMAT_WITHOUT_MILLIS =
             DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ssZ");
+    private static final DateTimeFormatter ORDER_DATE_FORMAT =
+            DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
 
     private final RestClient restClient;
     private final GoodShortSigner signer;
     private final Clock clock;
+    private final tools.jackson.databind.ObjectMapper objectMapper;
 
+    @Autowired
     public GoodShortAdapter(@Qualifier("goodShortRestClient") RestClient restClient,
-                            GoodShortSigner signer, Clock clock) {
+                            GoodShortSigner signer, Clock clock,
+                            tools.jackson.databind.ObjectMapper objectMapper) {
         this.restClient = restClient;
         this.signer = signer;
         this.clock = clock;
+        this.objectMapper = objectMapper;
+    }
+
+    GoodShortAdapter(RestClient restClient, GoodShortSigner signer, Clock clock) {
+        this(restClient, signer, clock, tools.jackson.databind.json.JsonMapper.builder().build());
     }
 
     @Override
@@ -179,6 +199,110 @@ public class GoodShortAdapter implements AccountFilingProviderAdapter, DramaCata
         }
         return new PromotionLinkResult(response.getData().getCode(), response.getData().getShareUrl(),
                 response.getData().getCustomParams());
+    }
+
+    @Override
+    public ProviderOrderPage fetchOrders(ProviderConnectionSecret connection, OrderSyncRequest request) {
+        Map<String, Object> parameters = new LinkedHashMap<>();
+        parameters.put("pid", connection.getPartnerId());
+        parameters.put("timestamp", clock.millis());
+        parameters.put("pageNo", request.pageNo());
+        parameters.put("pageSize", request.pageSize());
+        parameters.put("startDate", request.startDate().format(ORDER_DATE_FORMAT));
+        parameters.put("endDate", request.endDate().format(ORDER_DATE_FORMAT));
+
+        GoodShortOrderResponse response = postOrders(connection, parameters);
+        if (!successful(response) || response.getData() == null || response.getData().getRecords() == null) {
+            throw new ProviderRemoteRejectedException("GoodShort order response is incomplete");
+        }
+        var data = response.getData();
+        List<ProviderOrderRecord> records = data.getRecords().stream()
+                .map(record -> mapOrder(record, connection.getCurrency()))
+                .toList();
+        int pageNo = data.getPageNo() == null ? request.pageNo() : data.getPageNo();
+        int pageSize = data.getPageSize() == null ? request.pageSize() : data.getPageSize();
+        int pages = data.getPages() == null ? pageNo : data.getPages();
+        long total = data.getTotal() == null ? records.size() : data.getTotal();
+        boolean hasNext = !records.isEmpty() && pageNo < pages && (long) pageNo * pageSize < total;
+        return new ProviderOrderPage(records, pageNo, pageSize, pages, total, hasNext);
+    }
+
+    private ProviderOrderRecord mapOrder(Map<String, Object> record, String currency) {
+        String externalOrderId = stringValue(record.get("orderId"));
+        if (externalOrderId == null || externalOrderId.isBlank()) {
+            throw new ProviderRemoteRejectedException("GoodShort orderId is missing");
+        }
+        long amountMinor = longValue(record.get("payMoney"));
+        String rawStatus = stringValue(record.get("payStatus"));
+        ProviderOrderStatus status = switch (rawStatus == null ? "" : rawStatus) {
+            case "0" -> ProviderOrderStatus.UNPAID;
+            case "1" -> ProviderOrderStatus.PAID;
+            case "3" -> ProviderOrderStatus.REFUNDED;
+            default -> ProviderOrderStatus.UNKNOWN;
+        };
+        return new ProviderOrderRecord(
+                externalOrderId,
+                stringValue(record.get("userId")),
+                amountMinor,
+                BigDecimal.valueOf(amountMinor).movePointLeft(2).setScale(2, RoundingMode.UNNECESSARY),
+                currency,
+                parseOrderTime(stringValue(record.get("payTime"))),
+                status,
+                rawStatus,
+                stringValue(record.get("customParams")),
+                stringValue(record.get("bookId")),
+                stringValue(record.get("searchCode")),
+                stringValue(record.get("channelCode")),
+                stringValue(record.get("pid")),
+                parseOrderTime(stringValue(record.get("utime"))),
+                writeJson(record));
+    }
+
+    private GoodShortOrderResponse postOrders(ProviderConnectionSecret connection,
+                                               Map<String, Object> parameters) {
+        String signature = signer.sign(parameters, connection.getApiKey());
+        try {
+            return restClient.mutate().baseUrl(connection.getBaseUrl()).build().post().uri(ORDER_PATH)
+                    .contentType(org.springframework.http.MediaType.APPLICATION_JSON).header("sign", signature)
+                    .body(parameters).retrieve().body(GoodShortOrderResponse.class);
+        } catch (ResourceAccessException exception) {
+            throw new ProviderTransientException("GoodShort order service is temporarily unavailable");
+        } catch (RestClientResponseException exception) {
+            if (exception.getStatusCode().is5xxServerError() || exception.getStatusCode().value() == 429) {
+                throw new ProviderTransientException("GoodShort order service is temporarily unavailable");
+            }
+            throw new ProviderRemoteRejectedException("GoodShort order request was rejected");
+        } catch (RestClientException exception) {
+            throw new ProviderRemoteRejectedException("GoodShort order response is malformed");
+        }
+    }
+
+    private boolean successful(GoodShortOrderResponse response) {
+        return response != null && Integer.valueOf(0).equals(response.getStatus())
+                && Boolean.TRUE.equals(response.getSuccess());
+    }
+
+    private LocalDateTime parseOrderTime(String value) {
+        return value == null || value.isBlank() ? null : LocalDateTime.parse(value, ORDER_DATE_FORMAT);
+    }
+
+    private long longValue(Object value) {
+        if (value instanceof Number number) {
+            return number.longValue();
+        }
+        return value == null ? 0L : Long.parseLong(value.toString());
+    }
+
+    private String stringValue(Object value) {
+        return value == null ? null : value.toString();
+    }
+
+    private String writeJson(Map<String, Object> value) {
+        try {
+            return objectMapper.writeValueAsString(value);
+        } catch (tools.jackson.core.JacksonException exception) {
+            throw new ProviderRemoteRejectedException("GoodShort order payload cannot be preserved");
+        }
     }
 
     private DramaCatalogPage fetchCatalog(ProviderConnectionSecret connection,

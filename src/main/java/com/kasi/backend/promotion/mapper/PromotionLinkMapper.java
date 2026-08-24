@@ -12,6 +12,7 @@ import java.util.List;
 public interface PromotionLinkMapper {
     PromotionLink findByUserAndRequestKey(@Param("userId") Long userId, @Param("requestKey") String requestKey);
     PromotionLink findByUserAndRequestKeyForUpdate(@Param("userId") Long userId, @Param("requestKey") String requestKey);
+    PromotionLink findByTrackingNo(@Param("trackingNo") String trackingNo);
     long countByUserId(@Param("userId") Long userId);
     List<PromotionLink> findPageByUserId(@Param("userId") Long userId,
                                          @Param("offset") int offset, @Param("size") int size);

@@ -1,0 +1,143 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.kasi.backend.promotion.mapper.PromotionOrderMapper">
+    <resultMap id="PromotionOrderMap" type="com.kasi.backend.promotion.entity.PromotionOrder">
+        <id column="id" property="id"/>
+        <result column="connection_id" property="connectionId"/>
+        <result column="provider_id" property="providerId"/>
+        <result column="external_order_id" property="externalOrderId"/>
+        <result column="external_user_id" property="externalUserId"/>
+        <result column="external_drama_id" property="externalDramaId"/>
+        <result column="search_code" property="searchCode"/>
+        <result column="channel_code" property="channelCode"/>
+        <result column="partner_id" property="partnerId"/>
+        <result column="order_amount_minor" property="orderAmountMinor"/>
+        <result column="order_amount" property="orderAmount"/>
+        <result column="currency" property="currency"/>
+        <result column="raw_status" property="rawStatus"/>
+        <result column="status" property="status"/>
+        <result column="paid_at" property="paidAt"/>
+        <result column="provider_updated_at" property="providerUpdatedAt"/>
+        <result column="custom_params" property="customParams"/>
+        <result column="tracking_no" property="trackingNo"/>
+        <result column="promotion_link_id" property="promotionLinkId"/>
+        <result column="user_id" property="userId"/>
+        <result column="media_account_id" property="mediaAccountId"/>
+        <result column="drama_id" property="dramaId"/>
+        <result column="attribution_status" property="attributionStatus"/>
+        <result column="rule_history_id" property="ruleHistoryId"/>
+        <result column="channel_fee_rate" property="channelFeeRate"/>
+        <result column="principal_fee_rate" property="principalFeeRate"/>
+        <result column="principal_commission_rate" property="principalCommissionRate"/>
+        <result column="downstream_fee_rate" property="downstreamFeeRate"/>
+        <result column="downstream_commission_rate" property="downstreamCommissionRate"/>
+        <result column="commission_amount" property="commissionAmount"/>
+        <result column="commission_status" property="commissionStatus"/>
+        <result column="raw_payload_json" property="rawPayloadJson"/>
+        <result column="sync_start_date" property="syncStartDate"/>
+        <result column="sync_end_date" property="syncEndDate"/>
+        <result column="first_synced_at" property="firstSyncedAt"/>
+        <result column="last_synced_at" property="lastSyncedAt"/>
+        <result column="last_error_message" property="lastErrorMessage"/>
+        <result column="created_at" property="createdAt"/>
+        <result column="updated_at" property="updatedAt"/>
+    </resultMap>
+
+    <sql id="sourceColumns">
+        connection_id, provider_id, external_order_id, external_user_id, external_drama_id,
+        search_code, channel_code, partner_id, order_amount_minor, order_amount, currency,
+        raw_status, status, paid_at, provider_updated_at, custom_params, raw_payload_json,
+        sync_start_date, sync_end_date, first_synced_at, last_synced_at
+    </sql>
+
+    <select id="findBySource" resultMap="PromotionOrderMap">
+        SELECT * FROM promotion_order
+        WHERE connection_id=#{connectionId} AND external_order_id=#{externalOrderId}
+    </select>
+
+    <select id="findBySourceForUpdate" resultMap="PromotionOrderMap">
+        SELECT * FROM promotion_order
+        WHERE connection_id=#{connectionId} AND external_order_id=#{externalOrderId}
+        FOR UPDATE
+    </select>
+
+    <insert id="insert" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO promotion_order
+        (<include refid="sourceColumns"/>, tracking_no, promotion_link_id, user_id, media_account_id,
+         drama_id, attribution_status, rule_history_id, channel_fee_rate, principal_fee_rate,
+         principal_commission_rate, downstream_fee_rate, downstream_commission_rate,
+         commission_amount, commission_status, last_error_message)
+        VALUES
+        (#{connectionId}, #{providerId}, #{externalOrderId}, #{externalUserId}, #{externalDramaId},
+         #{searchCode}, #{channelCode}, #{partnerId}, #{orderAmountMinor}, #{orderAmount}, #{currency},
+         #{rawStatus}, #{status}, #{paidAt}, #{providerUpdatedAt}, #{customParams}, #{rawPayloadJson},
+         #{syncStartDate}, #{syncEndDate}, #{firstSyncedAt}, #{lastSyncedAt}, #{trackingNo},
+         #{promotionLinkId}, #{userId}, #{mediaAccountId}, #{dramaId}, #{attributionStatus},
+         #{ruleHistoryId}, #{channelFeeRate}, #{principalFeeRate}, #{principalCommissionRate},
+         #{downstreamFeeRate}, #{downstreamCommissionRate}, #{commissionAmount},
+         #{commissionStatus}, #{lastErrorMessage})
+    </insert>
+
+    <update id="updateSourceFields">
+        UPDATE promotion_order
+        SET external_user_id=#{externalUserId}, external_drama_id=#{externalDramaId},
+            search_code=#{searchCode}, channel_code=#{channelCode}, partner_id=#{partnerId},
+            order_amount_minor=#{orderAmountMinor}, order_amount=#{orderAmount}, currency=#{currency},
+            raw_status=#{rawStatus}, status=#{status}, paid_at=#{paidAt},
+            provider_updated_at=#{providerUpdatedAt}, custom_params=#{customParams},
+            raw_payload_json=#{rawPayloadJson}, sync_start_date=#{syncStartDate},
+            sync_end_date=#{syncEndDate}, last_synced_at=#{lastSyncedAt}, updated_at=CURRENT_TIMESTAMP
+        WHERE id=#{id}
+    </update>
+
+    <update id="markCommissionReversed">
+        UPDATE promotion_order SET commission_status='REVERSED', updated_at=CURRENT_TIMESTAMP
+        WHERE id=#{id} AND commission_amount IS NOT NULL
+    </update>
+
+    <update id="applyAttributionAndCommission">
+        UPDATE promotion_order
+        SET tracking_no=#{trackingNo}, promotion_link_id=#{promotionLinkId}, user_id=#{userId},
+            media_account_id=#{mediaAccountId}, drama_id=#{dramaId},
+            attribution_status=#{attributionStatus}, rule_history_id=#{ruleHistoryId},
+            channel_fee_rate=#{channelFeeRate}, principal_fee_rate=#{principalFeeRate},
+            principal_commission_rate=#{principalCommissionRate}, downstream_fee_rate=#{downstreamFeeRate},
+            downstream_commission_rate=#{downstreamCommissionRate}, commission_amount=#{commissionAmount},
+            commission_status=#{commissionStatus}, last_error_message=#{lastErrorMessage},
+            updated_at=CURRENT_TIMESTAMP
+        WHERE id=#{id} AND rule_history_id IS NULL
+    </update>
+
+    <sql id="queryFilters">
+        <where>
+            <if test="providerId != null">provider_id=#{providerId}</if>
+            <if test="userId != null">AND user_id=#{userId}</if>
+            <if test="status != null">AND status=#{status}</if>
+            <if test="attributionStatus != null">AND attribution_status=#{attributionStatus}</if>
+            <if test="startDate != null">AND paid_at &gt;= #{startDate}</if>
+            <if test="endDate != null">AND paid_at &lt; #{endDate}</if>
+        </where>
+    </sql>
+
+    <select id="countPage" resultType="long">
+        SELECT COUNT(*) FROM promotion_order <include refid="queryFilters"/>
+    </select>
+
+    <select id="findPage" resultMap="PromotionOrderMap">
+        SELECT * FROM promotion_order <include refid="queryFilters"/>
+        ORDER BY paid_at DESC, id DESC LIMIT #{offset}, #{size}
+    </select>
+
+    <select id="summarizeMonth" resultType="com.kasi.backend.promotion.entity.PromotionOrderMonthlySummary">
+        SELECT
+            COALESCE(SUM(CASE WHEN status='PAID' THEN 1 ELSE 0 END), 0) AS paid_order_count,
+            COALESCE(SUM(CASE WHEN status='PAID' THEN order_amount ELSE 0 END), 0) AS gross_order_amount,
+            COALESCE(SUM(CASE WHEN commission_status='CALCULATED' THEN commission_amount ELSE 0 END), 0)
+                AS calculated_commission,
+            COALESCE(SUM(CASE WHEN commission_status='REVERSED' THEN commission_amount ELSE 0 END), 0)
+                AS reversed_commission
+        FROM promotion_order
+        WHERE user_id=#{userId} AND attribution_status='ATTRIBUTED'
+          AND paid_at &gt;= #{startDate} AND paid_at &lt; #{endDate}
+    </select>
+</mapper>
