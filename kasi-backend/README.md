@@ -186,8 +186,9 @@ mysql --host=127.0.0.1 --user=$env:SPRING_DATASOURCE_USERNAME --password --datab
 | MySQL | `short_drama_provider` | 短剧平台定义 | provider_code, provider_name, status |
 | MySQL | `short_drama_connection` | 平台机构接入账号（仅保存密钥密文；人工报备可不配置 API 凭据） | provider_id, base_url, partner_id, api_key_ciphertext, filing_mode, status |
 | MySQL | `promotion_media_account` | 推广用户绑定的媒体账号（不可物理删除） | user_id, media_type, external_account_id, account_name, account_link, status, data_version |
+| MySQL | `promotion_task` | 推广用户按短剧和推广平台创建的任务，以及待生成链接和后续统计字段 | user_id, provider_id, connection_id, drama_id, request_key, media_type, status, tracking_no, click/lead/order/ad counters |
 | MySQL | `provider_media_filing` | 媒体账号按平台保存的报备状态和任务信息 | connection_id, media_account_id, status, next_action, retry_count |
-| MySQL | `provider_drama` | 按接入账号保存的短剧目录，本地状态与远端状态分离 | connection_id, external_drama_id, language, remote_show_status, local_status |
+| MySQL | `provider_drama` | 按接入账号保存的短剧目录，本地状态、远端状态与本地推广元数据分离 | connection_id, external_drama_id, language, remote_show_status, local_status, commission_scope, promotion_description |
 | MySQL | `provider_drama_content` | 短剧剧集元数据 | drama_id, external_content_id, sequence_no, is_free, duration_seconds |
 | MySQL | `provider_sync_checkpoint` | 全量/增量同步断点、统计、错误和数据库租约 | connection_id, sync_type, language, page_no, update_time, lease_owner, lease_until |
 | MySQL | `provider_commission_rule` | 平台级五费率默认规则；每个平台一条，当前、未来接入账号及平台下短剧共用 | provider_id, 五项 0..1 高精度费率, created_by, updated_by |
@@ -206,6 +207,12 @@ mysql --host=127.0.0.1 --user=$env:SPRING_DATASOURCE_USERNAME --password --datab
 当前已实现 GoodShort 短剧目录全量 `initBooks`、增量 `incrementBooks`、断点恢复、数据库租约、定时/手动触发、固定定时任务入队、管理员查询详情和本地上下架；首次全量同步仍由管理员手动发起，只有成功全量基线存在时每小时自动创建增量任务，已有任务或缺少基线时不会重复入队。固定任务支持间隔秒/分钟/小时/天及每天、每周、每月、每年日历周期，后端根据结构化字段计算下一次执行时间；固定任务每分钟扫描到期配置，现有目录执行器继续每 5 分钟领取并执行已入队任务。远端未返回记录不会物理删除，本地状态不会被同步覆盖。平台分佣规则按平台保存一条默认配置，使用 `BigDecimal` 计算器。V12 已实现推广用户可用的已上架短剧查询、本人媒体账号筛选、GoodShort 推广链接/口令生成和本人链接查询；生成接口使用 requestKey 幂等并保存 trackingNo。订单同步、订单费率快照、订单导出、钱包/结算和转化分析仍未实现。
 
 > **说明**：`sys_sequence` 表已移除，`user_no` 由后端在插入前随机生成；`promotion_user.id` 继续作为自增内部主键。`auth_verification_code` 和 `auth_password_reset_token` 表已移除，改用 Redis 存储（更高效、自动过期）。
+
+### 5.4 推广创建与任务查询
+
+V13 新增 `promotion_task` 和用户端任务接口：`POST /api/user/promotion/tasks` 接收一个短剧、任务名称和多个推广平台，并按平台拆分任务；`GET /api/user/promotion/tasks` 独立查询本人任务及口令、直达链接、点击、引流、订单和广告统计字段。当前任务创建先记录为 `PENDING`，GoodShort 真实链接/口令生成与统计同步仍未实现，页面应展示处理中或 0，不得将其描述为已完成的订单收益闭环。
+
+V14 为 `provider_drama` 增加 `commission_scope` 和 `promotion_description` 两个本地维护字段。管理员通过 `PUT /api/admin/drama/catalog/{id}/promotion-metadata` 更新分佣范围（`ORDER`/`AD`）和推广说明；用户端 `GET /api/user/promotion/dramas` 返回简介、分佣范围、推广说明和远端更新时间。只有“创建推广”页面展示这些字段；“推广任务”页面不使用这组元数据。目录同步只更新远端字段，不覆盖本地推广元数据。
 
 ## 6. API、认证与业务边界
 
@@ -306,6 +313,7 @@ mysql --host=127.0.0.1 --user=$env:SPRING_DATASOURCE_USERNAME --password --datab
 | POST | `/api/admin/drama/catalog/sync` | 创建 FULL 或 INCREMENTAL 同步任务，不等待第三方同步完成 |
 | GET | `/api/admin/drama/catalog/sync/status` | 查询各语言检查点、统计和最近错误 |
 | PATCH | `/api/admin/drama/catalog/{id}/status` | 将本地状态修改为 `PUBLISHED` 或 `OFFLINE` |
+| PUT | `/api/admin/drama/catalog/{id}/promotion-metadata` | 更新短剧分佣范围（`ORDER`/`AD`）和推广说明；空数组/空文本表示清空 |
 
 同步默认语言为 `ENGLISH`。全量使用 GoodShort `/open/book/initBooks`，增量使用 `/open/book/incrementBooks`；没有成功全量基线时，增量请求自动升级为全量。同一连接和语言只允许一个 FULL/INCREMENTAL 任务排队或运行。
 
@@ -438,6 +446,14 @@ Java 21 下编译会因 `release 25` 失败，必须使用 Java 25。
 - 提交规范：使用 [Conventional Commits](https://www.conventionalcommits.org/) 格式（`feat:`、`fix:`、`docs:`、`refactor:`、`test:` 等）。
 - 任何代理开始工作前都应先查看 `git status --short --branch`，只修改任务涉及的文件，不使用 `git reset --hard` 或 `git checkout --` 丢弃现有改动。
 - 提交前运行 `git diff --check` 检查空白字符问题。
+
+## 10. 仓库级开发规范
+
+本仓库的强制开发流程、变更分级、根因分析、阶段闸门和完成检查表见 [DEVELOPMENT.md](DEVELOPMENT.md)。代理或开发者开始修改代码、SQL、配置或测试前必须先阅读该文件和 `AGENTS.md`。
+
+- 重要架构决策按 [docs/architecture-decisions.md](docs/architecture-decisions.md) 记录，明确状态、影响、迁移/回滚和验证证据。
+- 当前尚未统一的工程规则见 [docs/development-gaps.md](docs/development-gaps.md)；该清单不是已批准功能路线图。
+- 文档必须区分当前已实现、已批准但未实施和建议/缺口，不得把规划内容描述为当前行为。
 # 当前分佣规则契约（2026-08-22）
 
 平台分佣规则已调整为默认配置：每个平台一条记录、无时间限制、无状态、不可删除；首次使用 POST，后续由超级管理员使用 PUT 直接覆盖五项费率。旧文档中关于 PENDING/ACTIVE/ENDED、提前结束和历史版本的描述不再是当前契约。

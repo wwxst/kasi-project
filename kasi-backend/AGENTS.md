@@ -3,8 +3,23 @@
 ## 适用范围
 
 - 本文件适用于仓库根目录 `E:/JavaProjects/kasi-project/kasi-backend`。
-- 在修改应用代码、数据库脚本、构建配置或测试之前，请先阅读 [DEVELOPMENT.md](README.md)。
+- 在修改应用代码、数据库脚本、构建配置或测试之前，请先阅读 [DEVELOPMENT.md](DEVELOPMENT.md)。
 - 将工作区视为用户所有。编辑前先检查 `git status` 及相关 diff，切勿重置或丢弃非当前任务所产生的更改。
+
+## 仓库级强制开发流程
+
+以下流程适用于功能开发、缺陷修复、重构、数据库和配置变更；文档-only 变更也必须完成相应的范围检查。
+
+1. **先确认边界**：开始前运行 `git status --short --branch`，阅读 `DEVELOPMENT.md` 和相关模块文档，列出本次允许修改的文件与明确不修改的范围。
+2. **先分析根因**：任何错误先记录现象、影响范围、可复现步骤、已有证据、根因假设和排除项；没有证据时不得直接修改代码碰运气。
+3. **一次只解决一个问题**：把工作拆成可独立验证的阶段，每个阶段只有一个清晰目标、一个完成标准和一组针对性验证；发现第二个独立问题时单独登记，不顺手扩 scope。
+4. **按变更级别停靠**：单模块行为修复可在当前任务内实施；跨模块、API/数据库/权限/配置契约变更必须先形成设计并汇报；破坏性重构必须明确影响面、迁移或重建方式、回滚方案并获得确认。
+5. **最小改动优先**：只改动导致问题和验证所必需的代码，不为未发布 API 保留无意义兼容层，也不因“以后可能需要”提前引入抽象或复杂系统。
+6. **先定义验证**：实现前确定失败路径、成功路径和边界条件的测试或可重复检查；涉及安全、并发、事务、迁移和外部平台时，必须覆盖对应风险。
+7. **完成后再宣称**：运行与变更风险匹配的测试、编译、迁移/结构检查和 `git diff --check`；没有最新的零错误输出，不得宣称已修复或测试健康。
+8. **同步沉淀**：行为、边界、命令、迁移或架构发生变化时，同步更新 `README.md`、模块文档或 `DEVELOPMENT.md`；重要架构决策按 [docs/architecture-decisions.md](docs/architecture-decisions.md) 记录。
+9. **保持当前/规划分离**：文档、代码审查和交接中必须明确“当前已实现”“已批准但未实施”“建议/缺口”，不得把计划描述成现状。
+10. **保留用户改动**：禁止用 `git reset --hard`、`git checkout --` 或批量暂存覆盖无关改动；提交时按意图逐文件暂存并复核 diff。
 
 ## 当前项目现状
 
@@ -19,7 +34,7 @@
   - `promotion/` — 推广用户媒体账号绑定、GoodShort 账号报备、审核状态任务和管理员查询/重试 API
   - `drama/` — GoodShort 短剧目录与剧集持久层、全量/增量同步、检查点与租约、平台级分佣规则、`BigDecimal` 计算器、管理员 API 和定时调度
   - `auth/` — 可复用的验证码服务和密码重置 Token 机制（Redis 存储，Lua 原子消费/预占，TTL 自动过期）
-- 数据库迁移：`db/migration/V1__kasi_promotion.sql` 按当前完整结构一次创建账号、平台接入、媒体账号、报备、短剧目录、分佣规则、定时任务和推广链接表，并植入唯一初始超级管理员；不植入平台接入密钥。目录默认同步 `ENGLISH`，全量调用 `initBooks`，增量调用 `incrementBooks`。验证码和密码重置 Token 等临时数据由 Redis（`vc:*`、`pwd:*` 键）管理，TTL 自动过期。
+- 数据库迁移：`db/migration/V1__kasi_promotion.sql` 按当前完整结构一次创建账号、平台接入、媒体账号、报备、短剧目录、分佣规则、定时任务和推广链接表，并植入唯一初始超级管理员；`V13__promotion_task.sql` 增加推广任务表，`V14__provider_drama_promotion_metadata.sql` 增加短剧本地推广元数据字段。不植入平台接入密钥。目录默认同步 `ENGLISH`，全量调用 `initBooks`，增量调用 `incrementBooks`；目录同步不覆盖本地推广元数据。验证码和密码重置 Token 等临时数据由 Redis（`vc:*`、`pwd:*` 键）管理，TTL 自动过期。
 - `scripts/dev/seed_goodshort_drama_catalog.sql` 是 Flyway 之外的手动开发 seed，仅创建禁用且无凭据的 GoodShort 本地 fixture 连接；仅限本地使用，并必须通过遇错即停的 fail-fast 客户端执行。
 - 项目当前仍处于开发阶段，数据库可以删除重建；修改已执行的迁移后应重建开发数据库。未来生产首次建库也按 Flyway 版本顺序执行并植入初始账号，不新增运行时账号植入器。
 - 会话状态由 Redis（`auth:version:{type}:{userId}`、`auth:session:{jti}`）管理。JWT 携带 `jti`、`sessionVersion`，受保护请求必须同时校验签名、账号状态和 Redis 会话；Redis 不可用时安全失败返回 503，不能降级放行。
@@ -33,10 +48,11 @@
 - 推广用户联系方式、状态、密码和删除等敏感管理操作先进入 Redis `MUTATING` 状态；Redis 失败时不得写 MySQL。绑定媒体账号的推广用户删除会返回 `USER_MEDIA_ACCOUNT_BOUND(3014)`，只能禁用；未绑定媒体账号的用户仍可物理删除。
 - `sys_admin_user` 和 `promotion_user` 均不保留 `deleted_at`；媒体账号表同样不保留 `deleted_at`，媒体账号不提供物理删除。
 - 媒体账号用户 API 位于 `/api/user/promotion/media-accounts`，管理员 API 位于 `/api/admin/promotion/media-accounts`；管理员支持分页查询、详情、编辑和失败报备重试，未加白时允许纠正媒体平台和账号 ID，已加白后锁定身份字段。响应不暴露平台连接 ID、PID、密钥或任务租约字段。报备任务默认每 30 秒领取到期任务，提交后 1 分钟首次查询，审核中每 5 分钟查询，已加白每 24 小时复核。
-- 短剧目录管理员 API 位于 `/api/admin/drama/catalog`；普通管理员和超级管理员均可分页查询、查看详情、触发同步、查询同步状态和修改本地上下架。同步默认每 5 分钟处理到期任务，支持断点续跑、过期租约接管和同连接/语言跨 FULL、INCREMENTAL 互斥；远端同步不得覆盖 `local_status`，也不得物理删除本次未返回的历史短剧。
+- 短剧目录管理员 API 位于 `/api/admin/drama/catalog`；普通管理员和超级管理员均可分页查询、查看详情、触发同步、查询同步状态、修改本地上下架和维护短剧推广元数据（`PUT /api/admin/drama/catalog/{id}/promotion-metadata`）。同步默认每 5 分钟处理到期任务，支持断点续跑、过期租约接管和同连接/语言跨 FULL、INCREMENTAL 互斥；远端同步不得覆盖 `local_status` 或本地推广元数据，也不得物理删除本次未返回的历史短剧。
 - 短剧平台分佣规则 API 位于 `/api/admin/drama/providers/{providerId}/commission-rules`：普通管理员和超级管理员均可 `GET` 只读查询，只有超级管理员可 `POST` 创建、`PUT` 编辑、`PATCH .../{ruleId}/end-time` 提前结束和 `DELETE` 删除。规则按平台配置，当前和未来接入账号及平台下所有短剧共用；API 使用 `0..100` 百分比，数据库使用 `0..1` 高精度比例，同平台 `[effectiveFrom,effectiveTo)` 时间段不得重叠。
 - 分佣规则状态由时间派生：`PENDING` 可编辑和删除，`ACTIVE` 只能提前结束，`ENDED` 永久只读。所有写操作先锁定 `short_drama_provider` 平台行再校验重叠；计算器全程使用 `BigDecimal`，中间保持高精度，最终金额保留两位并按 `HALF_UP` 四舍五入。
 - 推广链接生成已实现：用户可查询已上架且远端有效的短剧、查询本人链接并通过 `/api/user/promotion/links` 生成 GoodShort 链接/口令；V1 中的推广链接表使用 requestKey 幂等并保存 trackingNo。订单同步、订单费率快照、订单导出、钱包/结算和转化分析仍未实现；不得把平台分佣规则或纯计算器描述为订单级佣金闭环。
+- 推广任务创建已实现：用户通过 `/api/user/promotion/tasks` 提交短剧、任务名称和多个推广平台，后端按平台拆分并以 `(userId, requestKey, mediaType)` 幂等，`GET` 返回任务链接字段及点击、引流、订单、广告统计字段。当前创建状态为 `PENDING`，GoodShort 真实链接/口令生成和统计同步尚未实现，不得将 0 值描述为真实收益。
 - 定时任务管理 API 位于 `/api/admin/system/scheduled-tasks`；固定任务 `GOODSHORT_DRAMA_INCREMENTAL_SYNC` 默认每 60 分钟入队，首次全量同步必须手动完成且成功基线存在后才会自动创建增量任务。周期支持 `INTERVAL_SECONDS/MINUTES/HOURS/DAYS`、`DAILY`、`WEEKLY`、`MONTHLY`、`YEARLY`，`INTERVAL_HOURS` 使用小时数和 `interval_minutes_part` 分钟余量，`INTERVAL_DAYS` 使用天数、`interval_hours_part` 小时余量和 `interval_minutes_part` 分钟余量；日历型周期同时保存执行时间及对应星期/日期字段。每分钟调度器只负责入队，现有短剧执行器继续每 5 分钟领取并执行；普通管理员只读，超级管理员可编辑周期、说明和启停状态。
 - Git 仓库：`https://github.com/wwxst/kasi-backend.git`，远程 `origin`，分支 `master`。
 - 在文档和代码审查中，请将当前架构与规划架构区分开来。不要将规划中的模块描述为已实现的模块。
