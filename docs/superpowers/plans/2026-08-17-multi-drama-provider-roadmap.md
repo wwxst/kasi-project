@@ -1,8 +1,10 @@
 # 多短剧平台推广模块路线图
 
+> 历史路线图，不代表当前实现状态。分佣规则的 PENDING/ACTIVE/ENDED、提前结束和删除已被默认单规则契约取代；订单级 CPS 当前范围见 `docs/superpowers/specs/2026-08-24-short-drama-cps-completion-scope.md`。
+
 日期：2026-08-17
 
-当前状态：模块 1 至模块 4 后端已实现并通过自动化验证；模块 5 至模块 7 尚未开始。
+历史快照状态：当时模块 1 至模块 4 后端已实现；当前状态请以 README、AGENTS.md 和 2026-08-24 快速上线范围文档为准。
 
 设计规格：[多短剧平台推广业务设计规格](../specs/2026-08-17-multi-drama-provider-promotion-design.md)
 

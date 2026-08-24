@@ -21,6 +21,9 @@
     <select id="findByUserAndRequestKeyForUpdate" resultMap="PromotionLinkMap">
         SELECT * FROM promotion_link WHERE user_id = #{userId} AND request_key = #{requestKey} FOR UPDATE
     </select>
+    <select id="findByTrackingNo" resultMap="PromotionLinkMap">
+        SELECT * FROM promotion_link WHERE tracking_no = #{trackingNo}
+    </select>
     <select id="countByUserId" resultType="long">SELECT COUNT(*) FROM promotion_link WHERE user_id = #{userId}</select>
     <select id="findPageByUserId" resultMap="PromotionLinkMap">
         SELECT l.*, p.provider_name, d.title AS drama_title, m.media_type, m.account_name AS media_account_name
