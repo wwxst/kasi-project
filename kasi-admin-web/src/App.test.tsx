@@ -319,6 +319,7 @@ describe('App', () => {
     expect(
       await screen.findByRole('heading', { name: '推广订单' }),
     ).toBeInTheDocument()
+    await userEvent.setup().click(screen.getByText('推广管理'))
     expect(screen.getByRole('link', { name: '推广订单' })).toBeInTheDocument()
     expect(window.location.pathname).toBe('/promotion/orders')
   })
