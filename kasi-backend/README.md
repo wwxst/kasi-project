@@ -148,7 +148,7 @@ $env:SPRING_DATASOURCE_PASSWORD = '<database-password>'
 .\mvnw.cmd spring-boot:run
 ```
 
-首次启动时 Flyway 会按顺序执行 `V1__kasi_promotion.sql`、`V14__provider_drama_promotion_metadata.sql` 和 `V15__promotion_order_and_rule_history.sql`。V1 创建基础业务表并植入唯一的初始超级管理员及一个初始推广用户；V14 增加短剧推广元数据；V15 增加订单和不可变分佣历史快照：
+首次启动时 Flyway 会按顺序执行 `V1__kasi_promotion.sql`、`V13__promotion_task.sql`、`V14__provider_drama_promotion_metadata.sql` 和 `V15__promotion_order_and_rule_history.sql`。V1 创建基础业务表并植入唯一的初始超级管理员及一个初始推广用户；V13 增加推广任务；V14 增加短剧推广元数据；V15 增加订单和不可变分佣历史快照：
 
 - 管理员账号：`admin`
 - 管理员初始密码：`12345678`
