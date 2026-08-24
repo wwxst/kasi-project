@@ -150,6 +150,8 @@ CREATE TABLE IF NOT EXISTS provider_drama (
     cover_url VARCHAR(1024),
     language VARCHAR(32) NOT NULL,
     drama_type VARCHAR(64),
+    commission_scope VARCHAR(255),
+    promotion_description CLOB,
     remote_show_status VARCHAR(32),
     local_status VARCHAR(16) NOT NULL DEFAULT 'DRAFT',
     remote_updated_at TIMESTAMP,

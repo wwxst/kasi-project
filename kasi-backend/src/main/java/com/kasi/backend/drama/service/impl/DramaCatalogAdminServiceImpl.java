@@ -6,6 +6,7 @@ import com.kasi.backend.drama.dto.DramaPageQueryDTO;
 import com.kasi.backend.drama.entity.ProviderDrama;
 import com.kasi.backend.drama.entity.ProviderDramaContent;
 import com.kasi.backend.drama.enums.DramaLocalStatus;
+import com.kasi.backend.drama.enums.PromotionCommissionScope;
 import com.kasi.backend.drama.mapper.ProviderDramaMapper;
 import com.kasi.backend.drama.service.DramaCatalogAdminService;
 import com.kasi.backend.drama.vo.DramaContentVO;
@@ -19,6 +20,10 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
+import java.util.Arrays;
+import java.util.Comparator;
+import java.util.Objects;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -62,6 +67,25 @@ public class DramaCatalogAdminServiceImpl implements DramaCatalogAdminService {
         return getById(id);
     }
 
+    @Override
+    @Transactional
+    public DramaDetailVO updatePromotionMetadata(Long id, List<PromotionCommissionScope> commissionScopes,
+                                                  String promotionDescription) {
+        requireDrama(id);
+        String normalizedScopes = commissionScopes.stream()
+                .filter(Objects::nonNull)
+                .distinct()
+                .sorted(Comparator.comparingInt(Enum::ordinal))
+                .map(Enum::name)
+                .collect(Collectors.joining(","));
+        String normalizedDescription = trimToNull(promotionDescription);
+        if (dramaMapper.updatePromotionMetadata(id,
+                normalizedScopes.isBlank() ? null : normalizedScopes, normalizedDescription) != 1) {
+            throw new BusinessException(ErrorCode.DRAMA_NOT_FOUND);
+        }
+        return getById(id);
+    }
+
     private Long resolveConnectionId(Long providerId) {
         if (providerId == null) return null;
         ShortDramaConnection connection = connectionMapper.findByProviderId(providerId);
@@ -77,8 +101,10 @@ public class DramaCatalogAdminServiceImpl implements DramaCatalogAdminService {
 
     private DramaListItemVO toListItem(ProviderDrama drama) {
         return DramaListItemVO.builder().id(drama.getId()).externalDramaId(drama.getExternalDramaId())
-                .title(drama.getTitle()).originalTitle(drama.getOriginalTitle()).coverUrl(drama.getCoverUrl())
-                .language(drama.getLanguage()).dramaType(drama.getDramaType())
+                .title(drama.getTitle()).originalTitle(drama.getOriginalTitle()).description(drama.getDescription())
+                .coverUrl(drama.getCoverUrl()).language(drama.getLanguage()).dramaType(drama.getDramaType())
+                .commissionScopes(parseScopes(drama.getCommissionScope()))
+                .promotionDescription(drama.getPromotionDescription())
                 .remoteShowStatus(drama.getRemoteShowStatus()).localStatus(drama.getLocalStatus())
                 .remoteUpdatedAt(drama.getRemoteUpdatedAt()).lastSeenAt(drama.getLastSeenAt())
                 .updatedAt(drama.getUpdatedAt()).build();
@@ -88,6 +114,8 @@ public class DramaCatalogAdminServiceImpl implements DramaCatalogAdminService {
         return DramaDetailVO.builder().id(drama.getId()).externalDramaId(drama.getExternalDramaId())
                 .title(drama.getTitle()).originalTitle(drama.getOriginalTitle()).description(drama.getDescription())
                 .coverUrl(drama.getCoverUrl()).language(drama.getLanguage()).dramaType(drama.getDramaType())
+                .commissionScopes(parseScopes(drama.getCommissionScope()))
+                .promotionDescription(drama.getPromotionDescription())
                 .remoteShowStatus(drama.getRemoteShowStatus()).localStatus(drama.getLocalStatus())
                 .remoteUpdatedAt(drama.getRemoteUpdatedAt()).lastSeenAt(drama.getLastSeenAt())
                 .createdAt(drama.getCreatedAt()).updatedAt(drama.getUpdatedAt()).contents(contents).build();
@@ -101,5 +129,14 @@ public class DramaCatalogAdminServiceImpl implements DramaCatalogAdminService {
 
     private String trimToNull(String value) {
         return value == null || value.trim().isEmpty() ? null : value.trim();
+    }
+
+    private List<PromotionCommissionScope> parseScopes(String value) {
+        if (value == null || value.isBlank()) return List.of();
+        return Arrays.stream(value.split(","))
+                .map(String::trim)
+                .filter(scope -> !scope.isEmpty())
+                .map(PromotionCommissionScope::valueOf)
+                .toList();
     }
 }
