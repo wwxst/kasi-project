@@ -10,6 +10,7 @@ import {
 import type { ColumnsType } from 'antd/es/table'
 import { RefreshCw } from 'lucide-react'
 import { useCallback, useEffect, useState } from 'react'
+import { isUnauthorizedError } from '../../api/http'
 import { listDramaSyncStatuses } from '../../features/drama/dramaCatalogApi'
 import type {
   DramaSyncStatus,
@@ -59,6 +60,7 @@ export function DramaSyncStatusDrawer({
     try {
       setTasks(await listDramaSyncStatuses(providerId))
     } catch (error) {
+      if (isUnauthorizedError(error)) return
       message.error(error instanceof Error ? error.message : '同步状态加载失败')
     } finally {
       setLoading(false)

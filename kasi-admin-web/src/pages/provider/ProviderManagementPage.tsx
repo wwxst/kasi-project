@@ -18,6 +18,7 @@ import {
 import { PageContainer } from '@ant-design/pro-components'
 import { CheckCircle2, FlaskConical, Save } from 'lucide-react'
 import { useAuthStore } from '../../features/auth/authStore'
+import { isUnauthorizedError } from '../../api/http'
 import {
   listProviders,
   testProviderConnection,
@@ -70,6 +71,7 @@ export function ProviderManagementPage() {
             : undefined,
       )
     } catch (error) {
+      if (isUnauthorizedError(error)) return
       message.error(
         error instanceof Error ? error.message : '短剧 API 配置加载失败',
       )
@@ -120,6 +122,7 @@ export function ProviderManagementPage() {
       await loadProviders()
     } catch (error) {
       if (isValidationError(error)) return
+      if (isUnauthorizedError(error)) return
       message.error(
         error instanceof Error ? error.message : '短剧 API 配置保存失败',
       )
@@ -134,6 +137,7 @@ export function ProviderManagementPage() {
     try {
       setTestResult(await testProviderConnection(activeProvider.id))
     } catch (error) {
+      if (isUnauthorizedError(error)) return
       message.error(error instanceof Error ? error.message : '连接测试失败')
     } finally {
       setTesting(false)

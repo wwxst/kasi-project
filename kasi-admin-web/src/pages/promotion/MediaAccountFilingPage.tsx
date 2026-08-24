@@ -14,6 +14,7 @@ import {
   Tag,
 } from 'antd'
 import { useEffect, useMemo, useRef, useState } from 'react'
+import { isUnauthorizedError } from '../../api/http'
 import {
   getAdminMediaAccount,
   listAdminMediaAccounts,
@@ -62,11 +63,12 @@ export function MediaAccountFilingPage() {
   useEffect(() => {
     void listDramaProviderOptions()
       .then(setProviders)
-      .catch((error) =>
+      .catch((error) => {
+        if (isUnauthorizedError(error)) return
         message.error(
           error instanceof Error ? error.message : '短剧平台加载失败',
-        ),
-      )
+        )
+      })
   }, [message])
 
   const providerNames = useMemo(
@@ -83,6 +85,7 @@ export function MediaAccountFilingPage() {
     try {
       setDetail(await getAdminMediaAccount(record.id))
     } catch (error) {
+      if (isUnauthorizedError(error)) return
       message.error(error instanceof Error ? error.message : '详情加载失败')
       setDetailOpen(false)
     } finally {
@@ -114,6 +117,7 @@ export function MediaAccountFilingPage() {
       message.success('媒体账号保存成功')
     } catch (error) {
       if (error && typeof error === 'object' && 'errorFields' in error) return
+      if (isUnauthorizedError(error)) return
       message.error(error instanceof Error ? error.message : '保存失败')
     } finally {
       setEditSubmitting(false)
@@ -129,6 +133,7 @@ export function MediaAccountFilingPage() {
       actionRef.current?.reload()
       message.success('报备已重新提交')
     } catch (error) {
+      if (isUnauthorizedError(error)) return
       message.error(error instanceof Error ? error.message : '重试失败')
     } finally {
       setRetryingProviderId(null)

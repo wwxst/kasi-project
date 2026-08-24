@@ -14,6 +14,7 @@ import {
 } from 'antd'
 import { Activity, Clapperboard, RefreshCw } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState } from 'react'
+import { isUnauthorizedError } from '../../api/http'
 import {
   getDramaCatalogDetail,
   listDramaCatalog,
@@ -59,11 +60,12 @@ export function DramaCatalogPage() {
   useEffect(() => {
     void listProviders()
       .then((items) => setProviders(items.filter(hasCatalogConnection)))
-      .catch((error) =>
+      .catch((error) => {
+        if (isUnauthorizedError(error)) return
         message.error(
           error instanceof Error ? error.message : '短剧平台加载失败',
-        ),
-      )
+        )
+      })
   }, [message])
 
   const providerValueEnum = useMemo(
@@ -95,6 +97,7 @@ export function DramaCatalogPage() {
     try {
       setDetail(await getDramaCatalogDetail(record.id))
     } catch (error) {
+      if (isUnauthorizedError(error)) return
       message.error(error instanceof Error ? error.message : '短剧详情加载失败')
       setDetailOpen(false)
     } finally {
@@ -111,6 +114,7 @@ export function DramaCatalogPage() {
       actionRef.current?.reload()
       message.success(localStatus === 'PUBLISHED' ? '短剧已上架' : '短剧已下架')
     } catch (error) {
+      if (isUnauthorizedError(error)) return
       message.error(error instanceof Error ? error.message : '短剧状态更新失败')
     } finally {
       setStatusUpdatingId(null)
@@ -258,8 +262,15 @@ export function DramaCatalogPage() {
       remoteShowStatus: stringValue(params.remoteShowStatus),
       localStatus: params.localStatus as DramaLocalStatus | undefined,
     }
-    const result = await listDramaCatalog(query)
-    return { data: result.list, total: result.total, success: true }
+    try {
+      const result = await listDramaCatalog(query)
+      return { data: result.list, total: result.total, success: true }
+    } catch (error) {
+      if (isUnauthorizedError(error)) {
+        return { data: [], total: 0, success: false }
+      }
+      throw error
+    }
   }
 
   const handleSyncSubmitted = (providerId: number) => {

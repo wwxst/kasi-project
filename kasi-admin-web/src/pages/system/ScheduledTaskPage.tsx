@@ -13,6 +13,7 @@ import {
 } from 'antd'
 import type { ColumnsType } from 'antd/es/table'
 import { PageContainer } from '@ant-design/pro-components'
+import { isUnauthorizedError } from '../../api/http'
 import { useAuthStore } from '../../features/auth/authStore'
 import {
   listScheduledTasks,
@@ -80,6 +81,7 @@ export function ScheduledTaskPage() {
     try {
       setTasks(await listScheduledTasks())
     } catch (error) {
+      if (isUnauthorizedError(error)) return
       message.error(error instanceof Error ? error.message : '定时任务加载失败')
     } finally {
       setLoading(false)
@@ -115,6 +117,7 @@ export function ScheduledTaskPage() {
       replaceTask(await updateScheduledTask(task.taskCode, requestFor(task, enabled)))
       message.success(enabled ? '定时任务已开启' : '定时任务已关闭')
     } catch (error) {
+      if (isUnauthorizedError(error)) return
       message.error(error instanceof Error ? error.message : '定时任务更新失败')
     } finally {
       setSwitchingTaskCode(undefined)
@@ -178,6 +181,7 @@ export function ScheduledTaskPage() {
       message.success('定时任务已保存')
     } catch (error) {
       if (isValidationError(error)) return
+      if (isUnauthorizedError(error)) return
       message.error(error instanceof Error ? error.message : '定时任务保存失败')
     } finally {
       setSaving(false)

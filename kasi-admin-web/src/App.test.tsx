@@ -168,6 +168,42 @@ afterEach(() => {
 afterAll(() => server.close())
 
 describe('App', () => {
+  it('returns to login when a protected request receives 401', async () => {
+    useAuthStore.getState().setSession({
+      accessToken: 'expired-token',
+      tokenType: 'Bearer',
+      expiresIn: 7200,
+      admin: {
+        id: 1,
+        username: 'admin',
+        realName: '管理员',
+        mobile: null,
+        email: null,
+        avatarUrl: null,
+        isSuperAdmin: 1,
+      },
+    })
+    server.use(
+      http.get('/api/admin/system/scheduled-tasks', () =>
+        HttpResponse.json(
+          { code: 1002, message: '未登录或Token已过期' },
+          { status: 401 },
+        ),
+      ),
+    )
+    window.history.replaceState({}, '', '/system-config/scheduled-tasks')
+
+    render(<App />)
+
+    expect(
+      await screen.findByRole('heading', { name: 'Kasi 管理后台' }),
+    ).toBeInTheDocument()
+    expect(useAuthStore.getState().accessToken).toBeNull()
+    expect(
+      screen.queryByText('Request failed with status code 401'),
+    ).not.toBeInTheDocument()
+  })
+
   it('routes regular administrators to the drama catalog menu', async () => {
     let catalogRequestCount = 0
     server.use(
@@ -228,6 +264,10 @@ describe('App', () => {
       await screen.findByRole('heading', { name: '短剧目录' }),
     ).toBeInTheDocument()
     expect(screen.getByText('短剧管理')).toBeInTheDocument()
+    expect(
+      screen.queryByText('短剧目录', { selector: 'a' }),
+    ).not.toBeInTheDocument()
+    await userEvent.setup().click(screen.getByText('短剧管理'))
     expect(screen.getByText('短剧目录', { selector: 'a' })).toBeInTheDocument()
     expect(window.location.pathname).toBe('/drama/catalog')
     await waitFor(() => expect(catalogRequestCount).toBeGreaterThanOrEqual(2))
@@ -318,6 +358,15 @@ describe('App', () => {
     expect(screen.getByText('管理员管理')).toBeInTheDocument()
     expect(screen.getByText('用户管理')).toBeInTheDocument()
     expect(screen.getByText('推广管理')).toBeInTheDocument()
+    expect(screen.getByText('系统配置')).toBeInTheDocument()
+    expect(screen.queryByText('工作台')).not.toBeInTheDocument()
+    expect(
+      screen.queryByRole('link', { name: '媒体账号报备' }),
+    ).not.toBeInTheDocument()
+    expect(
+      screen.queryByRole('link', { name: '短剧 API 配置' }),
+    ).not.toBeInTheDocument()
+    await user.click(screen.getByText('推广管理'))
     expect(
       screen.getByRole('link', { name: '媒体账号报备' }),
     ).toBeInTheDocument()
@@ -398,6 +447,10 @@ describe('App', () => {
     render(<App />)
     await screen.findByText('¥ 126,560')
     expect(screen.getByText('系统配置')).toBeInTheDocument()
+    expect(
+      screen.queryByRole('link', { name: '短剧 API 配置' }),
+    ).not.toBeInTheDocument()
+    await user.click(screen.getByText('系统配置'))
     await user.click(screen.getByRole('link', { name: '短剧 API 配置' }))
 
     expect(
@@ -449,6 +502,10 @@ describe('App', () => {
       await screen.findByRole('heading', { name: '定时任务' }),
     ).toBeInTheDocument()
     expect(screen.getByText('系统配置')).toBeInTheDocument()
+    expect(
+      screen.queryByText('定时任务', { selector: 'a' }),
+    ).not.toBeInTheDocument()
+    await userEvent.setup().click(screen.getByText('系统配置'))
     expect(screen.getByText('定时任务', { selector: 'a' })).toBeInTheDocument()
     expect(
       await screen.findByText('GoodShort 短剧增量同步'),

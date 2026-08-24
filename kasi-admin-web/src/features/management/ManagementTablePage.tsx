@@ -19,6 +19,7 @@ import type { MenuProps, UploadProps } from 'antd'
 import type { ReactNode } from 'react'
 import { useRef, useState } from 'react'
 import { resolveApiAssetUrl } from '../../api/assets'
+import { isUnauthorizedError } from '../../api/http'
 import type { PageQuery, PageResult } from './managementTypes'
 import '../../pages/management/management-page.css'
 
@@ -145,6 +146,7 @@ export function ManagementTablePage<
       actionRef.current?.reload()
     } catch (error) {
       if (error && typeof error === 'object' && 'errorFields' in error) return
+      if (isUnauthorizedError(error)) return
       message.error(error instanceof Error ? error.message : '创建失败')
     } finally {
       setCreateSubmitting(false)
@@ -175,6 +177,7 @@ export function ManagementTablePage<
       actionRef.current?.reload()
     } catch (error) {
       if (error && typeof error === 'object' && 'errorFields' in error) return
+      if (isUnauthorizedError(error)) return
       message.error(error instanceof Error ? error.message : '编辑失败')
     } finally {
       setEditSubmitting(false)
@@ -197,6 +200,7 @@ export function ManagementTablePage<
       onPasswordChanged?.(detailRecord)
     } catch (error) {
       if (error && typeof error === 'object' && 'errorFields' in error) return
+      if (isUnauthorizedError(error)) return
       message.error(error instanceof Error ? error.message : '密码修改失败')
     } finally {
       setPasswordSubmitting(false)
@@ -210,6 +214,7 @@ export function ManagementTablePage<
     try {
       setDetailRecord(await getDetail(record.id))
     } catch (error) {
+      if (isUnauthorizedError(error)) return
       message.error(error instanceof Error ? error.message : '详情加载失败')
       setDetailOpen(false)
     } finally {
@@ -251,6 +256,7 @@ export function ManagementTablePage<
       message.success('头像修改成功')
       options.onSuccess?.(updated)
     } catch (error) {
+      if (isUnauthorizedError(error)) return
       const uploadError =
         error instanceof Error ? error : new Error('头像上传失败')
       message.error(uploadError.message)
@@ -269,6 +275,7 @@ export function ManagementTablePage<
       message.success(nextStatus === 1 ? '已启用' : '已禁用')
       actionRef.current?.reload()
     } catch (error) {
+      if (isUnauthorizedError(error)) return
       message.error(error instanceof Error ? error.message : '状态修改失败')
     } finally {
       setStatusLoadingId(null)
@@ -291,6 +298,7 @@ export function ManagementTablePage<
           message.success('删除成功')
           actionRef.current?.reload()
         } catch (error) {
+          if (isUnauthorizedError(error)) return
           message.error(error instanceof Error ? error.message : '删除失败')
           throw error
         }
@@ -443,6 +451,9 @@ export function ManagementTablePage<
             })
             return { data: result.list, total: result.total, success: true }
           } catch (error) {
+            if (isUnauthorizedError(error)) {
+              return { data: [], total: 0, success: false }
+            }
             message.error(
               error instanceof Error ? error.message : '列表加载失败',
             )

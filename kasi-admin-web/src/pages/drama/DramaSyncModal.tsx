@@ -1,5 +1,6 @@
 import { App as AntdApp, Button, Form, Modal, Segmented, Select } from 'antd'
 import { useEffect, useState } from 'react'
+import { isUnauthorizedError } from '../../api/http'
 import { requestDramaCatalogSync } from '../../features/drama/dramaCatalogApi'
 import type {
   DramaSyncType,
@@ -51,6 +52,7 @@ export function DramaSyncModal({
       onSubmitted(values.providerId)
     } catch (error) {
       if (error && typeof error === 'object' && 'errorFields' in error) return
+      if (isUnauthorizedError(error)) return
       message.error(error instanceof Error ? error.message : '同步任务提交失败')
     } finally {
       setSubmitting(false)

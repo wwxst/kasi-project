@@ -13,3 +13,21 @@ httpClient.interceptors.request.use((config) => {
   }
   return config
 })
+
+httpClient.interceptors.response.use(
+  (response) => response,
+  (error: unknown) => {
+    if (
+      axios.isAxiosError(error) &&
+      error.response?.status === 401 &&
+      useAuthStore.getState().accessToken
+    ) {
+      useAuthStore.getState().clearSession()
+    }
+    return Promise.reject(error)
+  },
+)
+
+export function isUnauthorizedError(error: unknown) {
+  return axios.isAxiosError(error) && error.response?.status === 401
+}

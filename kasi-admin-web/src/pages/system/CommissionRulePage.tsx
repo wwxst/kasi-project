@@ -14,6 +14,7 @@ import {
 import { PageContainer } from '@ant-design/pro-components'
 import { Pencil, Plus } from 'lucide-react'
 import { useAuthStore } from '../../features/auth/authStore'
+import { isUnauthorizedError } from '../../api/http'
 import {
   createCommissionRule,
   listCommissionRules,
@@ -80,6 +81,7 @@ export function CommissionRulePage() {
       )
     } catch (error) {
       setRows([])
+      if (isUnauthorizedError(error)) return
       message.error(error instanceof Error ? error.message : '分佣规则加载失败')
     } finally {
       setLoading(false)
@@ -146,6 +148,7 @@ export function CommissionRulePage() {
       await load()
     } catch (error) {
       if (isValidationError(error)) return
+      if (isUnauthorizedError(error)) return
       message.error(
         error instanceof Error ? error.message : '默认分佣规则保存失败',
       )

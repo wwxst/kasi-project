@@ -65,29 +65,23 @@ export function AdminLayout() {
         selectedKeys={[location.pathname]}
         items={[
           {
-            type: 'group',
-            label: '工作台',
-            children: [
-              {
-                key: '/dashboard',
-                icon: <Gauge size={18} strokeWidth={1.8} />,
-                label: <Link to="/dashboard">分析页</Link>,
-              },
-              ...(admin?.isSuperAdmin === 1
-                ? [
-                    {
-                      key: '/admin-management',
-                      icon: <ShieldCheck size={18} strokeWidth={1.8} />,
-                      label: <Link to="/admin-management">管理员管理</Link>,
-                    },
-                  ]
-                : []),
-              {
-                key: '/user-management',
-                icon: <Users size={18} strokeWidth={1.8} />,
-                label: <Link to="/user-management">用户管理</Link>,
-              },
-            ],
+            key: '/dashboard',
+            icon: <Gauge size={18} strokeWidth={1.8} />,
+            label: <Link to="/dashboard">分析页</Link>,
+          },
+          ...(admin?.isSuperAdmin === 1
+            ? [
+                {
+                  key: '/admin-management',
+                  icon: <ShieldCheck size={18} strokeWidth={1.8} />,
+                  label: <Link to="/admin-management">管理员管理</Link>,
+                },
+              ]
+            : []),
+          {
+            key: '/user-management',
+            icon: <Users size={18} strokeWidth={1.8} />,
+            label: <Link to="/user-management">用户管理</Link>,
           },
           {
             key: 'drama-management',
@@ -139,11 +133,6 @@ export function AdminLayout() {
               },
             ],
           },
-        ]}
-        defaultOpenKeys={[
-          'drama-management',
-          'promotion-management',
-          'system-config',
         ]}
         onClick={() => setMobileMenuOpen(false)}
       />
