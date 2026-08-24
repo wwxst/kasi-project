@@ -45,6 +45,11 @@ const MediaAccountFilingPage = lazy(() =>
     default: module.MediaAccountFilingPage,
   })),
 )
+const PromotionOrderPage = lazy(() =>
+  import('../pages/promotion/PromotionOrderPage').then((module) => ({
+    default: module.PromotionOrderPage,
+  })),
+)
 const DramaCatalogPage = lazy(() =>
   import('../pages/drama/DramaCatalogPage').then((module) => ({
     default: module.DramaCatalogPage,
@@ -95,6 +100,10 @@ export function AppRouter() {
               <Route
                 path="/promotion/media-accounts"
                 element={<MediaAccountFilingPage />}
+              />
+              <Route
+                path="/promotion/orders"
+                element={<PromotionOrderPage />}
               />
               <Route path="/drama/catalog" element={<DramaCatalogPage />} />
               <Route
