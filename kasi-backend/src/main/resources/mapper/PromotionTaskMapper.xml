@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.kasi.backend.promotion.mapper.PromotionTaskMapper">
+    <resultMap id="TaskMap" type="com.kasi.backend.promotion.entity.PromotionTask">
+        <id column="id" property="id"/><result column="user_id" property="userId"/>
+        <result column="provider_id" property="providerId"/><result column="connection_id" property="connectionId"/>
+        <result column="drama_id" property="dramaId"/><result column="provider_name" property="providerName"/>
+        <result column="drama_title" property="dramaTitle"/><result column="request_key" property="requestKey"/>
+        <result column="task_name" property="taskName"/><result column="media_type" property="mediaType"/>
+        <result column="tracking_no" property="trackingNo"/><result column="external_code" property="externalCode"/>
+        <result column="direct_url" property="directUrl"/><result column="status" property="status"/>
+        <result column="last_error_code" property="lastErrorCode"/><result column="last_error_message" property="lastErrorMessage"/>
+        <result column="code_search_count" property="codeSearchCount"/><result column="direct_click_count" property="directClickCount"/>
+        <result column="app_click_count" property="appClickCount"/><result column="lead_count" property="leadCount"/>
+        <result column="order_amount" property="orderAmount"/><result column="order_count" property="orderCount"/>
+        <result column="ad_amount" property="adAmount"/><result column="created_at" property="createdAt"/>
+        <result column="updated_at" property="updatedAt"/>
+    </resultMap>
+    <select id="findByRequestAndMedia" resultMap="TaskMap">
+        SELECT * FROM promotion_task WHERE user_id=#{userId} AND request_key=#{requestKey} AND media_type=#{mediaType}
+    </select>
+    <insert id="insert" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO promotion_task (user_id,provider_id,connection_id,drama_id,request_key,task_name,media_type,tracking_no,status)
+        VALUES (#{userId},#{providerId},#{connectionId},#{dramaId},#{requestKey},#{taskName},#{mediaType},#{trackingNo},#{status})
+    </insert>
+    <sql id="filters"><where>user_id=#{userId}
+        <if test="taskName != null and taskName != ''">AND task_name LIKE CONCAT('%',#{taskName},'%')</if>
+        <if test="dramaTitle != null and dramaTitle != ''">AND drama_id IN (SELECT id FROM provider_drama WHERE title LIKE CONCAT('%',#{dramaTitle},'%'))</if>
+        <if test="mediaType != null and mediaType != ''">AND media_type=#{mediaType}</if>
+    </where></sql>
+    <select id="countByUser" resultType="long">SELECT COUNT(*) FROM promotion_task <include refid="filters"/></select>
+    <select id="pageByUser" resultMap="TaskMap">
+        SELECT t.*,p.provider_name,d.title drama_title FROM promotion_task t
+        JOIN short_drama_provider p ON p.id=t.provider_id JOIN provider_drama d ON d.id=t.drama_id
+        <include refid="filters"/> ORDER BY t.id DESC LIMIT #{offset},#{size}
+    </select>
+</mapper>

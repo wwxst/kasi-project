@@ -85,6 +85,7 @@ public abstract class BaseAuthTest {
         }
 
         // 按外键依赖从子表到父表清理数据库表
+        jdbcTemplate.execute("DELETE FROM promotion_task");
         jdbcTemplate.execute("DELETE FROM promotion_link");
         jdbcTemplate.execute("DELETE FROM provider_drama_content");
         jdbcTemplate.execute("DELETE FROM provider_drama");

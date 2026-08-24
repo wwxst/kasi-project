@@ -149,10 +149,10 @@ CREATE TABLE IF NOT EXISTS provider_drama (
     description CLOB,
     cover_url VARCHAR(1024),
     language VARCHAR(32) NOT NULL,
-    drama_type VARCHAR(64),
-    commission_scope VARCHAR(255),
-    promotion_description CLOB,
-    remote_show_status VARCHAR(32),
+      drama_type VARCHAR(64),
+      commission_scope VARCHAR(255),
+      promotion_description CLOB,
+      remote_show_status VARCHAR(32),
     local_status VARCHAR(16) NOT NULL DEFAULT 'DRAFT',
     remote_updated_at TIMESTAMP,
     last_seen_at TIMESTAMP,
@@ -204,6 +204,38 @@ CREATE TABLE IF NOT EXISTS promotion_link (
     FOREIGN KEY (connection_id) REFERENCES short_drama_connection (id),
     FOREIGN KEY (drama_id) REFERENCES provider_drama (id),
     FOREIGN KEY (media_account_id) REFERENCES promotion_media_account (id)
+);
+
+CREATE TABLE IF NOT EXISTS promotion_task (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    user_id BIGINT NOT NULL,
+    provider_id BIGINT NOT NULL,
+    connection_id BIGINT NOT NULL,
+    drama_id BIGINT NOT NULL,
+    request_key VARCHAR(64) NOT NULL,
+    task_name VARCHAR(128) NOT NULL,
+    media_type VARCHAR(32) NOT NULL,
+    tracking_no VARCHAR(64) NOT NULL,
+    external_code VARCHAR(255),
+    direct_url VARCHAR(2048),
+    status VARCHAR(16) NOT NULL DEFAULT 'PENDING',
+    last_error_code VARCHAR(64),
+    last_error_message VARCHAR(512),
+    code_search_count BIGINT NOT NULL DEFAULT 0,
+    direct_click_count BIGINT NOT NULL DEFAULT 0,
+    app_click_count BIGINT NOT NULL DEFAULT 0,
+    lead_count BIGINT NOT NULL DEFAULT 0,
+    order_amount DECIMAL(18,2) NOT NULL DEFAULT 0,
+    order_count BIGINT NOT NULL DEFAULT 0,
+    ad_amount DECIMAL(18,2) NOT NULL DEFAULT 0,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE (user_id, request_key, media_type),
+    UNIQUE (tracking_no),
+    CONSTRAINT fk_test_promotion_task_user FOREIGN KEY (user_id) REFERENCES promotion_user (id),
+    CONSTRAINT fk_test_promotion_task_provider FOREIGN KEY (provider_id) REFERENCES short_drama_provider (id),
+    CONSTRAINT fk_test_promotion_task_connection FOREIGN KEY (connection_id) REFERENCES short_drama_connection (id),
+    CONSTRAINT fk_test_promotion_task_drama FOREIGN KEY (drama_id) REFERENCES provider_drama (id)
 );
 
 CREATE TABLE IF NOT EXISTS provider_sync_checkpoint (
