@@ -5,7 +5,9 @@ import com.kasi.backend.common.exception.ErrorCode;
 import com.kasi.backend.drama.dto.CreateCommissionRuleDTO;
 import com.kasi.backend.drama.dto.UpdateCommissionRuleDTO;
 import com.kasi.backend.drama.entity.ProviderCommissionRule;
+import com.kasi.backend.drama.entity.ProviderCommissionRuleHistory;
 import com.kasi.backend.drama.mapper.ProviderCommissionRuleMapper;
+import com.kasi.backend.drama.mapper.ProviderCommissionRuleHistoryMapper;
 import com.kasi.backend.drama.service.ProviderCommissionRuleService;
 import com.kasi.backend.drama.vo.ProviderCommissionRuleVO;
 import com.kasi.backend.provider.mapper.ShortDramaProviderMapper;
@@ -21,6 +23,7 @@ import java.util.List;
 public class ProviderCommissionRuleServiceImpl implements ProviderCommissionRuleService {
     private final ProviderCommissionRuleMapper ruleMapper;
     private final ShortDramaProviderMapper providerMapper;
+    private final ProviderCommissionRuleHistoryMapper historyMapper;
 
     @Override
     @Transactional(readOnly = true)
@@ -48,6 +51,7 @@ public class ProviderCommissionRuleServiceImpl implements ProviderCommissionRule
         if (ruleMapper.insert(rule) != 1) {
             throw new BusinessException(ErrorCode.PROVIDER_COMMISSION_RULE_EXISTS);
         }
+        appendHistory(rule, operatorId);
         return toVO(reloadIfPossible(rule));
     }
 
@@ -67,6 +71,7 @@ public class ProviderCommissionRuleServiceImpl implements ProviderCommissionRule
         if (ruleMapper.update(existing) != 1) {
             throw new BusinessException(ErrorCode.PROVIDER_COMMISSION_RULE_NOT_FOUND);
         }
+        appendHistory(existing, operatorId);
         return toVO(reloadIfPossible(existing));
     }
 
@@ -109,6 +114,19 @@ public class ProviderCommissionRuleServiceImpl implements ProviderCommissionRule
 
     private BigDecimal toRatio(BigDecimal percent) {
         return percent.movePointLeft(2);
+    }
+
+    private void appendHistory(ProviderCommissionRule rule, Long operatorId) {
+        ProviderCommissionRuleHistory history = new ProviderCommissionRuleHistory();
+        history.setProviderId(rule.getProviderId());
+        history.setRuleId(rule.getId());
+        history.setChannelFeeRate(rule.getChannelFeeRate());
+        history.setPrincipalFeeRate(rule.getPrincipalFeeRate());
+        history.setPrincipalCommissionRate(rule.getPrincipalCommissionRate());
+        history.setDownstreamFeeRate(rule.getDownstreamFeeRate());
+        history.setDownstreamCommissionRate(rule.getDownstreamCommissionRate());
+        history.setCreatedBy(operatorId);
+        historyMapper.insert(history);
     }
 
     private BigDecimal toPercent(BigDecimal ratio) {

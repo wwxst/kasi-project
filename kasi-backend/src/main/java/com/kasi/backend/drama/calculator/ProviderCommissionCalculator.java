@@ -3,7 +3,9 @@ package com.kasi.backend.drama.calculator;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.util.Objects;
+import org.springframework.stereotype.Component;
 
+@Component
 public class ProviderCommissionCalculator {
     public BigDecimal calculate(BigDecimal amount,
                                 BigDecimal channelFeeRate,

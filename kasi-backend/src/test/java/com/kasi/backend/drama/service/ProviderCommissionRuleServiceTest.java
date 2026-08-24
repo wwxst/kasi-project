@@ -5,6 +5,7 @@ import com.kasi.backend.drama.dto.CreateCommissionRuleDTO;
 import com.kasi.backend.drama.dto.UpdateCommissionRuleDTO;
 import com.kasi.backend.drama.entity.ProviderCommissionRule;
 import com.kasi.backend.drama.mapper.ProviderCommissionRuleMapper;
+import com.kasi.backend.drama.mapper.ProviderCommissionRuleHistoryMapper;
 import com.kasi.backend.drama.service.impl.ProviderCommissionRuleServiceImpl;
 import com.kasi.backend.drama.vo.ProviderCommissionRuleVO;
 import com.kasi.backend.provider.entity.ShortDramaProvider;
@@ -25,13 +26,15 @@ import static org.mockito.Mockito.*;
 class ProviderCommissionRuleServiceTest {
     private ProviderCommissionRuleMapper ruleMapper;
     private ShortDramaProviderMapper providerMapper;
+    private ProviderCommissionRuleHistoryMapper historyMapper;
     private ProviderCommissionRuleService service;
 
     @BeforeEach
     void setUp() {
         ruleMapper = mock(ProviderCommissionRuleMapper.class);
         providerMapper = mock(ShortDramaProviderMapper.class);
-        service = new ProviderCommissionRuleServiceImpl(ruleMapper, providerMapper);
+        historyMapper = mock(ProviderCommissionRuleHistoryMapper.class);
+        service = new ProviderCommissionRuleServiceImpl(ruleMapper, providerMapper, historyMapper);
         when(providerMapper.findById(7L)).thenReturn(provider(7L));
         when(providerMapper.findByIdForUpdate(7L)).thenReturn(provider(7L));
         when(ruleMapper.insert(any(ProviderCommissionRule.class))).thenReturn(1);

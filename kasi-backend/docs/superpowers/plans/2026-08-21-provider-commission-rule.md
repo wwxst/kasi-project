@@ -1,5 +1,7 @@
 # Provider Commission Rule Implementation Plan
 
+> 历史实施计划。本文保留当时的测试驱动记录，但时间段、状态、PATCH 提前结束和 DELETE 规则已不属于当前契约；当前行为以仓库 README 和 AGENTS.md 为准。
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** 实现按短剧平台统一配置、按时间版本化的五项分佣规则，并提供管理员 API、并发安全写入和可复用的预计佣金计算器。
