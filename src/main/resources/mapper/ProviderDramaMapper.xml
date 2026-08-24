@@ -9,6 +9,7 @@
         <result column="cover_url" property="coverUrl"/><result column="language" property="language"/>
         <result column="drama_type" property="dramaType"/><result column="remote_show_status" property="remoteShowStatus"/>
         <result column="local_status" property="localStatus"/><result column="remote_updated_at" property="remoteUpdatedAt"/>
+        <result column="commission_scope" property="commissionScope"/><result column="promotion_description" property="promotionDescription"/>
         <result column="last_seen_at" property="lastSeenAt"/><result column="created_at" property="createdAt"/><result column="updated_at" property="updatedAt"/>
     </resultMap>
     <resultMap id="ContentMap" type="com.kasi.backend.drama.entity.ProviderDramaContent">
@@ -26,6 +27,7 @@
     <select id="findContents" resultMap="ContentMap">SELECT * FROM provider_drama_content WHERE drama_id = #{dramaId} ORDER BY sequence_no ASC</select>
     <insert id="upsertContent" useGeneratedKeys="true" keyProperty="id">INSERT INTO provider_drama_content (drama_id,external_content_id,sequence_no,title,is_free,duration_seconds,remote_updated_at) VALUES (#{dramaId},#{externalContentId},#{sequenceNo},#{title},#{free},#{durationSeconds},#{remoteUpdatedAt}) ON DUPLICATE KEY UPDATE external_content_id=VALUES(external_content_id),title=VALUES(title),is_free=VALUES(is_free),duration_seconds=VALUES(duration_seconds),remote_updated_at=VALUES(remote_updated_at),updated_at=CURRENT_TIMESTAMP</insert>
     <update id="updateLocalStatus">UPDATE provider_drama SET local_status=#{localStatus},updated_at=CURRENT_TIMESTAMP WHERE id=#{id}</update>
+    <update id="updatePromotionMetadata">UPDATE provider_drama SET commission_scope=#{commissionScope},promotion_description=#{promotionDescription},updated_at=CURRENT_TIMESTAMP WHERE id=#{id}</update>
     <select id="countPublished" resultType="long">SELECT COUNT(*) FROM provider_drama WHERE local_status = 'PUBLISHED' AND remote_show_status = '1'</select>
     <select id="pagePublished" resultMap="DramaMap">SELECT d.*, c.provider_id, p.provider_name FROM provider_drama d JOIN short_drama_connection c ON c.id = d.connection_id JOIN short_drama_provider p ON p.id = c.provider_id WHERE d.local_status = 'PUBLISHED' AND d.remote_show_status = '1' ORDER BY d.id DESC LIMIT #{offset}, #{size}</select>
 </mapper>

@@ -12,9 +12,13 @@
 项目管理 -> 结算类型 -> 分佣配置 -> 数据接口 -> 报白方式 -> 数据结算
 ```
 
-项目是业务载体，`CPA/CPS/CPM` 是可插拔的结算类型，数据源和报白方式是项目级能力配置。通用服务只依赖项目编码、结算类型、规则版本和能力接口，不依赖项目名称；CapCut 的特殊处理只存在于 CapCut 数据适配器和规则数据中。
+项目是业务载体，`CPA/CPS/CPM` 是可插拔的结算类型，数据源和报白方式是项目级能力配置。通用服务只依赖项目编码、结算类型、规则版本和能力接口，不依赖项目名称；CapCut 的特殊处理只存在于 CapCut 人工文件解析器和规则数据中。CapCut 本期不对接甲方 API，也不保存甲方 API 凭据。
 
 本轮只记录基于当前仓库的重构设计，不修改业务代码，不把规划中的订单、账单或 CapCut 能力描述成已经实现。
+
+### 当前实施切片（2026-08-24）
+
+当前优先完成短剧 `CPS` 的快速上线切片：管理员按日期窗口手动触发一次 GoodShort 订单同步、推广归因、历史费率快照、佣金明细和按月查询/导出。GoodShort 自动同步、每日统计、完整账单工作流、CapCut、CPA、CPM、通用项目管理和甲方 API 数据源暂缓；若实际接口不可用，再单独评估人工文件导入，不扩大本轮范围。具体改造边界见[短剧 CPS 完整化范围与重构边界](2026-08-24-short-drama-cps-completion-scope.md)。
 
 ## 1. 当前代码已有相关模块和现状
 
@@ -203,7 +207,7 @@ SettlementBatch
 
 | `project_code` | 名称 | 类型 | 绑定/说明 |
 | --- | --- | --- | --- |
-| `CAPCUT_ACQUISITION` | CapCut 拉新 | `CPA` | CapCut 数据适配器；含 `NEW_USER`、`ACTIVE_USER` 两类指标 |
+| `CAPCUT_ACQUISITION` | CapCut 拉新 | `CPA` | 固定使用 `MANUAL` 数据源和 CapCut 文件解析器；含 `NEW_USER`、`ACTIVE_USER` 两类指标 |
 | `SHORT_DRAMA_PROMOTION` | 短剧推广 | `CPS` | 绑定现有 `GOODSHORT`，继续使用短剧目录、链接、报备和 CPS 五费率公式 |
 
 新增项目只需新增项目记录、规则版本、数据源/报白配置和适配器注册，不允许在服务中写 `if (projectName.equals(...))`。
@@ -240,7 +244,7 @@ CapCut 加白操作说明应作为项目规则展示数据保存，不能散落�
 | `EU` | 英国、法国、德国 | `https://www.capcut.com/activities/mcn/pioneer-plan?team_id=153564697348` |
 | `ROW` | 除美国、英国、法国、德国以外的其他地区 | `https://www.capcut.com/activities/mcn/pioneer-plan?team_id=153814238468` |
 
-用户必须在对应国家/区域网络节点下复制链接打开；加入团队后 CapCut 自动完成加白，系统不要求回填已经发布的 TikTok 推广视频链接。链接、地区说明和“自动加白”是展示/操作规则，若未来甲方提供可调用的报白 API，再由项目级 `ProjectFilingAdapter` 增加可执行能力。
+用户必须在对应国家/区域网络节点下复制链接打开；加入团队后 CapCut 自动完成加白，系统不要求回填已经发布的 TikTok 推广视频链接。链接、地区说明和“自动加白”是展示/操作规则；本期 CapCut 不调用甲方报白 API，账号加白状态由用户操作后按项目配置人工维护。
 
 ## 5. 数据库表新增/修改方案
 
@@ -307,13 +311,13 @@ com.kasi.backend.settlement
   dto/ entity/ enums/ mapper/ service/ service.impl/ vo/
 ```
 
-CapCut 的字段映射和 API 解析放在 `settlement.datasource.capcut` 或 `project.adapter.capcut`，不污染 `settlement.service.impl`。
+CapCut 的字段映射和文件解析放在 `settlement.datasource.capcut` 或 `project.adapter.capcut`，不污染 `settlement.service.impl`。
 
 ### 6.2 Service 接口边界
 
 - `ProjectManagementService`：项目 CRUD、启停、基础信息。
 - `ProjectRuleService`：规则版本、费率阶梯、封顶、税率和展示规则；写入需要锁定项目行。
-- `ProjectDataSourceService`：API/人工数据源配置和测试。
+- `ProjectDataSourceService`：API/人工数据源配置和测试；CapCut 项目只允许保存 `MANUAL` 配置，其他项目才可选择 API。
 - `ProjectFilingConfigService`：API/人工报白配置和人工说明。
 - `ProjectCatalogService`：用户项目列表/详情和规则展示，按权限隐藏上游价。
 - `ProjectAccountService`：项目账号挂载和账号 profile；不创建 CapCut/TikTok 关系。
@@ -356,18 +360,22 @@ public interface SettlementCalculator {
 
 ## 8. API/人工数据源如何抽象
 
-定义项目级 `DataSourceMode`：`API`、`MANUAL`，并用 `SettlementDataSourceAdapter` 隔离具体来源：
+定义项目级 `DataSourceMode`：`API`、`MANUAL`，并用 `SettlementDataSourceAdapter` 隔离具体来源。该抽象是为未来项目保留扩展能力，不意味着每个项目都必须接 API；`CAPCUT_ACQUISITION` 的配置校验必须限制为 `MANUAL`。
 
 ```java
 public interface SettlementDataSourceAdapter {
     String adapterCode();
-    SettlementBatchFetchResult fetch(ProjectDataSourceConfig config, FetchWindow window);
+    Set<DataSourceMode> supportedModes();
+    default SettlementBatchFetchResult fetch(ProjectDataSourceConfig config, FetchWindow window) {
+        throw new UnsupportedOperationException("当前数据源不支持 API 获取");
+    }
     List<SettlementRawRow> parseManual(ProjectDataSourceConfig config, InputStream input);
 }
 ```
 
-- API 模式：调度器按项目配置调用 adapter，记录请求窗口、响应摘要、原始 payload 和批次幂等键。
-- 人工模式：后台上传 CSV/Excel/JSON 或提交人工批次，解析结果仍走同一 `SettlementBatch -> SettlementDataRecord` 管道。
+- API 模式：仅供未来确有甲方接口的项目使用，调度器按项目配置调用 adapter，记录请求窗口、响应摘要、原始 payload 和批次幂等键。
+- 人工模式：后台上传 CSV/Excel/JSON 或提交人工批次，解析结果仍走同一 `SettlementBatch -> SettlementDataRecord` 管道。CapCut 只走这条路径：管理员从甲方系统导出文件，上传后由 CapCut 文件解析器校验并导入。
+- CapCut 不配置 API URL、PID、KEY、同步任务或 API 凭据；人工导入页面应显示文件模板、列映射、批次预览、错误行下载和确认导入。
 - 两种模式都先落原始数据，再做标准化、校验、归因和计算；任何异常行进入批次错误/未匹配列表，不能只生成最终金额。
 - 凭据和 API URL 通过配置引用/加密存储，普通管理员和推广用户响应不暴露密钥。
 - 调度、重试、租约和去重沿用 `ScheduledTaskScheduler`、`DramaCatalogSyncServiceImpl` 的模式；项目编码只作为配置键，不作为业务 `if/else`。
@@ -379,7 +387,7 @@ public interface SettlementDataSourceAdapter {
 - `ProjectFilingConfig` 选择 `adapter_code`、接口/凭据、支持的账号平台和人工操作说明。
 - `ProjectFilingService` 根据模式：API 模式创建异步任务并调用 `ProjectFilingAdapter`；人工模式创建 `MANUAL_PENDING` 记录，管理员操作后写状态和操作人。
 - 现有 `AccountFilingProviderAdapter` 可以作为短剧实现适配器；`MediaFilingTaskServiceImpl` 的状态机和租约逻辑抽到通用任务服务，旧 `provider_media_filing` 继续兼容运行。
-- CapCut 自助加入团队的 US/EU/ROW 链接和网络节点说明属于项目规则展示；若甲方没有可调用报白 API，则配置为 `MANUAL`/自助操作，不伪造 API 任务。
+- CapCut 自助加入团队的 US/EU/ROW 链接和网络节点说明属于项目规则展示；本期配置为 `MANUAL`/自助操作，不创建或伪造甲方 API 报白任务。
 - TikTok 账号单独添加、单独提交、单独查看报白状态。它可以和 CapCut 项目同时存在，但数据库中没有彼此 FK。
 
 ## 10. CapCut 数据导入与结算完整调用链
@@ -387,7 +395,7 @@ public interface SettlementDataSourceAdapter {
 ```text
 管理员配置 CAPCUT_ACQUISITION(CPA)
   -> 配置规则版本/费率/封顶/3%税率/发稿日期月份口径
-  -> 配置 API 或人工数据源
+  -> 项目固定配置为 MANUAL 数据源，管理员从甲方系统导出文件
   -> 用户创建 CapCut 账号(profile.capcut_uid = TalentID, region)
   -> 用户按 US/EU/ROW 查看团队链接并自行加入
   -> 用户另行添加 TikTok 账号并走独立报白（无关联）
@@ -465,7 +473,7 @@ public interface SettlementDataSourceAdapter {
 
 ### 中影响
 
-- `ProviderRuntimeConnectionService` 增加“项目数据源/报白适配器”解析入口，但保留现有短剧 Provider 路径。
+- 未来若某项目需要 API 数据源，再增加独立的数据源适配器解析入口；不把 CapCut 数据导入接到 `ProviderRuntimeConnectionService`，短剧 Provider 路径保持独立。
 - `MediaFilingTaskServiceImpl`、`ProviderMediaFilingMapper` 抽取通用状态机/任务租约，旧表继续工作到迁移完成。
 - `ScheduledTaskCode`、调度配置增加项目数据同步和账单任务；调度器仍只入队，执行器负责业务。
 - README、`AGENTS.md` 和旧分佣设计文档要统一当前契约与目标设计边界。
@@ -487,7 +495,7 @@ public interface SettlementDataSourceAdapter {
 3. `V16__project_account_filing.sql`：项目账号、CapCut/TikTok profile、项目报白；保留 `promotion_media_account` 和 `provider_media_filing`。
 4. `V17__settlement_ingestion.sql`：批次、原始记录、归因和未匹配索引。
 5. `V18__settlement_bill_detail.sql`：账单、明细、税费快照、对账状态和审计字段。
-6. 后续版本再加入具体 CapCut API adapter 所需的非敏感配置字段；任何密钥都不写入迁移脚本。
+6. 后续若其他项目需要 API 数据源，再增加对应的非敏感配置字段；CapCut 不增加甲方 API adapter 或 API 凭据字段，任何密钥都不写入迁移脚本。
 
 ### 14.2 历史兼容
 
@@ -521,7 +529,7 @@ public interface SettlementDataSourceAdapter {
 ### 阶段 3：数据源、原始数据和归因
 
 - 实现 API/人工同管道、批次幂等、原始数据保存、TalentID 匹配和未匹配后台。
-- 先接人工导入再接 CapCut API，便于用固定 CSV/JSON 测试完整链路。
+- 先接 CapCut 人工导入，用固定 CSV/JSON 模板测试完整链路；API 数据源只作为未来其他项目的扩展，不属于 CapCut 本期范围。
 - 仅验证数据质量和归属，不生成用户账单。
 
 ### 阶段 4：CPA 结算和月度账单
@@ -545,6 +553,6 @@ public interface SettlementDataSourceAdapter {
 - 后端每新增 Controller、Service、Mapper、迁移或安全规则，都有对应 H2/MySQL 模式测试；认证测试继续继承 `BaseAuthTest`。
 - 结算计算器使用参数化测试覆盖 CPA/CPS/CPM、金额精度、封顶和 `HALF_UP`；CPS 迁移必须与 `ProviderCommissionCalculator` 结果一致。
 - 迁移测试验证唯一键、外键、金额精度、3% 税率默认值和初始项目种子；任何密钥不出现在 SQL、日志或 VO。
-- API/人工数据源测试验证同一原始行幂等、重复视频不同结算时间不丢失、原始 payload 可追溯、TalentID 未匹配不会生成账单。
+- 人工导入测试验证文件列映射、批次预览/确认、同一原始行幂等、重复视频不同结算时间不丢失、原始文件和原始行可追溯、TalentID 未匹配不会生成账单；通用 API 数据源另行测试，不纳入 CapCut 验收。
 - CapCut 测试验证按发稿日期归属月份、不会重新计算 T+14、CapCut/TikTok 无关联表、用户看不到上游价、历史价格修改不影响旧明细。
 - 前端测试覆盖项目规则展示、CapCut/TikTok 分离、税前/税费/实结金额展示和短剧 CPS 现有页面回归。

@@ -17,6 +17,8 @@ public class ProviderDrama {
     private String coverUrl;
     private String language;
     private String dramaType;
+    private String commissionScope;
+    private String promotionDescription;
     private String remoteShowStatus;
     private DramaLocalStatus localStatus;
     private LocalDateTime remoteUpdatedAt;

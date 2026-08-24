@@ -71,6 +71,12 @@ class AdminDramaCatalogControllerTest extends BaseAuthTest {
                         .header("Authorization", "Bearer " + token).contentType(MediaType.APPLICATION_JSON)
                         .content("{\"localStatus\":\"PUBLISHED\"}"))
                 .andExpect(status().isOk()).andExpect(jsonPath("$.data.localStatus").value("PUBLISHED"));
+        mockMvc.perform(put("/api/admin/drama/catalog/{id}/promotion-metadata", dramaId)
+                        .header("Authorization", "Bearer " + token).contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"commissionScopes\":[\"ORDER\",\"AD\"],\"promotionDescription\":\"说明\"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.commissionScopes[0]").value("ORDER"))
+                .andExpect(jsonPath("$.data.promotionDescription").value("说明"));
     }
 
     @Test
@@ -95,6 +101,10 @@ class AdminDramaCatalogControllerTest extends BaseAuthTest {
         mockMvc.perform(patch("/api/admin/drama/catalog/{id}/status", dramaId)
                         .header("Authorization", "Bearer " + token).contentType(MediaType.APPLICATION_JSON)
                         .content("{}"))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.code").value(1006));
+        mockMvc.perform(put("/api/admin/drama/catalog/{id}/promotion-metadata", dramaId)
+                        .header("Authorization", "Bearer " + token).contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"commissionScopes\":[\"UNKNOWN\"],\"promotionDescription\":\"说明\"}"))
                 .andExpect(status().isOk()).andExpect(jsonPath("$.code").value(1006));
     }
 }

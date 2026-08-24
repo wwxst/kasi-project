@@ -5,6 +5,7 @@ import com.kasi.backend.drama.dto.DramaPageQueryDTO;
 import com.kasi.backend.drama.entity.ProviderDrama;
 import com.kasi.backend.drama.entity.ProviderDramaContent;
 import com.kasi.backend.drama.enums.DramaLocalStatus;
+import com.kasi.backend.drama.enums.PromotionCommissionScope;
 import com.kasi.backend.drama.mapper.ProviderDramaMapper;
 import com.kasi.backend.drama.service.impl.DramaCatalogAdminServiceImpl;
 import com.kasi.backend.provider.entity.ShortDramaConnection;
@@ -86,6 +87,19 @@ class DramaCatalogAdminServiceTest {
                 .isInstanceOf(BusinessException.class);
         assertThatThrownBy(() -> service.updateLocalStatus(99L, DramaLocalStatus.PUBLISHED))
                 .isInstanceOf(BusinessException.class);
+    }
+
+    @Test
+    @DisplayName("推广元数据更新会规范化范围并清理空说明")
+    void updatePromotionMetadataNormalizesScopes() {
+        when(dramaMapper.findById(21L)).thenReturn(drama());
+        when(dramaMapper.updatePromotionMetadata(21L, "ORDER,AD", "说明")).thenReturn(1);
+
+        service.updatePromotionMetadata(21L,
+                List.of(PromotionCommissionScope.AD, PromotionCommissionScope.ORDER,
+                        PromotionCommissionScope.AD), "  说明  ");
+
+        verify(dramaMapper).updatePromotionMetadata(21L, "ORDER,AD", "说明");
     }
 
     private ProviderDrama drama() {
