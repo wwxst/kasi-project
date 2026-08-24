@@ -53,6 +53,27 @@ class DramaCatalogPersistenceTest extends BaseAuthTest {
     }
 
     @Test
+    @DisplayName("推广元数据可保存且目录同步upsert不会覆盖")
+    void promotionMetadataSurvivesCatalogUpsert() {
+        Long connectionId = insertConnection();
+        ProviderDrama drama = drama(connectionId, "metadata-book");
+        drama.setCommissionScope("ORDER,AD");
+        drama.setPromotionDescription("1. 单个视频建议不超过17分钟");
+        dramaMapper.upsert(drama);
+        Long id = dramaMapper.findByConnectionAndExternalId(connectionId, "metadata-book").getId();
+
+        assertThat(dramaMapper.updatePromotionMetadata(id, "AD", "2. 点击创建推广任务获取")).isEqualTo(1);
+        drama.setTitle("Remote title updated");
+        drama.setCommissionScope(null);
+        drama.setPromotionDescription(null);
+        dramaMapper.upsert(drama);
+
+        ProviderDrama stored = dramaMapper.findById(id);
+        assertThat(stored.getCommissionScope()).isEqualTo("AD");
+        assertThat(stored.getPromotionDescription()).isEqualTo("2. 点击创建推广任务获取");
+    }
+
+    @Test
     @DisplayName("妫€鏌ョ偣鏀寔璇锋眰銆佺绾︺€佽繘搴︿笌鎴愬姛澶辫触鐘舵€")
     void checkpointLeaseProgressAndFailure() {
         Long connectionId = insertConnection();

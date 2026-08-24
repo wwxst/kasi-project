@@ -1,6 +1,7 @@
 package com.kasi.backend.drama.vo;
 
 import com.kasi.backend.drama.enums.DramaLocalStatus;
+import com.kasi.backend.drama.enums.PromotionCommissionScope;
 import lombok.Builder;
 import lombok.Data;
 
@@ -18,6 +19,8 @@ public class DramaDetailVO {
     private String coverUrl;
     private String language;
     private String dramaType;
+    private List<PromotionCommissionScope> commissionScopes;
+    private String promotionDescription;
     private String remoteShowStatus;
     private DramaLocalStatus localStatus;
     private LocalDateTime remoteUpdatedAt;

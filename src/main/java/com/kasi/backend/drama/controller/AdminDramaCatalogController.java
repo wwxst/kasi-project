@@ -4,6 +4,7 @@ import com.kasi.backend.common.response.ApiResponse;
 import com.kasi.backend.drama.dto.DramaPageQueryDTO;
 import com.kasi.backend.drama.dto.RequestDramaSyncDTO;
 import com.kasi.backend.drama.dto.UpdateDramaLocalStatusDTO;
+import com.kasi.backend.drama.dto.UpdateDramaPromotionMetadataDTO;
 import com.kasi.backend.drama.service.DramaCatalogAdminService;
 import com.kasi.backend.drama.service.DramaCatalogSyncService;
 import com.kasi.backend.drama.vo.*;
@@ -48,5 +49,12 @@ public class AdminDramaCatalogController {
     public ApiResponse<DramaDetailVO> updateLocalStatus(@PathVariable @Positive Long id,
                                                          @Valid @RequestBody UpdateDramaLocalStatusDTO request) {
         return ApiResponse.success(adminService.updateLocalStatus(id, request.getLocalStatus()));
+    }
+
+    @PutMapping("/{id}/promotion-metadata")
+    public ApiResponse<DramaDetailVO> updatePromotionMetadata(@PathVariable @Positive Long id,
+                                                                @Valid @RequestBody UpdateDramaPromotionMetadataDTO request) {
+        return ApiResponse.success(adminService.updatePromotionMetadata(id, request.getCommissionScopes(),
+                request.getPromotionDescription()));
     }
 }

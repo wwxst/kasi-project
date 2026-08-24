@@ -20,8 +20,9 @@ class UserPromotionDramaControllerTest extends BaseAuthTest {
         jdbcTemplate.update("INSERT INTO short_drama_connection (provider_id,connection_name,currency) VALUES (?, 'GoodShort', 'USD')", providerId);
         Long connectionId = jdbcTemplate.queryForObject(
                 "SELECT id FROM short_drama_connection WHERE provider_id=?", Long.class, providerId);
-        jdbcTemplate.update("INSERT INTO provider_drama (connection_id,external_drama_id,title,language,remote_show_status,local_status) VALUES (?,?,?,?,?,?)",
-                connectionId, "published", "Published Drama", "ENGLISH", "1", "PUBLISHED");
+        jdbcTemplate.update("INSERT INTO provider_drama (connection_id,external_drama_id,title,description,language,drama_type,commission_scope,promotion_description,remote_updated_at,remote_show_status,local_status) VALUES (?,?,?,?,?,?,?,?,?,?,?)",
+                connectionId, "published", "Published Drama", "Drama introduction", "ENGLISH", "本土剧",
+                "ORDER,AD", "1. 单个视频建议不超过17分钟\n2. 点击创建推广任务获取", java.sql.Timestamp.valueOf("2026-08-23 20:24:46"), "1", "PUBLISHED");
         jdbcTemplate.update("INSERT INTO provider_drama (connection_id,external_drama_id,title,language,remote_show_status,local_status) VALUES (?,?,?,?,?,?)",
                 connectionId, "offline", "Offline Drama", "ENGLISH", "1", "OFFLINE");
         jdbcTemplate.update("INSERT INTO provider_drama (connection_id,external_drama_id,title,language,remote_show_status,local_status) VALUES (?,?,?,?,?,?)",
@@ -37,7 +38,12 @@ class UserPromotionDramaControllerTest extends BaseAuthTest {
                 .andExpect(jsonPath("$.code").value(0))
                 .andExpect(jsonPath("$.data.total").value(1))
                 .andExpect(jsonPath("$.data.list[0].providerId").value(providerId))
-                .andExpect(jsonPath("$.data.list[0].title").value("Published Drama"));
+                .andExpect(jsonPath("$.data.list[0].title").value("Published Drama"))
+                .andExpect(jsonPath("$.data.list[0].description").value("Drama introduction"))
+                .andExpect(jsonPath("$.data.list[0].commissionScopes[0]").value("ORDER"))
+                .andExpect(jsonPath("$.data.list[0].commissionScopes[1]").value("AD"))
+                .andExpect(jsonPath("$.data.list[0].promotionDescription").value("1. 单个视频建议不超过17分钟\n2. 点击创建推广任务获取"))
+                .andExpect(jsonPath("$.data.list[0].remoteUpdatedAt").value("2026-08-23T20:24:46"));
     }
 
     @Test
