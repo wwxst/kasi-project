@@ -6,7 +6,7 @@
 
 这是卡司推广平台的后端仓库，基于 Spring Boot 4.0.7 + MyBatis 4.0.1 + MySQL 8 + JWT 构建。
 
-**当前已完成**：管理员（ADMIN）和推广用户（USER）双认证体系、两类账号管理 CRUD、短剧平台接入与 GoodShort 账号报备、GoodShort 短剧目录全量/增量同步、推广链接、管理员手动订单同步、trackingNo 归因、CPS 费率快照、订单佣金及按月查询/CSV 导出。详见 [§6 API、认证与业务边界](#6-api认证与业务边界)。
+**当前已完成**：管理员（ADMIN）和推广用户（USER）双认证体系、两类账号管理 CRUD、短剧平台接入与 GoodShort 账号报备、GoodShort 短剧目录全量/增量同步、推广链接、GoodShort 订单每分钟自动同步最近 3 天及管理员按时间范围手动补拉、trackingNo 归因、CPS 费率快照、订单佣金及按月查询/CSV 导出。详见 [§6 API、认证与业务边界](#6-api认证与业务边界)。
 
 ## 2. 当前结构
 
@@ -132,7 +132,7 @@ $env:Path = "$env:JAVA_HOME\bin;$env:Path"
 | 平台密钥主密钥 | 必须通过 `PROVIDER_CREDENTIAL_MASTER_KEY` 注入 Base64 编码的 32 字节密钥；不得提交到仓库或写入日志 |
 | GoodShort 探测 | 接口 URL 从平台接入配置读取，连接超时 3 秒、读取超时 10 秒；平台密钥从数据库密文解密后仅在适配器调用链内使用 |
 | 短剧目录同步 | 默认语言 `ENGLISH`、每页 100 条、每 5 分钟执行已入队任务；支持配置语言、批量、分页、租约和调度开关 |
-| 固定定时任务 | V1 提供 GoodShort 增量同步配置和结构化周期，默认每 60 分钟入队；仅成功全量基线存在时自动创建增量任务 |
+| 固定定时任务 | `GOODSHORT_DRAMA_INCREMENTAL_SYNC` 默认每 60 分钟入队；`GOODSHORT_ORDER_SYNC` 默认每 1 分钟同步最近 3 天；仅成功全量基线存在时自动创建增量任务 |
 
 应用要连接 MySQL，至少需要提供：
 
@@ -148,7 +148,7 @@ $env:SPRING_DATASOURCE_PASSWORD = '<database-password>'
 .\mvnw.cmd spring-boot:run
 ```
 
-首次启动时 Flyway 会按顺序执行 `V1__kasi_promotion.sql`、`V13__promotion_task.sql`、`V14__provider_drama_promotion_metadata.sql`、`V15__promotion_order_and_rule_history.sql` 和 `V16__goodshort_drama_catalog_complete_fields.sql`。V1 创建基础业务表并植入唯一的初始超级管理员及一个初始推广用户；V13 增加推广任务；V14 增加短剧推广元数据；V15 增加订单和不可变分佣历史快照；V16 增加 GoodShort 短剧列表完整字段：
+首次启动时 Flyway 会按顺序执行 `V1__kasi_promotion.sql`、`V13__promotion_task.sql`、`V14__provider_drama_promotion_metadata.sql`、`V15__promotion_order_and_rule_history.sql`、`V16__goodshort_drama_catalog_complete_fields.sql` 和 `V17__goodshort_order_scheduled_sync.sql`。V1 创建基础业务表并植入唯一的初始超级管理员及一个初始推广用户；V13 增加推广任务；V14 增加短剧推广元数据；V15 增加订单和不可变分佣历史快照；V16 增加 GoodShort 短剧列表完整字段；V17 增加 GoodShort 订单自动同步任务：
 
 - 管理员账号：`admin`
 - 管理员初始密码：`12345678`
@@ -175,7 +175,7 @@ mysql --host=127.0.0.1 --user=$env:SPRING_DATASOURCE_USERNAME --password --datab
 
 ## 5. 数据库现状
 
-### 已实现的表结构（V1、V14、V15、V16）
+### 已实现的表结构（V1、V13、V14、V15、V16、V17）
 
 迁移脚本 V1 定义当前数据库持久表，验证码和密码重置 Token 等临时数据由 Redis 管理：
 
@@ -207,7 +207,7 @@ mysql --host=127.0.0.1 --user=$env:SPRING_DATASOURCE_USERNAME --password --datab
 
 当前已实现 GoodShort 短剧目录全量 `initBooks`、增量 `incrementBooks`、断点恢复、数据库租约、定时/手动触发、固定定时任务入队、管理员查询详情和本地上下架；首次全量同步仍由管理员手动发起，只有成功全量基线存在时才自动创建增量任务。平台分佣规则按平台保存一条默认配置，POST 首次设置、PUT 直接覆盖；每次写入都会产生不可变 `provider_commission_rule_history` 快照，订单同时保存当次五费率和计算结果。规则计算器使用 `BigDecimal`，最终金额保留两位并按 `HALF_UP` 四舍五入。
 
-推广用户可查询已上架短剧、筛选本人已报白媒体账号、生成 GoodShort 推广链接/口令并查询本人链接；生成接口使用 `requestKey` 幂等并保存 `trackingNo`。管理员可按不超过 31 天的时间窗口手动调用 GoodShort `/open/partner/orders`，系统按 `(connection_id, external_order_id)` 幂等写入，保留原始 JSON，仅通过 `customParams -> promotion_link.tracking_no -> user_id` 归因。退款保留原佣金并标记 `REVERSED`；月度归属按 `paid_at`。管理员和用户均可查询/CSV 导出，用户只能看到本人已归因订单。订单自动同步、正式账单锁定/付款状态、钱包、提现和转化分析仍未实现。
+推广用户可查询已上架短剧、筛选本人已报白媒体账号、生成 GoodShort 推广链接/口令并查询本人链接；生成接口使用 `requestKey` 幂等并保存 `trackingNo`。`GOODSHORT_ORDER_SYNC` 每分钟自动调用 GoodShort `/open/partner/orders` 回查最近 3 天，管理员仍可按不超过 31 天的时间窗口手动补拉；系统按 `(connection_id, external_order_id)` 幂等写入，保留原始 JSON，仅通过 `customParams -> promotion_link.tracking_no -> user_id` 归因。退款保留原佣金并标记 `REVERSED`；月度归属按 `paid_at`。管理员和用户均可查询/CSV 导出，用户只能看到本人已归因订单。正式账单锁定/付款状态、钱包、提现和转化分析仍未实现。
 
 推广链接生成采用短事务保存或重置 `PENDING`，事务外调用 GoodShort，随后用独立短事务写入 `SUCCESS` 或 `FAILED`；远程失败状态不会随外层业务异常回滚。订单同步遇到 `(connection_id, external_order_id)` 唯一键并发冲突时回读已存在订单并按重复记录处理。
 
@@ -358,7 +358,7 @@ V14 为 `provider_drama` 增加 `commission_scope` 和 `promotion_description` �
 | GET | `/api/admin/system/scheduled-tasks` | ADMIN | 查询后端固定任务配置 |
 | PUT | `/api/admin/system/scheduled-tasks/{taskCode}` | SUPER_ADMIN | 修改执行周期、任务说明和启停状态 |
 
-当前固定任务为 `GOODSHORT_DRAMA_INCREMENTAL_SYNC`。页面可编辑周期类型、间隔值及小时/分钟余量、执行时间、星期/日期、说明和是否开启，不能新增、删除、修改标题、任务编码或执行程序。普通管理员只读；首次全量同步不由该任务自动完成。`INTERVAL_HOURS` 使用小时数加分钟余量，`INTERVAL_DAYS` 使用天数加小时和分钟余量。
+当前固定任务为 `GOODSHORT_DRAMA_INCREMENTAL_SYNC` 和 `GOODSHORT_ORDER_SYNC`。页面可编辑周期类型、间隔值及小时/分钟余量、执行时间、星期/日期、说明和是否开启，不能新增、删除、修改标题、任务编码或执行程序。普通管理员只读；首次全量同步不由目录任务自动完成。订单任务的有效周期由 `cycle_type=INTERVAL_MINUTES`、`interval_value=1` 驱动，旧兼容字段 `interval_minutes` 保持合法值 5。`INTERVAL_HOURS` 使用小时数加分钟余量，`INTERVAL_DAYS` 使用天数加小时和分钟余量。
 
 ### 6.11 统一响应格式
 

@@ -57,3 +57,36 @@ README 和 AGENTS 只能引用 `已实施` 的当前行为；`提议`、`已批�
 ## 4. 当前决策索引
 
 已有专项设计文档仍然有效，但在状态更新前应按本规范补齐“状态、影响、迁移/回滚、验证证据”。后续新决策从 `ADR-0001` 开始连续编号，不复用编号，不删除历史记录。
+
+## ADR-0001：GoodShort 订单自动同步复用通用定时任务
+
+- 日期：2026-08-25
+- 状态：已实施
+- 范围：`promotion`、`scheduledtask`、`system_scheduled_task`、管理端定时任务页
+- 关联：`docs/superpowers/specs/2026-08-25-goodshort-order-scheduled-sync-design.md`、`V17__goodshort_order_scheduled_sync.sql`
+
+### 背景与问题
+
+GoodShort 订单原先只能由管理员手动调用同步接口，无法稳定形成订单归因和 CPS 佣金数据。仓库已有每分钟扫描 `system_scheduled_task`、数据库租约和定时任务管理页；订单分页、幂等、归因和佣金快照也已有实现。
+
+### 决策
+
+新增固定任务 `GOODSHORT_ORDER_SYNC`，默认每分钟同步最近 3 天。复用现有调度扫描器、任务租约和管理页，不增加第二个 Spring `@Scheduled`、第二张任务表或第二个页面。抽取 `PromotionOrderSyncService`，供自动任务和 `POST /api/admin/promotion/orders/sync` 手动补拉共同使用。自动窗口由调度器的 `Clock` 计算为 `now.minusDays(3)` 到 `now`；历史范围继续由管理员显式传入。
+
+任务有效周期由 `cycle_type=INTERVAL_MINUTES` 和 `interval_value=1` 驱动。旧版兼容字段 `interval_minutes` 仍保存合法值 5，不扩大既有数据库检查约束。
+
+### 备选方案
+
+拒绝新增第二个 Spring `@Scheduled`：会形成重复的周期配置、并发控制和运维入口。拒绝在调度器中复制订单分页代码：会使手动和自动同步的归因、汇总和异常语义分叉。
+
+### 影响
+
+新增 V17 任务记录和订单同步 Service；已有订单表、手动 API、订单归因、幂等、五项费率快照和退款冲销语义不变。自动任务失败仍沿用现有调度器日志和下一轮调度行为；本次不新增运行历史、死信、检查点或告警。
+
+### 迁移与回滚
+
+Flyway 按 V1、V13、V14、V15、V16、V17 顺序执行，V16 增加 GoodShort 短剧完整字段，V17 仅插入订单同步任务记录。回滚时先在任务页禁用 `GOODSHORT_ORDER_SYNC`，再回退应用版本；已同步订单保留，不删除订单数据。
+
+### 验证证据
+
+Java 25 下后端完整测试共 327 个通过，0 失败、0 错误；管理端定时任务 API/页面测试共 14 个通过，生产构建成功。

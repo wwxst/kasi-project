@@ -1,7 +1,7 @@
 # GoodShort 订单定时同步设计
 
 日期：2026-08-25
-状态：已批准设计，未实施
+状态：已实施
 
 ## 1. 问题与目标
 
@@ -67,7 +67,7 @@ ScheduledTaskDispatchService
 
 ## 5. 定时任务与数据迁移
 
-新增 `ScheduledTaskCode.GOODSHORT_ORDER_SYNC`。新增 Flyway 迁移 `V16__goodshort_order_scheduled_sync.sql`，只插入一条固定任务配置：
+新增 `ScheduledTaskCode.GOODSHORT_ORDER_SYNC`。新增 Flyway 迁移 `V17__goodshort_order_scheduled_sync.sql`，只插入一条固定任务配置：
 
 ```text
 task_code       GOODSHORT_ORDER_SYNC
@@ -75,11 +75,12 @@ title           GoodShort 订单同步
 description     每隔1分钟同步最近3天的GoodShort订单
 cycle_type      INTERVAL_MINUTES
 interval_value  1
+interval_minutes 5（旧字段兼容值；调度不使用它计算本任务周期）
 enabled         true
 next_run_at     当前时间加1分钟
 ```
 
-现有 V1 迁移为 `interval_minutes` 设置了最少 5 分钟的检查约束。V16 必须先将该约束下限调整为 1 分钟、上限保持 1440 分钟，否则新增任务无法迁移成功；这项 schema 调整只服务于已确认的一分钟周期，不改变现有任务的存储值或执行语义。
+现有 V1 迁移为兼容字段 `interval_minutes` 设置了最少 5 分钟的检查约束。实际调度由 `cycle_type` 和 `interval_value` 经 `ScheduledTaskScheduleCalculator` 计算，因此 V17 保存 `interval_value=1` 和合法的兼容值 `interval_minutes=5` 即可每分钟执行，不需要扩大既有 schema 约束范围。
 
 不修改已发布的 `V1__kasi_promotion.sql`。任务页会自动显示新任务；管理端 TypeScript 联合类型 `ScheduledTaskCode` 增加 `GOODSHORT_ORDER_SYNC`，使编辑和启停请求可以安全传递该编码。
 
@@ -111,7 +112,7 @@ startDate = endDate.minusDays(3)
 
 先写失败测试，再实现生产代码。最低覆盖：
 
-1. Flyway 执行到 V16 后，`system_scheduled_task` 存在启用的 `GOODSHORT_ORDER_SYNC`，默认周期为 1 分钟。
+1. Flyway 执行到 V17 后，`system_scheduled_task` 存在启用的 `GOODSHORT_ORDER_SYNC`，默认周期为 1 分钟。
 2. 到期任务被当前 worker 成功领取后，使用固定 `Clock` 调用共享订单同步服务，窗口精确为 `now.minusDays(3)` 到 `now`，并将下一次执行时间推进 1 分钟。
 3. 未领取租约时，不调用订单同步服务，也不更新下一次执行时间。
 4. GoodShort 平台不存在或不具备订单同步能力时，不访问远端；同一批次中的其他任务不受影响。
@@ -130,6 +131,6 @@ startDate = endDate.minusDays(3)
 
 1. 编写迁移、共享同步服务与调度分发的失败测试。
 2. 在最小范围内抽取共享同步服务，使手动入口保持原 HTTP 契约。
-3. 新增任务编码、V16 迁移和调度分支。
+3. 新增任务编码、V17 迁移和调度分支。
 4. 更新管理端任务编码类型和相关渲染测试。
 5. 更新 README、AGENTS、缺口清单及必要的架构决策记录，执行完整验证。
