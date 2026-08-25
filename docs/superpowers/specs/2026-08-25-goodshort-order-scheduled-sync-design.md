@@ -79,6 +79,8 @@ enabled         true
 next_run_at     当前时间加1分钟
 ```
 
+现有 V1 迁移为 `interval_minutes` 设置了最少 5 分钟的检查约束。V16 必须先将该约束下限调整为 1 分钟、上限保持 1440 分钟，否则新增任务无法迁移成功；这项 schema 调整只服务于已确认的一分钟周期，不改变现有任务的存储值或执行语义。
+
 不修改已发布的 `V1__kasi_promotion.sql`。任务页会自动显示新任务；管理端 TypeScript 联合类型 `ScheduledTaskCode` 增加 `GOODSHORT_ORDER_SYNC`，使编辑和启停请求可以安全传递该编码。
 
 调度分发新增 `case GOODSHORT_ORDER_SYNC`。窗口只在成功领取租约后计算：
