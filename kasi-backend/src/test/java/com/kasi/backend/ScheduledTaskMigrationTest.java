@@ -57,6 +57,36 @@ class ScheduledTaskMigrationTest {
         assertThat(task.get("NEXT_RUN_AT")).isNotNull();
     }
 
+    @Test
+    @DisplayName("V17兼容缺少周期字段的15版本历史数据库")
+    void migrationRepairsLegacyScheduledTaskColumnsBeforeOrderSync() {
+        DriverManagerDataSource dataSource = dataSource();
+        Flyway.configure()
+                .dataSource(dataSource)
+                .locations("classpath:db/migration")
+                .target("15")
+                .load()
+                .migrate();
+        JdbcTemplate jdbc = new JdbcTemplate(dataSource);
+        jdbc.update("ALTER TABLE system_scheduled_task DROP COLUMN cycle_type");
+        jdbc.update("ALTER TABLE system_scheduled_task DROP COLUMN interval_value");
+        jdbc.update("ALTER TABLE system_scheduled_task DROP COLUMN interval_hours_part");
+        jdbc.update("ALTER TABLE system_scheduled_task DROP COLUMN interval_minutes_part");
+
+        Flyway.configure()
+                .dataSource(dataSource)
+                .locations("classpath:db/migration")
+                .load()
+                .migrate();
+
+        assertThat(columnCount(jdbc, "SYSTEM_SCHEDULED_TASK",
+                "CYCLE_TYPE", "INTERVAL_VALUE", "INTERVAL_HOURS_PART", "INTERVAL_MINUTES_PART"))
+                .isEqualTo(4);
+        assertThat(jdbc.queryForObject(
+                "SELECT COUNT(*) FROM system_scheduled_task WHERE task_code='GOODSHORT_ORDER_SYNC'",
+                Integer.class)).isEqualTo(1);
+    }
+
     private static JdbcTemplate migrateAllMigrations() {
         DriverManagerDataSource dataSource = new DriverManagerDataSource();
         dataSource.setDriverClassName("org.h2.Driver");
@@ -79,5 +109,25 @@ class ScheduledTaskMigrationTest {
                         + "WHERE TABLE_SCHEMA = SCHEMA() AND TABLE_NAME = ?",
                 Integer.class, tableName);
         return count != null && count > 0;
+    }
+
+    private static int columnCount(JdbcTemplate jdbc, String tableName, String... columns) {
+        String placeholders = String.join(",", java.util.Collections.nCopies(columns.length, "?"));
+        Object[] args = new Object[columns.length + 1];
+        args[0] = tableName;
+        System.arraycopy(columns, 0, args, 1, columns.length);
+        return jdbc.queryForObject("SELECT COUNT(*) FROM INFORMATION_SCHEMA.COLUMNS "
+                        + "WHERE TABLE_SCHEMA=SCHEMA() AND TABLE_NAME=? AND COLUMN_NAME IN (" + placeholders + ")",
+                Integer.class, args);
+    }
+
+    private static DriverManagerDataSource dataSource() {
+        DriverManagerDataSource dataSource = new DriverManagerDataSource();
+        dataSource.setDriverClassName("org.h2.Driver");
+        dataSource.setUrl("jdbc:h2:mem:scheduled_task_" + UUID.randomUUID()
+                + ";MODE=MySQL;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE");
+        dataSource.setUsername("sa");
+        dataSource.setPassword("");
+        return dataSource;
     }
 }
