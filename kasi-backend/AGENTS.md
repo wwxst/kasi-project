@@ -34,7 +34,7 @@
   - `promotion/` — 推广用户媒体账号绑定、GoodShort 账号报备、推广链接、订单归因、CPS 佣金快照、订单共享同步服务、管理员手动补拉及管理员/用户查询导出 API
   - `drama/` — GoodShort 短剧目录与剧集持久层、全量/增量同步、检查点与租约、平台级分佣规则、`BigDecimal` 计算器、管理员 API 和定时调度
   - `auth/` — 可复用的验证码服务和密码重置 Token 机制（Redis 存储，Lua 原子消费/预占，TTL 自动过期）
-- 数据库迁移：`V1__kasi_promotion.sql` 创建基础业务表并植入唯一初始超级管理员，`V13__promotion_task.sql` 增加推广任务，`V14__provider_drama_promotion_metadata.sql` 增加短剧本地推广元数据，`V15__promotion_order_and_rule_history.sql` 增加分佣历史快照和推广订单，`V16__goodshort_drama_catalog_complete_fields.sql` 增加 GoodShort 短剧列表完整字段，`V17__goodshort_order_scheduled_sync.java` 兼容补齐历史定时任务周期字段并植入订单同步任务；不植入平台接入密钥。目录默认同步 `ENGLISH`，全量调用 `initBooks`，增量调用 `incrementBooks`；目录同步不覆盖本地推广元数据。验证码和密码重置 Token 等临时数据由 Redis（`vc:*`、`pwd:*` 键）管理，TTL 自动过期。
+- 数据库迁移：`V1__kasi_promotion.sql` 创建基础业务表并植入唯一初始超级管理员，`V13__promotion_task.sql` 增加推广任务，`V14__provider_drama_promotion_metadata.sql` 增加短剧本地推广元数据，`V15__promotion_order_and_rule_history.sql` 增加分佣历史快照和推广订单，`V16__goodshort_drama_catalog_complete_fields.sql` 增加 GoodShort 短剧列表完整字段，`V17__goodshort_order_scheduled_sync.java` 兼容补齐历史定时任务周期字段并植入订单同步任务，`V18__drama_default_published.java` 迁移历史草稿并修改新短剧默认状态；不植入平台接入密钥。目录默认同步 `ENGLISH`，全量调用 `initBooks`，增量调用 `incrementBooks`；目录同步保留本地推广元数据，甲方下架会将我方已上架短剧同步下架，甲方恢复不会自动重新上架。验证码和密码重置 Token 等临时数据由 Redis（`vc:*`、`pwd:*` 键）管理，TTL 自动过期。
 - `scripts/dev/seed_goodshort_drama_catalog.sql` 是 Flyway 之外的手动开发 seed，仅创建禁用且无凭据的 GoodShort 本地 fixture 连接；仅限本地使用，并必须通过遇错即停的 fail-fast 客户端执行。
 - 项目当前仍处于开发阶段，数据库可以删除重建；修改已执行的迁移后应重建开发数据库。未来生产首次建库也按 Flyway 版本顺序执行并植入初始账号，不新增运行时账号植入器。
 - 会话状态由 Redis（`auth:version:{type}:{userId}`、`auth:session:{jti}`）管理。JWT 携带 `jti`、`sessionVersion`，受保护请求必须同时校验签名、账号状态和 Redis 会话；Redis 不可用时安全失败返回 503，不能降级放行。
@@ -51,7 +51,7 @@
 - 管理后台 Dashboard 当前只显示当前管理员欢迎语，不展示静态 Demo 卡片；侧边栏、品牌链接、搜索回车和兜底路由统一使用 `/user-management`，真实数据大屏仍未实现。
 - `sys_admin_user` 和 `promotion_user` 均不保留 `deleted_at`；媒体账号表同样不保留 `deleted_at`，媒体账号不提供物理删除。
 - 媒体账号用户 API 位于 `/api/user/promotion/media-accounts`，管理员 API 位于 `/api/admin/promotion/media-accounts`；管理员支持分页查询、详情、编辑和失败报备重试，未加白时允许纠正媒体平台和账号 ID，已加白后锁定身份字段。响应不暴露平台连接 ID、PID、密钥或任务租约字段。报备任务默认每 30 秒领取到期任务，提交后 1 分钟首次查询，审核中每 5 分钟查询，已加白每 24 小时复核。
-- 短剧目录管理员 API 位于 `/api/admin/drama/catalog`；普通管理员和超级管理员均可分页查询、查看详情、触发同步、查询同步状态、修改本地上下架和维护短剧推广元数据（`PUT /api/admin/drama/catalog/{id}/promotion-metadata`）。同步默认每 5 分钟处理到期任务，支持断点续跑、过期租约接管和同连接/语言跨 FULL、INCREMENTAL 互斥；远端同步不得覆盖 `local_status` 或本地推广元数据，也不得物理删除本次未返回的历史短剧。
+- 短剧目录管理员 API 位于 `/api/admin/drama/catalog`；普通管理员和超级管理员均可分页查询、查看详情、触发同步、查询同步状态、修改本地上下架和维护短剧推广元数据（`PUT /api/admin/drama/catalog/{id}/promotion-metadata`）。同步默认每 5 分钟处理到期任务，支持断点续跑、过期租约接管和同连接/语言跨 FULL、INCREMENTAL 互斥；新同步的甲方在线短剧默认 `PUBLISHED`，甲方非在线时同步为 `OFFLINE`，已有已上架短剧遇甲方下架时自动下架，甲方恢复在线不自动重新上架；本地推广元数据不被覆盖，也不物理删除本次未返回的历史短剧。
 - GoodShort 目录响应的 `bookId`、`bookName`、`bookNameZh`、`bookCover`、`labelNames`、`introduce`、`typeTwoName`、`language`、`rank`、`showStatus`、`novelType`、`novelSubType`、`ctime`、`utime` 全部转换为本地领域字段并保存；`labelNames` 使用 JSON 文本保存，管理端和用户端目录 VO 返回对应的 `titleZh`、`coverUrl`、`labelNames`、`categoryName`、`remoteRank`、`novelType`、`novelSubType`、`remoteCreatedAt`、`remoteUpdatedAt` 字段。增量请求按文档发送 `utimeStart`/`utimeEnd`。
 - 短剧平台分佣规则 API 位于 `/api/admin/drama/providers/{providerId}/commission-rules`：普通管理员和超级管理员均可 `GET`，只有超级管理员可 `POST` 首次设置和 `PUT` 覆盖。每个平台一条当前规则、无时间段/状态/删除；每次写入同步产生不可变 `provider_commission_rule_history` 快照。API 使用 `0..100` 百分比，数据库和订单快照使用 `0..1` 高精度比例；计算器最终金额保留两位并按 `HALF_UP` 四舍五入。
 - 推广链接和订单级 CPS 最小闭环已实现：用户通过 `/api/user/promotion/links` 生成 GoodShort 链接/口令，`requestKey` 幂等并保存 `trackingNo`；`GOODSHORT_ORDER_SYNC` 每分钟自动同步最近 3 天，管理员仍可通过 `POST /api/admin/promotion/orders/sync` 手动补拉指定范围，订单以 `(connection_id, external_order_id)` 幂等，仅按 `customParams -> tracking_no -> user_id` 归因并保存原始 JSON 和五费率快照。管理员和用户分别可查询/CSV 导出，用户月度归属按 `paid_at`；退款保留原佣金并标记 `REVERSED`。正式账单、钱包、提现和转化分析仍未实现。
@@ -98,7 +98,7 @@ java -version
 
 ## 数据库与 Flyway
 
-- Flyway 当前按 `V1`、`V13`、`V14`、`V15`、`V16`、`V17` 顺序迁移；开发阶段可删除数据库后重建，已有 V14 数据库通过 V15、V16、V17 增量增加订单、规则历史、GoodShort 短剧完整字段和订单自动同步任务。后续 schema 变更继续新增更高版本迁移，不修改已发布迁移。
+- Flyway 当前按 `V1`、`V13`、`V14`、`V15`、`V16`、`V17`、`V18` 顺序迁移；开发阶段可删除数据库后重建，已有数据库通过增量迁移增加订单、规则历史、GoodShort 短剧完整字段、订单自动同步任务和短剧默认上架规则。后续 schema 变更继续新增更高版本迁移，不修改已发布迁移。
 - 当前不启用 `baseline-on-migrate`。没有 Flyway 历史表的非空数据库必须明确失败，禁止为兼容旧库而静默跳过 V1。
 - 迁移脚本必须针对已选定的 schema。不要在应用迁移脚本中放置针对固定本地数据库的 `CREATE DATABASE` 或 `USE` 语句。
 - 迁移中修改的会话设置（包括 `FOREIGN_KEY_CHECKS`），若确实需要，应在迁移完成后恢复。

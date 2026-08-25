@@ -130,6 +130,7 @@ const draftDrama = {
   externalDramaId: 'book-1002',
   title: 'Hidden Heiress',
   originalTitle: null,
+  remoteShowStatus: '0',
   localStatus: 'DRAFT',
 }
 
@@ -170,6 +171,17 @@ function useCatalogHandlers() {
 }
 
 describe('DramaCatalogPage', () => {
+  it('shows readable remote availability labels instead of raw values', async () => {
+    useCatalogHandlers()
+
+    renderPage()
+
+    expect(within(await screen.findByTestId('mock-row-8')).getByText('在线'))
+      .toBeInTheDocument()
+    expect(within(await screen.findByTestId('mock-row-9')).getByText('已下架'))
+      .toBeInTheDocument()
+  })
+
   it('loads the catalog and opens a detail drawer with episodes', async () => {
     const requests = useCatalogHandlers()
     server.use(

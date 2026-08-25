@@ -184,7 +184,9 @@ export function DramaCatalogPage() {
       dataIndex: 'remoteShowStatus',
       width: 110,
       fieldProps: { placeholder: '请输入原始状态' },
-      render: (_, record) => <Tag>{record.remoteShowStatus || '-'}</Tag>,
+      render: (_, record) => (
+        <RemoteStatusTag status={record.remoteShowStatus} />
+      ),
     },
     {
       title: '本地状态',
@@ -417,7 +419,12 @@ function DramaDetail({ detail }: { detail: DramaCatalogDetail }) {
             {detail.dramaType || '-'}
           </Descriptions.Item>
           <Descriptions.Item label="远端状态">
-            {detail.remoteShowStatus || '-'}
+            <Space size={6}>
+              <RemoteStatusTag status={detail.remoteShowStatus} />
+              {detail.remoteShowStatus ? (
+                <span>原始值：{detail.remoteShowStatus}</span>
+              ) : null}
+            </Space>
           </Descriptions.Item>
           <Descriptions.Item label="远端更新时间">
             {formatDate(detail.remoteUpdatedAt)}
@@ -499,6 +506,15 @@ function DramaCover({
 function LocalStatusTag({ status }: { status: DramaLocalStatus }) {
   return (
     <Tag color={localStatusColors[status]}>{localStatusLabels[status]}</Tag>
+  )
+}
+
+function RemoteStatusTag({ status }: { status: string | null }) {
+  if (!status) return <Tag>未知</Tag>
+  return status === '1' ? (
+    <Tag color="success">在线</Tag>
+  ) : (
+    <Tag color="warning">已下架</Tag>
   )
 }
 

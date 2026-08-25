@@ -159,7 +159,7 @@ CREATE TABLE IF NOT EXISTS provider_drama (
       commission_scope VARCHAR(255),
       promotion_description CLOB,
       remote_show_status VARCHAR(32),
-    local_status VARCHAR(16) NOT NULL DEFAULT 'DRAFT',
+    local_status VARCHAR(16) NOT NULL DEFAULT 'PUBLISHED',
     remote_created_at TIMESTAMP,
     remote_updated_at TIMESTAMP,
     last_seen_at TIMESTAMP,

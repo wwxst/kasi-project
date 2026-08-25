@@ -149,7 +149,7 @@ $env:SPRING_DATASOURCE_PASSWORD = '<database-password>'
 .\mvnw.cmd spring-boot:run
 ```
 
-首次启动时 Flyway 会按顺序执行 `V1__kasi_promotion.sql`、`V13__promotion_task.sql`、`V14__provider_drama_promotion_metadata.sql`、`V15__promotion_order_and_rule_history.sql`、`V16__goodshort_drama_catalog_complete_fields.sql` 和 `V17__goodshort_order_scheduled_sync.sql`。V1 创建基础业务表并植入唯一的初始超级管理员及一个初始推广用户；V13 增加推广任务；V14 增加短剧推广元数据；V15 增加订单和不可变分佣历史快照；V16 增加 GoodShort 短剧列表完整字段；V17 增加 GoodShort 订单自动同步任务：
+首次启动时 Flyway 会按顺序执行 `V1__kasi_promotion.sql`、`V13__promotion_task.sql`、`V14__provider_drama_promotion_metadata.sql`、`V15__promotion_order_and_rule_history.sql`、`V16__goodshort_drama_catalog_complete_fields.sql`、`V17__goodshort_order_scheduled_sync.java` 和 `V18__drama_default_published.java`。V1 创建基础业务表并植入唯一的初始超级管理员及一个初始推广用户；V13 增加推广任务；V14 增加短剧推广元数据；V15 增加订单和不可变分佣历史快照；V16 增加 GoodShort 短剧列表完整字段；V17 增加 GoodShort 订单自动同步任务；V18 将历史草稿按甲方状态转换，并把新短剧默认状态改为已上架：
 
 - 管理员账号：`admin`
 - 管理员初始密码：`12345678`
@@ -176,7 +176,7 @@ mysql --host=127.0.0.1 --user=$env:SPRING_DATASOURCE_USERNAME --password --datab
 
 ## 5. 数据库现状
 
-### 已实现的表结构（V1、V13、V14、V15、V16、V17）
+### 已实现的表结构（V1、V13、V14、V15、V16、V17、V18）
 
 迁移脚本 V1 定义当前数据库持久表，验证码和密码重置 Token 等临时数据由 Redis 管理：
 
@@ -206,7 +206,7 @@ mysql --host=127.0.0.1 --user=$env:SPRING_DATASOURCE_USERNAME --password --datab
 
 当前已完成平台定义与接入账号持久层、AES-GCM 密钥加密、不暴露密钥的管理服务和管理员 API，以及 GoodShort 签名和连接探测适配器。媒体账号绑定与通用报备模块也已完成后端闭环：推广用户可绑定多个媒体账号，同一媒体平台账号全局唯一；创建媒体账号时不选择单个平台，系统会为所有已启用、接入配置完整且适配器声明支持账号报备的平台分别建立报备记录；系统通过 GoodShort `/open/filing/report` 和 `/open/filing/query` 完成报备提交与审核查询，持久任务支持租约、资料版本隔离、临时失败重试和三态（审核中、已加白、已失败）；用户和管理员查询/重试接口已接入，绑定媒体账号的推广用户只能禁用不能物理删除。平台接入配置支持 API 自动报备和人工报备两种模式：API 模式必须填写接口 URL、PID、KEY，人工模式无需保存这些 API 凭据，由管理员维护报备状态。
 
-当前已实现 GoodShort 短剧目录全量 `initBooks`、增量 `incrementBooks`、断点恢复、数据库租约、定时/手动触发、固定定时任务入队、管理员查询详情和本地上下架；首次全量同步仍由管理员手动发起，只有成功全量基线存在时才自动创建增量任务。平台分佣规则按平台保存一条默认配置，POST 首次设置、PUT 直接覆盖；每次写入都会产生不可变 `provider_commission_rule_history` 快照，订单同时保存当次五费率和计算结果。规则计算器使用 `BigDecimal`，最终金额保留两位并按 `HALF_UP` 四舍五入。
+当前已实现 GoodShort 短剧目录全量 `initBooks`、增量 `incrementBooks`、断点恢复、数据库租约、定时/手动触发、固定定时任务入队、管理员查询详情和本地上下架；首次全量同步仍由管理员手动发起，只有成功全量基线存在时才自动创建增量任务。新同步的甲方在线短剧默认上架，甲方下架会同步我方下架，甲方恢复在线后需管理员手动重新上架。平台分佣规则按平台保存一条默认配置，POST 首次设置、PUT 直接覆盖；每次写入都会产生不可变 `provider_commission_rule_history` 快照，订单同时保存当次五费率和计算结果。规则计算器使用 `BigDecimal`，最终金额保留两位并按 `HALF_UP` 四舍五入。
 
 推广用户可查询已上架短剧、筛选本人已报白媒体账号、生成 GoodShort 推广链接/口令并查询本人链接；生成接口使用 `requestKey` 幂等并保存 `trackingNo`。`GOODSHORT_ORDER_SYNC` 每分钟自动调用 GoodShort `/open/partner/orders` 回查最近 3 天，管理员仍可按不超过 31 天的时间窗口手动补拉；系统按 `(connection_id, external_order_id)` 幂等写入，保留原始 JSON，仅通过 `customParams -> promotion_link.tracking_no -> user_id` 归因。退款保留原佣金并标记 `REVERSED`；月度归属按 `paid_at`。管理员和用户均可查询/CSV 导出，用户只能看到本人已归因订单。正式账单锁定/付款状态、钱包、提现和转化分析仍未实现。
 

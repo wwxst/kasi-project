@@ -63,7 +63,7 @@ README 和 AGENTS 只能引用 `已实施` 的当前行为；`提议`、`已批�
 - 日期：2026-08-25
 - 状态：已实施
 - 范围：`promotion`、`scheduledtask`、`system_scheduled_task`、管理端定时任务页
-- 关联：`kasi-backend/docs/superpowers/specs/2026-08-25-goodshort-order-scheduled-sync-design.md`、`kasi-backend/src/main/resources/db/migration/V17__goodshort_order_scheduled_sync.sql`
+- 关联：`kasi-backend/docs/superpowers/specs/2026-08-25-goodshort-order-scheduled-sync-design.md`、`kasi-backend/src/main/java/db/migration/V17__goodshort_order_scheduled_sync.java`
 
 ### 背景与问题
 

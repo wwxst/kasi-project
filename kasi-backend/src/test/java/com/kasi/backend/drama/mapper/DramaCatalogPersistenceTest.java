@@ -21,7 +21,7 @@ class DramaCatalogPersistenceTest extends BaseAuthTest {
     @Autowired private ProviderSyncCheckpointMapper checkpointMapper;
 
     @Test
-    @DisplayName("鐭墽鍜屽墽闆嗘敮鎸佸箓绛夋洿鏂颁笖淇濇寔鏈湴涓婁笅鏋朵笉鍙樁")
+    @DisplayName("甲方下架时同步下架我方已上架短剧")
     void dramaAndContentUpsertIsIdempotent() {
         Long connectionId = insertConnection();
         ProviderDrama drama = drama(connectionId, "book-1");
@@ -41,7 +41,7 @@ class DramaCatalogPersistenceTest extends BaseAuthTest {
         assertThat(stored.getNovelType()).isEqualTo("ORIGINAL");
         assertThat(stored.getNovelSubType()).isEqualTo(1);
         assertThat(stored.getRemoteCreatedAt()).isNotNull();
-        assertThat(stored.getLocalStatus()).isEqualTo(DramaLocalStatus.PUBLISHED);
+        assertThat(stored.getLocalStatus()).isEqualTo(DramaLocalStatus.OFFLINE);
 
         ProviderDramaContent content = new ProviderDramaContent();
         content.setDramaId(id); content.setExternalContentId("ep-1"); content.setSequenceNo(1);
@@ -57,6 +57,40 @@ class DramaCatalogPersistenceTest extends BaseAuthTest {
         contentWithoutExternalId.setTitle("Episode 2"); contentWithoutExternalId.setFree(false);
         assertThat(dramaMapper.upsertContent(contentWithoutExternalId)).isGreaterThanOrEqualTo(1);
         assertThat(dramaMapper.findContents(id)).hasSize(2);
+    }
+
+    @Test
+    @DisplayName("新同步短剧按甲方状态默认上架或下架")
+    void newDramaUsesRemoteAvailabilityAsInitialLocalStatus() {
+        Long connectionId = insertConnection();
+        ProviderDrama online = drama(connectionId, "online-book");
+        online.setRemoteShowStatus("1");
+        ProviderDrama offline = drama(connectionId, "offline-book");
+        offline.setRemoteShowStatus("0");
+
+        dramaMapper.upsert(online);
+        dramaMapper.upsert(offline);
+
+        assertThat(dramaMapper.findByConnectionAndExternalId(connectionId, "online-book").getLocalStatus())
+                .isEqualTo(DramaLocalStatus.PUBLISHED);
+        assertThat(dramaMapper.findByConnectionAndExternalId(connectionId, "offline-book").getLocalStatus())
+                .isEqualTo(DramaLocalStatus.OFFLINE);
+    }
+
+    @Test
+    @DisplayName("甲方重新上架时不自动恢复我方下架状态")
+    void remoteRepublishDoesNotOverrideManualOfflineStatus() {
+        Long connectionId = insertConnection();
+        ProviderDrama drama = drama(connectionId, "republished-book");
+        drama.setRemoteShowStatus("0");
+        dramaMapper.upsert(drama);
+        Long id = dramaMapper.findByConnectionAndExternalId(connectionId, "republished-book").getId();
+        assertThat(dramaMapper.updateLocalStatus(id, DramaLocalStatus.OFFLINE)).isEqualTo(1);
+
+        drama.setRemoteShowStatus("1");
+        dramaMapper.upsert(drama);
+
+        assertThat(dramaMapper.findById(id).getLocalStatus()).isEqualTo(DramaLocalStatus.OFFLINE);
     }
 
     @Test
