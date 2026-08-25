@@ -148,7 +148,7 @@ $env:SPRING_DATASOURCE_PASSWORD = '<database-password>'
 .\mvnw.cmd spring-boot:run
 ```
 
-首次启动时 Flyway 会按顺序执行 `V1__kasi_promotion.sql`、`V13__promotion_task.sql`、`V14__provider_drama_promotion_metadata.sql` 和 `V15__promotion_order_and_rule_history.sql`。V1 创建基础业务表并植入唯一的初始超级管理员及一个初始推广用户；V13 增加推广任务；V14 增加短剧推广元数据；V15 增加订单和不可变分佣历史快照：
+首次启动时 Flyway 会按顺序执行 `V1__kasi_promotion.sql`、`V13__promotion_task.sql`、`V14__provider_drama_promotion_metadata.sql`、`V15__promotion_order_and_rule_history.sql` 和 `V16__goodshort_drama_catalog_complete_fields.sql`。V1 创建基础业务表并植入唯一的初始超级管理员及一个初始推广用户；V13 增加推广任务；V14 增加短剧推广元数据；V15 增加订单和不可变分佣历史快照；V16 增加 GoodShort 短剧列表完整字段：
 
 - 管理员账号：`admin`
 - 管理员初始密码：`12345678`
@@ -175,7 +175,7 @@ mysql --host=127.0.0.1 --user=$env:SPRING_DATASOURCE_USERNAME --password --datab
 
 ## 5. 数据库现状
 
-### 已实现的表结构（V1、V14、V15）
+### 已实现的表结构（V1、V14、V15、V16）
 
 迁移脚本 V1 定义当前数据库持久表，验证码和密码重置 Token 等临时数据由 Redis 管理：
 
@@ -209,6 +209,8 @@ mysql --host=127.0.0.1 --user=$env:SPRING_DATASOURCE_USERNAME --password --datab
 
 推广用户可查询已上架短剧、筛选本人已报白媒体账号、生成 GoodShort 推广链接/口令并查询本人链接；生成接口使用 `requestKey` 幂等并保存 `trackingNo`。管理员可按不超过 31 天的时间窗口手动调用 GoodShort `/open/partner/orders`，系统按 `(connection_id, external_order_id)` 幂等写入，保留原始 JSON，仅通过 `customParams -> promotion_link.tracking_no -> user_id` 归因。退款保留原佣金并标记 `REVERSED`；月度归属按 `paid_at`。管理员和用户均可查询/CSV 导出，用户只能看到本人已归因订单。订单自动同步、正式账单锁定/付款状态、钱包、提现和转化分析仍未实现。
 
+推广链接生成采用短事务保存或重置 `PENDING`，事务外调用 GoodShort，随后用独立短事务写入 `SUCCESS` 或 `FAILED`；远程失败状态不会随外层业务异常回滚。订单同步遇到 `(connection_id, external_order_id)` 唯一键并发冲突时回读已存在订单并按重复记录处理。
+
 > **说明**：`sys_sequence` 表已移除，`user_no` 由后端在插入前随机生成；`promotion_user.id` 继续作为自增内部主键。`auth_verification_code` 和 `auth_password_reset_token` 表已移除，改用 Redis 存储（更高效、自动过期）。
 
 ### 5.4 推广创建与任务查询
@@ -218,6 +220,8 @@ V13 新增 `promotion_task` 和用户端任务接口：`POST /api/user/promotion
 V14 为 `provider_drama` 增加 `commission_scope` 和 `promotion_description` 两个本地维护字段。管理员通过 `PUT /api/admin/drama/catalog/{id}/promotion-metadata` 更新分佣范围（`ORDER`/`AD`）和推广说明；用户端 `GET /api/user/promotion/dramas` 返回简介、分佣范围、推广说明和远端更新时间。只有“创建推广”页面展示这些字段；“推广任务”页面不使用这组元数据。目录同步只更新远端字段，不覆盖本地推广元数据。
 
 ## 6. API、认证与业务边界
+
+后台 `/dashboard` 当前仅保留欢迎页，不展示静态 Demo 统计卡片；页面显示“欢迎 XXX 使用卡司短剧推广平台”。侧边栏不提供 Dashboard 入口，品牌链接、搜索回车和兜底路由统一进入 `/user-management`。真实数据大屏仍未实现。
 
 ### 6.1 认证架构
 
@@ -234,7 +238,7 @@ V14 为 `provider_drama` 增加 `commission_scope` 和 `promotion_description` �
 - USER Token **不可**访问 ADMIN 接口（返回 403）
 - 无 Token 访问受保护接口返回 401
 - Redis 不可用时认证安全失败并返回 503，不降级放行；账号会话版本不存在时旧 JWT 直接失效并返回 401。
-- 普通退出仅删除当前 `auth:session:{jti}`；修改密码、密码重置等敏感变更会先切换为 `MUTATING:{nonce}`，数据库成功后生成新的账号版本，使该账号旧 Token 全部失效。
+- 普通退出仅删除当前 `auth:session:{jti}`；修改密码、密码重置等敏感变更会先切换为 `MUTATING:{nonce}`，事务提交或回滚完成时恢复新的 `ACTIVE:*` 账号版本，使该账号旧 Token 全部失效且不会长期遗留 `MUTATING`。
 - `ROLE_SUPER_ADMIN` 每次请求根据数据库中的 `is_super_admin` 派生，不写入或信任 JWT 权限声明；当前是简单超级管理员控制，不是 RBAC。
 
 ### 6.2 管理员认证 API
@@ -261,7 +265,7 @@ V14 为 `provider_drama` 增加 `commission_scope` 和 `promotion_description` �
 | PUT | `/api/admin/management/{id}/password` | 重置普通管理员密码 |
 | DELETE | `/api/admin/management/{id}` | 物理删除普通管理员 |
 
-管理员只使用必填 `realName`，没有昵称字段；`sys_admin_user` 不保留 `deleted_at`。修改账号、手机号、邮箱、状态、密码或删除前，服务先将目标账号 Redis 版本切换为 `MUTATING`；Redis 失败时不执行 MySQL 写入。MySQL 提交成功后恢复新的 `ACTIVE` 版本，使旧 Token 全部失效。物理删除后原账号、手机号和邮箱可以重新使用。
+管理员只使用必填 `realName`，没有昵称字段；`sys_admin_user` 不保留 `deleted_at`。修改账号、手机号、邮箱、状态、密码或删除前，服务先将目标账号 Redis 版本切换为 `MUTATING`；Redis 失败时不执行 MySQL 写入。事务提交或回滚完成时恢复新的 `ACTIVE` 版本，使旧 Token 全部失效且数据库异常不会长期锁死账号。物理删除后原账号、手机号和邮箱可以重新使用。
 
 ### 6.4 推广用户认证 API
 
@@ -293,7 +297,9 @@ V14 为 `provider_drama` 增加 `commission_scope` 和 `promotion_description` �
 | PUT | `/api/user/management/{id}/password` | 管理员重置推广用户密码 |
 | DELETE | `/api/user/management/{id}` | 物理删除推广用户 |
 
-联系人、状态、密码或删除等敏感变更会先将 Redis 会话版本切换为 `MUTATING`；Redis 失败时不执行 MySQL 写入，数据库提交成功后生成新的 `ACTIVE` 版本，使全部旧 Token 失效。只修改昵称、姓名、头像或备注不会使会话失效。`promotion_user` 不保留 `deleted_at`，物理删除后原手机号和邮箱可以复用。
+联系人、状态、密码或删除等敏感变更会先将 Redis 会话版本切换为 `MUTATING`；Redis 失败时不执行 MySQL 写入，事务提交或回滚完成时生成新的 `ACTIVE` 版本，使全部旧 Token 失效且数据库异常不会长期锁死账号。只修改昵称、姓名、头像或备注不会使会话失效。`promotion_user` 不保留 `deleted_at`，物理删除后原手机号和邮箱可以复用。
+
+会话敏感变更的 `MUTATING:{nonce}` 恢复绑定事务完成回调：提交和回滚都会恢复新的 `ACTIVE:*` 版本；因此数据库异常不会让账号持续停留在 `MUTATING` 直到 TTL 到期。
 
 ### 6.6 短剧平台接入管理 API
 
@@ -318,7 +324,9 @@ V14 为 `provider_drama` 增加 `commission_scope` 和 `promotion_description` �
 | PATCH | `/api/admin/drama/catalog/{id}/status` | 将本地状态修改为 `PUBLISHED` 或 `OFFLINE` |
 | PUT | `/api/admin/drama/catalog/{id}/promotion-metadata` | 更新短剧分佣范围（`ORDER`/`AD`）和推广说明；空数组/空文本表示清空 |
 
-同步默认语言为 `ENGLISH`。全量使用 GoodShort `/open/book/initBooks`，增量使用 `/open/book/incrementBooks`；没有成功全量基线时，增量请求自动升级为全量。同一连接和语言只允许一个 FULL/INCREMENTAL 任务排队或运行。
+同步默认语言为 `ENGLISH`。全量使用 GoodShort `/open/book/initBooks`，增量使用 `/open/book/incrementBooks`；增量请求按文档发送 `utimeStart`/`utimeEnd`（`yyyy-MM-dd HH:mm:ss`），没有成功全量基线时自动升级为全量。同一连接和语言只允许一个 FULL/INCREMENTAL 任务排队或运行。短剧列表返回的 `bookId`、`bookName`、`bookNameZh`、`bookCover`、`labelNames`、`introduce`、`typeTwoName`、`language`、`rank`、`showStatus`、`novelType`、`novelSubType`、`ctime`、`utime` 均转换为本地领域字段并保存；标签以 JSON 文本保存，目录列表/详情接口返回 `titleZh`、`coverUrl`、`labelNames`、`categoryName`、`remoteRank`、`novelType`、`novelSubType`、`remoteCreatedAt`、`remoteUpdatedAt` 等字段。
+
+管理员手动提交同步后，事务提交完成会立即异步唤醒目录执行器；固定 5 分钟调度仍保留，用于后台任务和即时触发失败时的兜底。接口不会等待 GoodShort 分页请求完成，状态可通过同步状态接口刷新查看。
 
 ### 6.8 短剧平台分佣规则管理 API
 
@@ -403,6 +411,7 @@ V14 为 `provider_drama` 增加 `commission_scope` 和 `promotion_description` �
 | `KasiBackendApplicationTests` | Spring 上下文加载测试 |
 | `ProviderCommissionRuleMigrationTest` | 在隔离 H2 MySQL 模式数据库中验证平台默认分佣规则表 |
 | `PromotionOrderMigrationTest` | 验证空库执行到 V15 以及已有 V14 数据库增量执行 V15 |
+| `ProviderDramaPromotionMetadataMigrationTest` | 验证 V16 增加 GoodShort 短剧列表完整字段 |
 | `GoodShortOrderAdapterTest` | 验证订单签名请求、分页、金额和状态映射 |
 | `PromotionOrderServiceTest` | 验证订单幂等、trackingNo 归因、费率快照和退款冲销 |
 | `AdminPromotionOrderControllerTest` / `UserPromotionOrderControllerTest` | 验证管理员和用户订单端点、权限、CSV 及用户字段隔离 |
