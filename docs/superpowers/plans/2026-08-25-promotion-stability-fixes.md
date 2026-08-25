@@ -93,15 +93,15 @@ Run `./mvnw.cmd "-Dtest=PromotionOrderServiceTest,PromotionOrderAdminServiceTest
 - Modify: `E:/JavaProjects/kasi-project/kasi-admin-web/src/layouts/AdminLayout.tsx`
 - Modify: `E:/JavaProjects/kasi-project/kasi-admin-web/src/router/AppRouter.tsx`
 - Test: `E:/JavaProjects/kasi-project/kasi-admin-web/src/pages/dashboard/DashboardPage.test.tsx`
-- Test: `E:/JavaProjects/kasi-project/kasi-admin-web/src/router/AppRouter.test.tsx`
+- Test: `E:/JavaProjects/kasi-project/kasi-admin-web/src/layouts/AdminLayout.test.tsx`
 
 - [ ] **Step 1: Write failing Dashboard tests**
 
-Assert `DashboardPage` renders the current admin real name in the welcome text and does not render demo card headings or chart containers. Assert the layout has no `/dashboard` menu item, brand link points to `/user-management`, and search Enter navigates to `/user-management`. Assert the wildcard route redirects to `/user-management`.
+Assert `DashboardPage` renders the current admin real name in the welcome text and does not render demo card headings or chart containers. Assert the layout has no `/dashboard` menu item, brand link points to `/user-management`, and search Enter navigates to `/user-management`. The existing `App.test.tsx` covers restricted and wildcard redirects to `/user-management`.
 
 - [ ] **Step 2: Run the frontend tests and confirm the failures**
 
-From `E:/JavaProjects/kasi-project/kasi-admin-web`, run `pnpm vitest run src/pages/dashboard/DashboardPage.test.tsx src/router/AppRouter.test.tsx`. Expected: failures against the existing demo cards and `/dashboard` navigation.
+From `E:/JavaProjects/kasi-project/kasi-admin-web`, run `pnpm vitest run src/pages/dashboard/DashboardPage.test.tsx src/layouts/AdminLayout.test.tsx`. Expected: failures against the existing demo cards and `/dashboard` navigation.
 
 - [ ] **Step 3: Implement the welcome-only Dashboard**
 
@@ -113,7 +113,7 @@ Remove the Dashboard menu item and `Gauge` import from `AdminLayout.tsx`; change
 
 - [ ] **Step 5: Run frontend verification**
 
-Run `pnpm vitest run src/pages/dashboard/DashboardPage.test.tsx src/router/AppRouter.test.tsx` and `pnpm build` from `E:/JavaProjects/kasi-project/kasi-admin-web`. Expected: zero test failures and a successful production build.
+Run `pnpm vitest run src/pages/dashboard/DashboardPage.test.tsx src/layouts/AdminLayout.test.tsx src/App.test.tsx` and `pnpm build` from `E:/JavaProjects/kasi-project/kasi-admin-web`. Expected: zero test failures and a successful production build.
 
 ### Task 5: Documentation and final verification
 
