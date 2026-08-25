@@ -216,12 +216,7 @@ public class UserAuthServiceImpl implements UserAuthService {
         if (updated != 1) {
             throw new IllegalStateException("用户密码更新未生效");
         }
-        TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
-            @Override
-            public void afterCommit() {
-                sessionService.completeMutation(mutation);
-            }
-        });
+        sessionService.registerMutationCompletion(mutation);
 
         log.info("用户 [ID={}] 修改密码成功", userId);
     }
@@ -296,10 +291,10 @@ public class UserAuthServiceImpl implements UserAuthService {
             throw new BusinessException(ErrorCode.RESET_TOKEN_INVALID);
         }
 
+        sessionService.registerMutationCompletion(mutation);
         TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
             @Override
             public void afterCommit() {
-                sessionService.completeMutation(mutation);
                 passwordResetTokenService.completeToken(reservation);
             }
         });

@@ -8,6 +8,8 @@ import com.kasi.backend.security.context.AuthContext;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 import java.time.Duration;
 import java.util.concurrent.TimeUnit;
@@ -85,6 +87,27 @@ class SessionServiceTest extends BaseAuthTest {
         sessionService.completeMutation(mutation);
         AuthSession newSession = sessionService.createSession(SubjectType.USER, 7L);
         assertTrue(sessionService.isValid(context(newSession.jti(), newSession.sessionVersion())));
+    }
+
+    @Test
+    @DisplayName("事务回滚后恢复ACTIVE并允许重新建立会话")
+    void rollbackMutationRestoresActiveSessionVersion() {
+        sessionService.createSession(SubjectType.USER, 7L);
+        SessionMutation mutation = sessionService.beginMutation(SubjectType.USER, 7L);
+        TransactionSynchronizationManager.initSynchronization();
+        try {
+            sessionService.registerMutationCompletion(mutation);
+
+            TransactionSynchronization synchronization =
+                    TransactionSynchronizationManager.getSynchronizations().get(0);
+            synchronization.afterCompletion(TransactionSynchronization.STATUS_ROLLED_BACK);
+
+            AuthSession newSession = sessionService.createSession(SubjectType.USER, 7L);
+            assertTrue(sessionService.isValid(context(newSession.jti(), newSession.sessionVersion())));
+            assertTrue(redisTemplate.opsForValue().get("auth:version:USER:7").startsWith("ACTIVE:"));
+        } finally {
+            TransactionSynchronizationManager.clearSynchronization();
+        }
     }
 
     private AuthContext context(String jti, String version) {

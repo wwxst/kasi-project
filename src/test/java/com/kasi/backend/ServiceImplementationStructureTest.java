@@ -8,6 +8,8 @@ import com.kasi.backend.auth.service.PasswordResetTokenService;
 import com.kasi.backend.auth.service.impl.PasswordResetTokenServiceImpl;
 import com.kasi.backend.auth.service.VerificationCodeService;
 import com.kasi.backend.auth.service.impl.VerificationCodeServiceImpl;
+import com.kasi.backend.promotion.service.PromotionLinkPersistenceService;
+import com.kasi.backend.promotion.service.impl.PromotionLinkPersistenceServiceImpl;
 import com.kasi.backend.security.service.SessionService;
 import com.kasi.backend.security.service.impl.SessionServiceImpl;
 import com.kasi.backend.security.service.TokenService;
@@ -22,6 +24,8 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.ApplicationContext;
+import org.springframework.transaction.annotation.Propagation;
+import org.springframework.transaction.annotation.Transactional;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -60,5 +64,21 @@ class ServiceImplementationStructureTest extends BaseAuthTest {
         assertThat(TokenService.class).isInterface();
         assertThat(applicationContext.getBean(TokenService.class))
                 .isInstanceOf(TokenServiceImpl.class);
+        assertThat(PromotionLinkPersistenceService.class).isInterface();
+        assertThat(applicationContext.getBean(PromotionLinkPersistenceService.class))
+                .isInstanceOf(PromotionLinkPersistenceServiceImpl.class);
+        for (String method : new String[]{"preparePending", "markSuccess", "markFailed"}) {
+            Transactional transactional = findTransactional(method);
+            assertThat(transactional.propagation()).isEqualTo(Propagation.REQUIRES_NEW);
+        }
+    }
+
+    private Transactional findTransactional(String method) {
+        return java.util.Arrays.stream(PromotionLinkPersistenceServiceImpl.class.getDeclaredMethods())
+                .filter(candidate -> candidate.getName().equals(method))
+                .map(candidate -> candidate.getAnnotation(Transactional.class))
+                .filter(java.util.Objects::nonNull)
+                .findFirst()
+                .orElseThrow();
     }
 }

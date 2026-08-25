@@ -149,13 +149,7 @@ public class AdminAuthServiceImpl implements AdminAuthService {
         if (updated != 1) {
             throw new IllegalStateException("管理员密码更新未生效");
         }
-        org.springframework.transaction.support.TransactionSynchronizationManager
-                .registerSynchronization(new org.springframework.transaction.support.TransactionSynchronization() {
-                    @Override
-                    public void afterCommit() {
-                        sessionService.completeMutation(mutation);
-                    }
-                });
+        sessionService.registerMutationCompletion(mutation);
 
         log.info("管理员 [{}] 修改密码成功", admin.getUsername());
     }
@@ -190,13 +184,7 @@ public class AdminAuthServiceImpl implements AdminAuthService {
             throw exception;
         }
         if (mutation != null) {
-            org.springframework.transaction.support.TransactionSynchronizationManager
-                    .registerSynchronization(new org.springframework.transaction.support.TransactionSynchronization() {
-                        @Override
-                        public void afterCommit() {
-                            sessionService.completeMutation(mutation);
-                        }
-                    });
+            sessionService.registerMutationCompletion(mutation);
         }
         return getCurrentAdmin(adminId);
     }

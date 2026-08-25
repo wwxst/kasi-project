@@ -11,6 +11,8 @@ import org.springframework.dao.DataAccessException;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.data.redis.core.script.DefaultRedisScript;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 import java.util.List;
 import java.util.UUID;
@@ -169,7 +171,21 @@ public class SessionServiceImpl implements SessionService {
         }
     }
 
-    /** MySQL 成功提交后，只有 nonce 仍匹配时才恢复 ACTIVE。 */
+    @Override
+    public void registerMutationCompletion(SessionMutation mutation) {
+        if (!TransactionSynchronizationManager.isSynchronizationActive()) {
+            completeMutation(mutation);
+            return;
+        }
+        TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+            @Override
+            public void afterCompletion(int status) {
+                completeMutation(mutation);
+            }
+        });
+    }
+
+    /** 事务完成后，只有 nonce 仍匹配时才恢复 ACTIVE。 */
     @Override
     public void completeMutation(SessionMutation mutation) {
         String activeVersion = ACTIVE_PREFIX + UUID.randomUUID();

@@ -17,5 +17,7 @@ public interface SessionService {
 
     SessionMutation beginMutation(SubjectType subjectType, Long subjectId);
 
+    void registerMutationCompletion(SessionMutation mutation);
+
     void completeMutation(SessionMutation mutation);
 }

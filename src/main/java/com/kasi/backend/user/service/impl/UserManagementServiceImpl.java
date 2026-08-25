@@ -19,8 +19,6 @@ import org.springframework.dao.DuplicateKeyException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import org.springframework.transaction.support.TransactionSynchronization;
-import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 import java.util.List;
 import java.util.Locale;
@@ -185,9 +183,7 @@ public class UserManagementServiceImpl implements UserManagementService {
 
     private void registerCompletion(SessionMutation mutation) {
         if (mutation == null) return;
-        TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
-            @Override public void afterCommit() { sessionService.completeMutation(mutation); }
-        });
+        sessionService.registerMutationCompletion(mutation);
     }
 
     private String trimToNull(String value) {

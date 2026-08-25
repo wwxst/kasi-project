@@ -18,6 +18,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
+import org.springframework.dao.DuplicateKeyException;
 
 import java.math.BigDecimal;
 import java.time.Clock;
@@ -135,6 +136,24 @@ class PromotionOrderServiceTest {
                 .isEqualTo(PromotionCommissionStatus.NOT_APPLICABLE);
         assertThat(captor.getValue().getUserId()).isNull();
         verifyNoInteractions(historyMapper);
+    }
+
+    @Test
+    @DisplayName("并发插入重复订单时回读已有记录并按重复处理")
+    void concurrentDuplicateInsertReadsExistingOrder() {
+        PromotionOrder existing = new PromotionOrder();
+        existing.setId(100L);
+        existing.setAttributionStatus(PromotionAttributionStatus.ATTRIBUTED);
+        when(orderMapper.findBySourceForUpdate(3L, "order-1")).thenReturn(null);
+        when(orderMapper.insert(any())).thenThrow(new DuplicateKeyException("duplicate"));
+        when(orderMapper.findBySource(3L, "order-1")).thenReturn(existing);
+
+        PromotionOrderUpsertResult result = service.upsert(runtime, record(ProviderOrderStatus.PAID),
+                LocalDateTime.of(2025, 7, 1, 0, 0), LocalDateTime.of(2025, 7, 1, 23, 59, 59));
+
+        assertThat(result.inserted()).isFalse();
+        assertThat(result.attributed()).isTrue();
+        verify(orderMapper).findBySource(3L, "order-1");
     }
 
     private PromotionLink link() {
