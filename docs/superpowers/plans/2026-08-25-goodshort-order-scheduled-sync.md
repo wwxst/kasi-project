@@ -18,7 +18,7 @@ Create   src/main/java/com/kasi/backend/promotion/service/PromotionOrderSyncServ
 Create   src/main/java/com/kasi/backend/promotion/service/impl/PromotionOrderSyncServiceImpl.java
           复用现有分页拉取、统计和 PromotionOrderService.upsert 语义。
 Create   src/main/resources/db/migration/V16__goodshort_order_scheduled_sync.sql
-          放宽现有最小周期约束并插入固定订单同步任务。
+          插入固定订单同步任务，并保留旧周期字段的合法兼容值。
 Modify   src/main/java/com/kasi/backend/promotion/service/impl/PromotionOrderAdminServiceImpl.java
           手动入口委托共享同步服务；查询和 CSV 保持原职责。
 Modify   src/main/java/com/kasi/backend/scheduledtask/enums/ScheduledTaskCode.java
@@ -48,7 +48,7 @@ Modify   README.md, AGENTS.md, docs/development-gaps.md, docs/architecture-decis
 - Modify: `src/main/java/com/kasi/backend/scheduledtask/enums/ScheduledTaskCode.java`
 - Modify: `src/test/java/com/kasi/backend/ScheduledTaskMigrationTest.java`
 
-- [ ] **Step 1: Write the failing Flyway assertion for the new task and one-minute period**
+- [ ] **Step 1: Write the failing Flyway assertion for the new task and one-minute effective period**
 
 Add a second test to `ScheduledTaskMigrationTest` that reads the new row and checks all stored schedule columns:
 
@@ -69,7 +69,7 @@ void migrationCreatesGoodShortOrderSyncTask() {
     assertThat(task.get("DESCRIPTION")).isEqualTo("每隔1分钟同步最近3天的GoodShort订单");
     assertThat(task.get("CYCLE_TYPE")).isEqualTo("INTERVAL_MINUTES");
     assertThat(((Number) task.get("INTERVAL_VALUE")).intValue()).isEqualTo(1);
-    assertThat(((Number) task.get("INTERVAL_MINUTES")).intValue()).isEqualTo(1);
+    assertThat(((Number) task.get("INTERVAL_MINUTES")).intValue()).isEqualTo(5);
     assertThat(((Number) task.get("ENABLED")).intValue()).isEqualTo(1);
     assertThat(task.get("NEXT_RUN_AT")).isNotNull();
 }
@@ -98,16 +98,9 @@ public enum ScheduledTaskCode {
 }
 ```
 
-Create `V16__goodshort_order_scheduled_sync.sql`. The pre-existing V1 check constraint rejects values below five, so replace it before inserting the one-minute task:
+Create `V16__goodshort_order_scheduled_sync.sql`. The pre-existing V1 check constraint requires the legacy `interval_minutes` field to be at least five. The dispatcher calculates the next run from `cycle_type` and `interval_value`, so preserve the schema and store a legal legacy value:
 
 ```sql
-ALTER TABLE `system_scheduled_task`
-    DROP CONSTRAINT `chk_system_scheduled_task_interval`;
-
-ALTER TABLE `system_scheduled_task`
-    ADD CONSTRAINT `chk_system_scheduled_task_interval`
-    CHECK (`interval_minutes` BETWEEN 1 AND 1440);
-
 INSERT INTO `system_scheduled_task`
     (`task_code`, `title`, `description`, `cycle_type`, `interval_value`,
      `interval_hours_part`, `interval_minutes_part`, `interval_minutes`,
@@ -115,16 +108,16 @@ INSERT INTO `system_scheduled_task`
 VALUES
     ('GOODSHORT_ORDER_SYNC', 'GoodShort 订单同步',
      '每隔1分钟同步最近3天的GoodShort订单', 'INTERVAL_MINUTES', 1,
-     0, 0, 1, 1, TIMESTAMPADD(MINUTE, 1, CURRENT_TIMESTAMP));
+     0, 0, 5, 1, TIMESTAMPADD(MINUTE, 1, CURRENT_TIMESTAMP));
 ```
 
-If the verified production MySQL version rejects `DROP CONSTRAINT` for a check constraint, use its equivalent `DROP CHECK chk_system_scheduled_task_interval`; keep the H2 migration test as the compatibility gate and do not change the desired stored values.
+Do not modify the V1 check constraint. `ScheduledTaskScheduleCalculator` uses `INTERVAL_MINUTES` plus `interval_value=1`, so the effective execution period remains one minute.
 
 - [ ] **Step 4: Run the migration test and confirm it passes**
 
 Run the command from Step 2.
 
-Expected: `ScheduledTaskMigrationTest` passes with two fixed task records; Flyway applies V16 without schema errors.
+Expected: `ScheduledTaskMigrationTest` passes with two fixed task records; the order task stores `interval_value=1` and compatible `interval_minutes=5`, and Flyway applies V16 without schema errors.
 
 - [ ] **Step 5: Commit the migration contract**
 
@@ -482,4 +475,4 @@ Consistency checks:
 - `PromotionOrderSyncService.sync(Long, LocalDateTime, LocalDateTime)` is the only shared synchronization API throughout the plan.
 - `GOODSHORT_ORDER_SYNC` is the only added task code throughout the plan.
 - The automatic range is consistently `endDate.minusDays(3)` through `endDate`, with `endDate` sourced from the injected `Clock`.
-- The existing V1 five-minute database check is explicitly replaced before inserting the one-minute configuration.
+- The existing V1 five-minute compatibility-field check remains unchanged; the order task uses `interval_value=1` for its effective period.

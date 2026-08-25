@@ -1,7 +1,7 @@
 # GoodShort 订单定时同步设计
 
 日期：2026-08-25
-状态：已批准设计，未实施
+状态：已实施
 
 ## 1. 问题与目标
 
@@ -75,11 +75,12 @@ title           GoodShort 订单同步
 description     每隔1分钟同步最近3天的GoodShort订单
 cycle_type      INTERVAL_MINUTES
 interval_value  1
+interval_minutes 5（旧字段兼容值；调度不使用它计算本任务周期）
 enabled         true
 next_run_at     当前时间加1分钟
 ```
 
-现有 V1 迁移为 `interval_minutes` 设置了最少 5 分钟的检查约束。V16 必须先将该约束下限调整为 1 分钟、上限保持 1440 分钟，否则新增任务无法迁移成功；这项 schema 调整只服务于已确认的一分钟周期，不改变现有任务的存储值或执行语义。
+现有 V1 迁移为兼容字段 `interval_minutes` 设置了最少 5 分钟的检查约束。实际调度由 `cycle_type` 和 `interval_value` 经 `ScheduledTaskScheduleCalculator` 计算，因此 V16 保存 `interval_value=1` 和合法的兼容值 `interval_minutes=5` 即可每分钟执行，不需要扩大既有 schema 约束范围。
 
 不修改已发布的 `V1__kasi_promotion.sql`。任务页会自动显示新任务；管理端 TypeScript 联合类型 `ScheduledTaskCode` 增加 `GOODSHORT_ORDER_SYNC`，使编辑和启停请求可以安全传递该编码。
 

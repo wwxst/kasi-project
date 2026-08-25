@@ -6,7 +6,7 @@
 
 这是卡司推广平台的后端仓库，基于 Spring Boot 4.0.7 + MyBatis 4.0.1 + MySQL 8 + JWT 构建。
 
-**当前已完成**：管理员（ADMIN）和推广用户（USER）双认证体系、两类账号管理 CRUD、短剧平台接入与 GoodShort 账号报备、GoodShort 短剧目录全量/增量同步、推广链接、管理员手动订单同步、trackingNo 归因、CPS 费率快照、订单佣金及按月查询/CSV 导出。详见 [§6 API、认证与业务边界](#6-api认证与业务边界)。
+**当前已完成**：管理员（ADMIN）和推广用户（USER）双认证体系、两类账号管理 CRUD、短剧平台接入与 GoodShort 账号报备、GoodShort 短剧目录全量/增量同步、推广链接、GoodShort 订单每分钟自动同步最近 3 天及管理员按时间范围手动补拉、trackingNo 归因、CPS 费率快照、订单佣金及按月查询/CSV 导出。详见 [§6 API、认证与业务边界](#6-api认证与业务边界)。
 
 ## 2. 当前结构
 
@@ -132,7 +132,7 @@ $env:Path = "$env:JAVA_HOME\bin;$env:Path"
 | 平台密钥主密钥 | 必须通过 `PROVIDER_CREDENTIAL_MASTER_KEY` 注入 Base64 编码的 32 字节密钥；不得提交到仓库或写入日志 |
 | GoodShort 探测 | 接口 URL 从平台接入配置读取，连接超时 3 秒、读取超时 10 秒；平台密钥从数据库密文解密后仅在适配器调用链内使用 |
 | 短剧目录同步 | 默认语言 `ENGLISH`、每页 100 条、每 5 分钟执行已入队任务；支持配置语言、批量、分页、租约和调度开关 |
-| 固定定时任务 | V1 提供 GoodShort 增量同步配置和结构化周期，默认每 60 分钟入队；仅成功全量基线存在时自动创建增量任务 |
+| 固定定时任务 | `GOODSHORT_DRAMA_INCREMENTAL_SYNC` 默认每 60 分钟入队；`GOODSHORT_ORDER_SYNC` 默认每 1 分钟同步最近 3 天；仅成功全量基线存在时自动创建增量任务 |
 
 应用要连接 MySQL，至少需要提供：
 
@@ -207,7 +207,7 @@ mysql --host=127.0.0.1 --user=$env:SPRING_DATASOURCE_USERNAME --password --datab
 
 当前已实现 GoodShort 短剧目录全量 `initBooks`、增量 `incrementBooks`、断点恢复、数据库租约、定时/手动触发、固定定时任务入队、管理员查询详情和本地上下架；首次全量同步仍由管理员手动发起，只有成功全量基线存在时才自动创建增量任务。平台分佣规则按平台保存一条默认配置，POST 首次设置、PUT 直接覆盖；每次写入都会产生不可变 `provider_commission_rule_history` 快照，订单同时保存当次五费率和计算结果。规则计算器使用 `BigDecimal`，最终金额保留两位并按 `HALF_UP` 四舍五入。
 
-推广用户可查询已上架短剧、筛选本人已报白媒体账号、生成 GoodShort 推广链接/口令并查询本人链接；生成接口使用 `requestKey` 幂等并保存 `trackingNo`。管理员可按不超过 31 天的时间窗口手动调用 GoodShort `/open/partner/orders`，系统按 `(connection_id, external_order_id)` 幂等写入，保留原始 JSON，仅通过 `customParams -> promotion_link.tracking_no -> user_id` 归因。退款保留原佣金并标记 `REVERSED`；月度归属按 `paid_at`。管理员和用户均可查询/CSV 导出，用户只能看到本人已归因订单。订单自动同步、正式账单锁定/付款状态、钱包、提现和转化分析仍未实现。
+推广用户可查询已上架短剧、筛选本人已报白媒体账号、生成 GoodShort 推广链接/口令并查询本人链接；生成接口使用 `requestKey` 幂等并保存 `trackingNo`。`GOODSHORT_ORDER_SYNC` 每分钟自动调用 GoodShort `/open/partner/orders` 回查最近 3 天，管理员仍可按不超过 31 天的时间窗口手动补拉；系统按 `(connection_id, external_order_id)` 幂等写入，保留原始 JSON，仅通过 `customParams -> promotion_link.tracking_no -> user_id` 归因。退款保留原佣金并标记 `REVERSED`；月度归属按 `paid_at`。管理员和用户均可查询/CSV 导出，用户只能看到本人已归因订单。正式账单锁定/付款状态、钱包、提现和转化分析仍未实现。
 
 > **说明**：`sys_sequence` 表已移除，`user_no` 由后端在插入前随机生成；`promotion_user.id` 继续作为自增内部主键。`auth_verification_code` 和 `auth_password_reset_token` 表已移除，改用 Redis 存储（更高效、自动过期）。
 
@@ -350,7 +350,7 @@ V14 为 `provider_drama` 增加 `commission_scope` 和 `promotion_description` �
 | GET | `/api/admin/system/scheduled-tasks` | ADMIN | 查询后端固定任务配置 |
 | PUT | `/api/admin/system/scheduled-tasks/{taskCode}` | SUPER_ADMIN | 修改执行周期、任务说明和启停状态 |
 
-当前固定任务为 `GOODSHORT_DRAMA_INCREMENTAL_SYNC`。页面可编辑周期类型、间隔值及小时/分钟余量、执行时间、星期/日期、说明和是否开启，不能新增、删除、修改标题、任务编码或执行程序。普通管理员只读；首次全量同步不由该任务自动完成。`INTERVAL_HOURS` 使用小时数加分钟余量，`INTERVAL_DAYS` 使用天数加小时和分钟余量。
+当前固定任务为 `GOODSHORT_DRAMA_INCREMENTAL_SYNC` 和 `GOODSHORT_ORDER_SYNC`。页面可编辑周期类型、间隔值及小时/分钟余量、执行时间、星期/日期、说明和是否开启，不能新增、删除、修改标题、任务编码或执行程序。普通管理员只读；首次全量同步不由目录任务自动完成。订单任务的有效周期由 `cycle_type=INTERVAL_MINUTES`、`interval_value=1` 驱动，旧兼容字段 `interval_minutes` 保持合法值 5。`INTERVAL_HOURS` 使用小时数加分钟余量，`INTERVAL_DAYS` 使用天数加小时和分钟余量。
 
 ### 6.11 统一响应格式
 
