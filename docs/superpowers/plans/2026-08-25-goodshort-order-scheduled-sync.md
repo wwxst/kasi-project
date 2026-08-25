@@ -17,7 +17,7 @@ Create   src/main/java/com/kasi/backend/promotion/service/PromotionOrderSyncServ
           订单同步编排接口；无 HTTP 语义、无自动时间窗决策。
 Create   src/main/java/com/kasi/backend/promotion/service/impl/PromotionOrderSyncServiceImpl.java
           复用现有分页拉取、统计和 PromotionOrderService.upsert 语义。
-Create   src/main/resources/db/migration/V16__goodshort_order_scheduled_sync.sql
+Create   src/main/resources/db/migration/V17__goodshort_order_scheduled_sync.sql
           插入固定订单同步任务，并保留旧周期字段的合法兼容值。
 Modify   src/main/java/com/kasi/backend/promotion/service/impl/PromotionOrderAdminServiceImpl.java
           手动入口委托共享同步服务；查询和 CSV 保持原职责。
@@ -26,7 +26,7 @@ Modify   src/main/java/com/kasi/backend/scheduledtask/enums/ScheduledTaskCode.ja
 Modify   src/main/java/com/kasi/backend/scheduledtask/service/impl/ScheduledTaskDispatchServiceImpl.java
           为订单任务生成最近 3 天窗口并调用共享服务。
 Modify   src/test/java/com/kasi/backend/ScheduledTaskMigrationTest.java
-          验证 V16 固定任务和最小 1 分钟的 schema 约束。
+          验证 V17 固定任务和 1 分钟有效周期。
 Modify   src/test/java/com/kasi/backend/promotion/service/PromotionOrderAdminServiceTest.java
           确认管理端同步委托共享服务而不改变 HTTP 数据范围语义。
 Create   src/test/java/com/kasi/backend/promotion/service/PromotionOrderSyncServiceTest.java
@@ -44,7 +44,7 @@ Modify   README.md, AGENTS.md, docs/development-gaps.md, docs/architecture-decis
 ### Task 1: Add the Migration Contract
 
 **Files:**
-- Create: `src/main/resources/db/migration/V16__goodshort_order_scheduled_sync.sql`
+- Create: `src/main/resources/db/migration/V17__goodshort_order_scheduled_sync.sql`
 - Modify: `src/main/java/com/kasi/backend/scheduledtask/enums/ScheduledTaskCode.java`
 - Modify: `src/test/java/com/kasi/backend/ScheduledTaskMigrationTest.java`
 
@@ -54,7 +54,7 @@ Add a second test to `ScheduledTaskMigrationTest` that reads the new row and che
 
 ```java
 @Test
-@DisplayName("V16 新增每分钟执行一次的 GoodShort 订单同步任务")
+@DisplayName("V17 新增每分钟执行一次的 GoodShort 订单同步任务")
 void migrationCreatesGoodShortOrderSyncTask() {
     JdbcTemplate jdbc = migrateAllMigrations();
 
@@ -87,7 +87,7 @@ $env:Path="$env:JAVA_HOME\bin;$env:Path"
 
 Expected: the new test fails because `GOODSHORT_ORDER_SYNC` does not exist.
 
-- [ ] **Step 3: Add the task code and V16 migration**
+- [ ] **Step 3: Add the task code and V17 migration**
 
 Make `ScheduledTaskCode` contain both fixed task codes:
 
@@ -98,7 +98,7 @@ public enum ScheduledTaskCode {
 }
 ```
 
-Create `V16__goodshort_order_scheduled_sync.sql`. The pre-existing V1 check constraint requires the legacy `interval_minutes` field to be at least five. The dispatcher calculates the next run from `cycle_type` and `interval_value`, so preserve the schema and store a legal legacy value:
+Create `V17__goodshort_order_scheduled_sync.sql`. The pre-existing V1 check constraint requires the legacy `interval_minutes` field to be at least five. The dispatcher calculates the next run from `cycle_type` and `interval_value`, so preserve the schema and store a legal legacy value:
 
 ```sql
 INSERT INTO `system_scheduled_task`
@@ -117,12 +117,12 @@ Do not modify the V1 check constraint. `ScheduledTaskScheduleCalculator` uses `I
 
 Run the command from Step 2.
 
-Expected: `ScheduledTaskMigrationTest` passes with two fixed task records; the order task stores `interval_value=1` and compatible `interval_minutes=5`, and Flyway applies V16 without schema errors.
+Expected: `ScheduledTaskMigrationTest` passes with two fixed task records; the order task stores `interval_value=1` and compatible `interval_minutes=5`, and Flyway applies V17 without schema errors.
 
 - [ ] **Step 5: Commit the migration contract**
 
 ```powershell
-git add -- src/main/resources/db/migration/V16__goodshort_order_scheduled_sync.sql src/main/java/com/kasi/backend/scheduledtask/enums/ScheduledTaskCode.java src/test/java/com/kasi/backend/ScheduledTaskMigrationTest.java
+git add -- src/main/resources/db/migration/V17__goodshort_order_scheduled_sync.sql src/main/java/com/kasi/backend/scheduledtask/enums/ScheduledTaskCode.java src/test/java/com/kasi/backend/ScheduledTaskMigrationTest.java
 git diff --cached --check
 git commit -m "feat: add GoodShort order scheduled task"
 ```

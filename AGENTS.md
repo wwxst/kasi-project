@@ -34,7 +34,7 @@
   - `promotion/` — 推广用户媒体账号绑定、GoodShort 账号报备、推广链接、订单归因、CPS 佣金快照、订单共享同步服务、管理员手动补拉及管理员/用户查询导出 API
   - `drama/` — GoodShort 短剧目录与剧集持久层、全量/增量同步、检查点与租约、平台级分佣规则、`BigDecimal` 计算器、管理员 API 和定时调度
   - `auth/` — 可复用的验证码服务和密码重置 Token 机制（Redis 存储，Lua 原子消费/预占，TTL 自动过期）
-- 数据库迁移：`V1__kasi_promotion.sql` 创建基础业务表并植入唯一初始超级管理员，`V13__promotion_task.sql` 增加推广任务，`V14__provider_drama_promotion_metadata.sql` 增加短剧本地推广元数据，`V15__promotion_order_and_rule_history.sql` 增加分佣历史快照和推广订单，`V16__goodshort_order_scheduled_sync.sql` 增加 GoodShort 订单自动同步任务；不植入平台接入密钥。目录默认同步 `ENGLISH`，全量调用 `initBooks`，增量调用 `incrementBooks`；目录同步不覆盖本地推广元数据。验证码和密码重置 Token 等临时数据由 Redis（`vc:*`、`pwd:*` 键）管理，TTL 自动过期。
+- 数据库迁移：`V1__kasi_promotion.sql` 创建基础业务表并植入唯一初始超级管理员，`V13__promotion_task.sql` 增加推广任务，`V14__provider_drama_promotion_metadata.sql` 增加短剧本地推广元数据，`V15__promotion_order_and_rule_history.sql` 增加分佣历史快照和推广订单，`V17__goodshort_order_scheduled_sync.sql` 增加 GoodShort 订单自动同步任务；不植入平台接入密钥。目录默认同步 `ENGLISH`，全量调用 `initBooks`，增量调用 `incrementBooks`；目录同步不覆盖本地推广元数据。验证码和密码重置 Token 等临时数据由 Redis（`vc:*`、`pwd:*` 键）管理，TTL 自动过期。
 - `scripts/dev/seed_goodshort_drama_catalog.sql` 是 Flyway 之外的手动开发 seed，仅创建禁用且无凭据的 GoodShort 本地 fixture 连接；仅限本地使用，并必须通过遇错即停的 fail-fast 客户端执行。
 - 项目当前仍处于开发阶段，数据库可以删除重建；修改已执行的迁移后应重建开发数据库。未来生产首次建库也按 Flyway 版本顺序执行并植入初始账号，不新增运行时账号植入器。
 - 会话状态由 Redis（`auth:version:{type}:{userId}`、`auth:session:{jti}`）管理。JWT 携带 `jti`、`sessionVersion`，受保护请求必须同时校验签名、账号状态和 Redis 会话；Redis 不可用时安全失败返回 503，不能降级放行。

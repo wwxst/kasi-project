@@ -63,7 +63,7 @@ README 和 AGENTS 只能引用 `已实施` 的当前行为；`提议`、`已批�
 - 日期：2026-08-25
 - 状态：已实施
 - 范围：`promotion`、`scheduledtask`、`system_scheduled_task`、管理端定时任务页
-- 关联：`docs/superpowers/specs/2026-08-25-goodshort-order-scheduled-sync-design.md`、`V16__goodshort_order_scheduled_sync.sql`
+- 关联：`docs/superpowers/specs/2026-08-25-goodshort-order-scheduled-sync-design.md`、`V17__goodshort_order_scheduled_sync.sql`
 
 ### 背景与问题
 
@@ -81,11 +81,11 @@ GoodShort 订单原先只能由管理员手动调用同步接口，无法稳定�
 
 ### 影响
 
-新增 V16 任务记录和订单同步 Service；已有订单表、手动 API、订单归因、幂等、五项费率快照和退款冲销语义不变。自动任务失败仍沿用现有调度器日志和下一轮调度行为；本次不新增运行历史、死信、检查点或告警。
+新增 V17 任务记录和订单同步 Service；已有订单表、手动 API、订单归因、幂等、五项费率快照和退款冲销语义不变。自动任务失败仍沿用现有调度器日志和下一轮调度行为；本次不新增运行历史、死信、检查点或告警。
 
 ### 迁移与回滚
 
-Flyway 按 V1、V13、V14、V15、V16 顺序执行，V16 仅插入任务记录。回滚时先在任务页禁用 `GOODSHORT_ORDER_SYNC`，再回退应用版本；已同步订单保留，不删除订单数据。
+Flyway 按 V1、V13、V14、V15、V16、V17 顺序执行，V16 增加 GoodShort 短剧完整字段，V17 仅插入订单同步任务记录。回滚时先在任务页禁用 `GOODSHORT_ORDER_SYNC`，再回退应用版本；已同步订单保留，不删除订单数据。
 
 ### 验证证据
 

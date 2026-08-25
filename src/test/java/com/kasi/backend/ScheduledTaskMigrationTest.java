@@ -37,7 +37,7 @@ class ScheduledTaskMigrationTest {
     }
 
     @Test
-    @DisplayName("V16新增每分钟执行一次的GoodShort订单同步任务")
+    @DisplayName("V17新增每分钟执行一次的GoodShort订单同步任务")
     void migrationCreatesGoodShortOrderSyncTask() {
         JdbcTemplate jdbc = migrateAllMigrations();
 
