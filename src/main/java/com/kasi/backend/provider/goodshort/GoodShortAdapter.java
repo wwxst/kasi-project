@@ -45,8 +45,8 @@ import org.springframework.web.client.RestClientException;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.LocalDateTime;
-import java.time.OffsetDateTime;
 import java.time.format.DateTimeFormatter;
+import java.time.OffsetDateTime;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.util.List;
@@ -316,7 +316,10 @@ public class GoodShortAdapter implements AccountFilingProviderAdapter, DramaCata
         parameters.put("pid", connection.getPartnerId());
         parameters.put("timestamp", clock.millis());
         if (incremental && request.updateTime() != null) {
-            parameters.put("updateTime", request.updateTime());
+            parameters.put("utimeStart", formatIncrementalTime(request.updateTime()));
+        }
+        if (incremental && request.updateTimeEnd() != null) {
+            parameters.put("utimeEnd", formatIncrementalTime(request.updateTimeEnd()));
         }
         GoodShortCatalogResponse response = postCatalog(connection, path, parameters);
         if (!successful(response) || response.getData() == null) {
@@ -332,10 +335,19 @@ public class GoodShortAdapter implements AccountFilingProviderAdapter, DramaCata
         long total = data.getTotal() == null ? books.size() : data.getTotal();
         boolean hasNext = data.getHasNext() != null
                 ? data.getHasNext()
-                : (pageSize > 0 && ((long) pageNo * pageSize < total));
-        return new DramaCatalogPage(books.stream().map(book -> mapBook(book, request.language())).toList(),
+                : (data.getPages() != null ? pageNo < data.getPages()
+                : (pageSize > 0 && ((long) pageNo * pageSize < total)));
+        List<ProviderDramaRecord> mapped = books.stream()
+                .map(book -> mapBook(book, request.language())).toList();
+        Long nextUpdateTime = data.getNextUpdateTime() == null ? data.getUpdateTime() : data.getNextUpdateTime();
+        if (nextUpdateTime == null) {
+            nextUpdateTime = mapped.stream().map(ProviderDramaRecord::remoteUpdatedAt)
+                    .filter(java.util.Objects::nonNull)
+                    .map(this::toEpochMillis).max(Long::compareTo).orElse(null);
+        }
+        return new DramaCatalogPage(mapped,
                 pageNo, pageSize, total, hasNext,
-                data.getNextUpdateTime() == null ? data.getUpdateTime() : data.getNextUpdateTime());
+                nextUpdateTime);
     }
 
     private GoodShortCatalogResponse postCatalog(ProviderConnectionSecret connection,
@@ -364,9 +376,11 @@ public class GoodShortAdapter implements AccountFilingProviderAdapter, DramaCata
         }
         var episodes = book.getEpisodes() == null ? java.util.List.<GoodShortEpisodeData>of() : book.getEpisodes();
         return new ProviderDramaRecord(book.getBookId(), book.getBookName(), book.getOriginalBookName(),
-                book.getIntroduction(), book.getCover(),
-                firstNonBlank(book.getLanguage(), requestedLanguage), book.getType(), book.getShowStatus(),
-                parseRemoteTimeFlexible(book.getUpdateTime()),
+                book.getBookNameZh(), book.getIntroduction(), book.getCover(), book.getLabelNames(),
+                book.getTypeTwoName(), firstNonBlank(book.getLanguage(), requestedLanguage), book.getRank(),
+                book.getType(), book.getNovelType(), book.getNovelSubType(), book.getShowStatus(),
+                parseRemoteTimeFlexible(book.getCtime()),
+                parseRemoteTimeFlexible(firstNonBlank(book.getUtime(), book.getUpdateTime())),
                 episodes.stream().map(this::mapEpisode).toList());
     }
 
@@ -500,5 +514,14 @@ public class GoodShortAdapter implements AccountFilingProviderAdapter, DramaCata
 
     private String firstNonBlank(String first, String second) {
         return first != null && !first.isBlank() ? first : second;
+    }
+
+    private String formatIncrementalTime(Long epochMillis) {
+        return DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss")
+                .withZone(clock.getZone()).format(java.time.Instant.ofEpochMilli(epochMillis));
+    }
+
+    private Long toEpochMillis(LocalDateTime value) {
+        return value.atZone(clock.getZone()).toInstant().toEpochMilli();
     }
 }

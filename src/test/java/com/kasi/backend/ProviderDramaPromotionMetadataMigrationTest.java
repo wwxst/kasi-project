@@ -30,5 +30,11 @@ class ProviderDramaPromotionMetadataMigrationTest {
                 WHERE TABLE_SCHEMA = SCHEMA() AND TABLE_NAME = 'PROVIDER_DRAMA'
                   AND COLUMN_NAME IN ('COMMISSION_SCOPE', 'PROMOTION_DESCRIPTION')
                 """, Integer.class)).isEqualTo(2);
+        assertThat(jdbc.queryForObject("""
+                SELECT COUNT(*) FROM INFORMATION_SCHEMA.COLUMNS
+                WHERE TABLE_SCHEMA = SCHEMA() AND TABLE_NAME = 'PROVIDER_DRAMA'
+                  AND COLUMN_NAME IN ('TITLE_ZH', 'LABEL_NAMES', 'CATEGORY_NAME', 'REMOTE_RANK',
+                                      'NOVEL_TYPE', 'NOVEL_SUB_TYPE', 'REMOTE_CREATED_AT')
+                """, Integer.class)).isEqualTo(7);
     }
 }

@@ -34,8 +34,9 @@ class AdminDramaCatalogControllerTest extends BaseAuthTest {
         jdbcTemplate.update("INSERT INTO short_drama_connection (provider_id,connection_name,currency) VALUES (?, 'GoodShort', 'USD')", providerId);
         Long connectionId = jdbcTemplate.queryForObject(
                 "SELECT id FROM short_drama_connection WHERE provider_id=?", Long.class, providerId);
-        jdbcTemplate.update("INSERT INTO provider_drama (connection_id,external_drama_id,title,language,remote_show_status,local_status) VALUES (?,?,?,?,?,?)",
-                connectionId, "book-1", "Time Story", "ENGLISH", "ONLINE", "DRAFT");
+        jdbcTemplate.update("INSERT INTO provider_drama (connection_id,external_drama_id,title,title_zh,description,cover_url,label_names,category_name,language,remote_rank,novel_type,novel_sub_type,remote_created_at,remote_updated_at,remote_show_status,local_status) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+                connectionId, "book-1", "Time Story", "时间故事", "Intro", "https://img/1", "[\"爱情\"]", "爱情", "ENGLISH", 3, "ORIGINAL", 1,
+                java.sql.Timestamp.valueOf("2025-08-27 11:26:18"), java.sql.Timestamp.valueOf("2025-08-28 11:26:18"), "ONLINE", "DRAFT");
         dramaId = jdbcTemplate.queryForObject("SELECT id FROM provider_drama WHERE external_drama_id='book-1'", Long.class);
         jdbcTemplate.update("INSERT INTO provider_drama_content (drama_id,sequence_no,title,is_free) VALUES (?,?,?,?)",
                 dramaId, 1, "Episode 1", 1);
@@ -51,10 +52,15 @@ class AdminDramaCatalogControllerTest extends BaseAuthTest {
         String token = loginAsAdmin("operator", ADMIN_PASSWORD);
         mockMvc.perform(get("/api/admin/drama/catalog").param("providerId", providerId.toString())
                         .header("Authorization", "Bearer " + token))
-                .andExpect(status().isOk()).andExpect(jsonPath("$.data.list[0].title").value("Time Story"));
+                .andExpect(status().isOk()).andExpect(jsonPath("$.data.list[0].title").value("Time Story"))
+                .andExpect(jsonPath("$.data.list[0].titleZh").value("时间故事"))
+                .andExpect(jsonPath("$.data.list[0].labelNames[0]").value("爱情"))
+                .andExpect(jsonPath("$.data.list[0].novelType").value("ORIGINAL"));
         mockMvc.perform(get("/api/admin/drama/catalog/{id}", dramaId)
                         .header("Authorization", "Bearer " + token))
-                .andExpect(status().isOk()).andExpect(jsonPath("$.data.contents[0].sequenceNo").value(1))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.data.titleZh").value("时间故事"))
+                .andExpect(jsonPath("$.data.remoteRank").value(3))
+                .andExpect(jsonPath("$.data.contents[0].sequenceNo").value(1))
                 .andExpect(jsonPath("$.data.connectionId").doesNotExist());
         mockMvc.perform(post("/api/admin/drama/catalog/sync")
                         .header("Authorization", "Bearer " + token).contentType(MediaType.APPLICATION_JSON)

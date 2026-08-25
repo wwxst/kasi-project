@@ -64,9 +64,11 @@ class GoodShortCatalogAdapterTest {
                         """, JsonCompareMode.STRICT))
                 .andRespond(withSuccess("""
                         {"status":0,"success":true,"data":{"pageNo":1,"pageSize":100,"total":1,"hasNext":false,
-                         "items":[{"bookId":"book-1","bookName":"Title","originalBookName":"Original",
-                         "introduction":"Intro","cover":"https://img/1","language":"ENGLISH","type":"SERIES",
-                         "showStatus":1,"updateTime":"2025-08-28T11:26:18.000+0000",
+                         "items":[{"bookId":"book-1","bookName":"Title","bookNameZh":"中文标题",
+                         "bookCover":"https://img/1","labelNames":["霸总","爱情"],
+                         "introduce":"Intro","typeTwoName":"爱情","language":"ENGLISH","rank":3,
+                         "showStatus":1,"novelType":"ORIGINAL","novelSubType":1,
+                         "ctime":"2025-08-27T11:26:18.000+0000","utime":"2025-08-28T11:26:18.000+0000",
                          "episodes":[{"episodeId":"ep-1","episodeNo":1,"title":"Episode 1","isFree":true,
                          "duration":42,"updateTime":"2025-08-28T12:26:18.000+0000"}]}]}}
                         """, MediaType.APPLICATION_JSON));
@@ -77,6 +79,16 @@ class GoodShortCatalogAdapterTest {
         var book = page.items().getFirst();
         assertThat(book.externalDramaId()).isEqualTo("book-1");
         assertThat(book.title()).isEqualTo("Title");
+        assertThat(book.titleZh()).isEqualTo("中文标题");
+        assertThat(book.coverUrl()).isEqualTo("https://img/1");
+        assertThat(book.labelNames()).containsExactly("霸总", "爱情");
+        assertThat(book.description()).isEqualTo("Intro");
+        assertThat(book.categoryName()).isEqualTo("爱情");
+        assertThat(book.remoteRank()).isEqualTo(3);
+        assertThat(book.novelType()).isEqualTo("ORIGINAL");
+        assertThat(book.novelSubType()).isEqualTo(1);
+        assertThat(book.remoteCreatedAt()).isNotNull();
+        assertThat(book.remoteUpdatedAt()).isNotNull();
         assertThat(book.remoteShowStatus()).isEqualTo("1");
         assertThat(book.contents()).singleElement().satisfies(content -> {
             assertThat(content.externalContentId()).isEqualTo("ep-1");
@@ -91,18 +103,20 @@ class GoodShortCatalogAdapterTest {
     @DisplayName("澧為噺鍚屾鍖呭惈updateTime骞惰繑鍥炴柊妫€鏌ョ偣")
     void fetchIncrementalSendsWatermark() {
         var parameters = parameters(2, 50, "ENGLISH");
-        parameters.put("updateTime", 1700000000000L);
+        parameters.put("utimeStart", "2023-11-14 22:13:20");
+        parameters.put("utimeEnd", "2023-11-14 22:30:00");
         server.expect(requestTo("https://goodshort.test/open/book/incrementBooks"))
                 .andExpect(header("sign", signer.sign(parameters, API_KEY)))
                 .andExpect(content().json("""
-                        {"pageNo":2,"pageSize":50,"language":"ENGLISH","pid":"partner-1","timestamp":1681810530092,"updateTime":1700000000000}
+                        {"pageNo":2,"pageSize":50,"language":"ENGLISH","pid":"partner-1","timestamp":1681810530092,"utimeStart":"2023-11-14 22:13:20","utimeEnd":"2023-11-14 22:30:00"}
                         """, JsonCompareMode.STRICT))
                 .andRespond(withSuccess("""
                         {"status":0,"success":true,"data":{"pageNo":2,"pageSize":50,"total":51,"hasNext":false,"nextUpdateTime":1700000001234,"items":[]}}
                         """, MediaType.APPLICATION_JSON));
 
         var page = adapter.fetchIncrementalDramas(CONNECTION,
-                new DramaCatalogFetchRequest(2, 50, "ENGLISH", 1700000000000L));
+                new DramaCatalogFetchRequest(2, 50, "ENGLISH", 1700000000000L,
+                        1700001000000L));
         assertThat(page.nextUpdateTime()).isEqualTo(1700000001234L);
         assertThat(page.hasNext()).isFalse();
         server.verify();

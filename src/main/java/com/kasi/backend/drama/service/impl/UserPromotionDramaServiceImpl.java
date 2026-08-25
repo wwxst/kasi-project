@@ -13,11 +13,13 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.util.Arrays;
 import java.util.List;
+import tools.jackson.databind.json.JsonMapper;
 
 @Service
 @RequiredArgsConstructor
 public class UserPromotionDramaServiceImpl implements UserPromotionDramaService {
     private final ProviderDramaMapper dramaMapper;
+    private final tools.jackson.databind.ObjectMapper objectMapper = JsonMapper.builder().build();
 
     @Override
     @Transactional(readOnly = true)
@@ -31,12 +33,14 @@ public class UserPromotionDramaServiceImpl implements UserPromotionDramaService 
     private DramaListItemVO toVO(ProviderDrama drama) {
         return DramaListItemVO.builder().id(drama.getId()).providerId(drama.getProviderId()).providerName(drama.getProviderName())
                 .externalDramaId(drama.getExternalDramaId())
-                .title(drama.getTitle()).originalTitle(drama.getOriginalTitle()).description(drama.getDescription())
-                .coverUrl(drama.getCoverUrl()).language(drama.getLanguage()).dramaType(drama.getDramaType())
+                .title(drama.getTitle()).originalTitle(drama.getOriginalTitle()).titleZh(drama.getTitleZh())
+                .description(drama.getDescription()).coverUrl(drama.getCoverUrl()).labelNames(parseLabels(drama.getLabelNames()))
+                .categoryName(drama.getCategoryName()).language(drama.getLanguage()).remoteRank(drama.getRemoteRank())
+                .dramaType(drama.getDramaType()).novelType(drama.getNovelType()).novelSubType(drama.getNovelSubType())
                 .commissionScopes(parseScopes(drama.getCommissionScope()))
                 .promotionDescription(drama.getPromotionDescription())
                 .remoteShowStatus(drama.getRemoteShowStatus())
-                .localStatus(drama.getLocalStatus()).remoteUpdatedAt(drama.getRemoteUpdatedAt())
+                .localStatus(drama.getLocalStatus()).remoteCreatedAt(drama.getRemoteCreatedAt()).remoteUpdatedAt(drama.getRemoteUpdatedAt())
                 .updatedAt(drama.getUpdatedAt()).build();
     }
 
@@ -47,5 +51,14 @@ public class UserPromotionDramaServiceImpl implements UserPromotionDramaService 
                 .filter(scope -> !scope.isEmpty())
                 .map(PromotionCommissionScope::valueOf)
                 .toList();
+    }
+
+    private List<String> parseLabels(String value) {
+        if (value == null || value.isBlank()) return List.of();
+        try {
+            return List.of(objectMapper.readValue(value, String[].class));
+        } catch (tools.jackson.core.JacksonException exception) {
+            return List.of();
+        }
     }
 }

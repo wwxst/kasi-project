@@ -23,6 +23,9 @@ class UserPromotionDramaControllerTest extends BaseAuthTest {
         jdbcTemplate.update("INSERT INTO provider_drama (connection_id,external_drama_id,title,description,language,drama_type,commission_scope,promotion_description,remote_updated_at,remote_show_status,local_status) VALUES (?,?,?,?,?,?,?,?,?,?,?)",
                 connectionId, "published", "Published Drama", "Drama introduction", "ENGLISH", "本土剧",
                 "ORDER,AD", "1. 单个视频建议不超过17分钟\n2. 点击创建推广任务获取", java.sql.Timestamp.valueOf("2026-08-23 20:24:46"), "1", "PUBLISHED");
+        jdbcTemplate.update("UPDATE provider_drama SET title_zh=?,cover_url=?,label_names=?,category_name=?,remote_rank=?,novel_type=?,novel_sub_type=?,remote_created_at=? WHERE external_drama_id='published'",
+                "中文剧名", "https://img/1", "[\"爱情\",\"霸总\"]", "爱情", 2, "TRANSLATION", 0,
+                java.sql.Timestamp.valueOf("2026-08-20 20:24:46"));
         jdbcTemplate.update("INSERT INTO provider_drama (connection_id,external_drama_id,title,language,remote_show_status,local_status) VALUES (?,?,?,?,?,?)",
                 connectionId, "offline", "Offline Drama", "ENGLISH", "1", "OFFLINE");
         jdbcTemplate.update("INSERT INTO provider_drama (connection_id,external_drama_id,title,language,remote_show_status,local_status) VALUES (?,?,?,?,?,?)",
@@ -39,6 +42,9 @@ class UserPromotionDramaControllerTest extends BaseAuthTest {
                 .andExpect(jsonPath("$.data.total").value(1))
                 .andExpect(jsonPath("$.data.list[0].providerId").value(providerId))
                 .andExpect(jsonPath("$.data.list[0].title").value("Published Drama"))
+                .andExpect(jsonPath("$.data.list[0].titleZh").value("中文剧名"))
+                .andExpect(jsonPath("$.data.list[0].labelNames[1]").value("霸总"))
+                .andExpect(jsonPath("$.data.list[0].novelSubType").value(0))
                 .andExpect(jsonPath("$.data.list[0].description").value("Drama introduction"))
                 .andExpect(jsonPath("$.data.list[0].commissionScopes[0]").value("ORDER"))
                 .andExpect(jsonPath("$.data.list[0].commissionScopes[1]").value("AD"))
