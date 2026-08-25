@@ -368,20 +368,11 @@ describe('App', () => {
     await user.type(screen.getByLabelText('密码'), 'kasi123456')
     await user.click(screen.getByRole('button', { name: '登录' }))
 
-    expect(await screen.findByText('¥ 126,560')).toBeInTheDocument()
-    expect(screen.getAllByText('访问量')).toHaveLength(2)
-    expect(screen.getByText('支付笔数')).toBeInTheDocument()
-    expect(screen.getByText('运营活动效果')).toBeInTheDocument()
-    expect(screen.getByRole('tab', { name: '销售额' })).toBeInTheDocument()
-    expect(screen.getByRole('tab', { name: '访问量' })).toBeInTheDocument()
-    expect(screen.getByTestId('analysis-sales-card')).toHaveStyle({
-      marginTop: '24px',
-    })
     expect(
-      screen.getByRole('heading', { name: '门店销售额排名' }),
+      await screen.findByRole('heading', {
+        name: '欢迎 系统管理员 使用卡司短剧推广平台',
+      }),
     ).toBeInTheDocument()
-    expect(screen.getByText('线上热门搜索')).toBeInTheDocument()
-    expect(screen.getByText('销售额类别占比')).toBeInTheDocument()
     expect(
       screen.getByRole('navigation', { name: '主导航' }),
     ).toBeInTheDocument()
@@ -497,7 +488,9 @@ describe('App', () => {
     const user = userEvent.setup()
     window.history.replaceState({}, '', '/dashboard')
     render(<App />)
-    await screen.findByText('¥ 126,560')
+    await screen.findByRole('heading', {
+      name: '欢迎 运营管理员 使用卡司短剧推广平台',
+    })
     expect(screen.getByText('系统配置')).toBeInTheDocument()
     expect(
       screen.queryByRole('link', { name: '短剧 API 配置' }),
@@ -661,12 +654,21 @@ describe('App', () => {
         isSuperAdmin: 0,
       },
     })
+    server.use(
+      http.get('/api/user/management', () =>
+        HttpResponse.json({
+          code: 0,
+          message: '查询成功',
+          data: { list: [], page: 1, size: 20, total: 0 },
+        }),
+      ),
+    )
     window.history.replaceState({}, '', '/admin-management')
 
     render(<App />)
 
-    expect(await screen.findByText('¥ 126,560')).toBeInTheDocument()
-    expect(window.location.pathname).toBe('/dashboard')
+    expect(await screen.findByText('用户管理')).toBeInTheDocument()
+    expect(window.location.pathname).toBe('/user-management')
     expect(screen.queryByText('管理员管理')).not.toBeInTheDocument()
     expect(screen.getByText('用户管理')).toBeInTheDocument()
   })

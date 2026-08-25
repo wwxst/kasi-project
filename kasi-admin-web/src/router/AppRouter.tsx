@@ -76,7 +76,7 @@ function SuperAdminRoute() {
   return admin?.isSuperAdmin === 1 ? (
     <Outlet />
   ) : (
-    <Navigate to="/dashboard" replace />
+    <Navigate to="/user-management" replace />
   )
 }
 
@@ -130,7 +130,7 @@ export function AppRouter() {
               </Route>
             </Route>
           </Route>
-          <Route path="*" element={<Navigate to="/dashboard" replace />} />
+          <Route path="*" element={<Navigate to="/user-management" replace />} />
         </Routes>
       </Suspense>
     </BrowserRouter>

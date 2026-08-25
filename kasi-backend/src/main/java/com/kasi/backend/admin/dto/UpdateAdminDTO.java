@@ -21,8 +21,6 @@ public class UpdateAdminDTO {
     private String mobile;
     @OptionalEmail
     private String email;
-    @Size(max = 512, message = "头像地址不能超过512位")
-    private String avatarUrl;
     private Long departmentId;
     @Size(max = 500, message = "备注不能超过500位")
     private String remark;

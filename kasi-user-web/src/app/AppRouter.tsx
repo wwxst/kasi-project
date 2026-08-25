@@ -8,6 +8,7 @@ import { AccountPage } from '../pages/account/AccountPage'
 import { SecurityPage } from '../pages/account/SecurityPage'
 import { MediaAccountFilingPage } from '../pages/promotion/MediaAccountFilingPage'
 import { PromotionLinkPage } from '../pages/promotion/PromotionLinkPage'
+import { PromotionCreatePage } from '../pages/promotion/PromotionCreatePage'
 import { PromotionIncomePage } from '../pages/promotion/PromotionIncomePage'
 import { ForgotPasswordPage } from '../pages/auth/ForgotPasswordPage'
 import { LoginPage } from '../pages/auth/LoginPage'
@@ -91,11 +92,15 @@ export function AppRouter() {
           <Route path="/account" element={<AccountPage />} />
           <Route path="/account/security" element={<SecurityPage />} />
           <Route path="/account/filing" element={<MediaAccountFilingPage />} />
-          <Route path="/promotion/links" element={<PromotionLinkPage />} />
+          <Route path="/promotion/create" element={<PromotionCreatePage />} />
+          <Route
+            path="/promotion/links"
+            element={<PromotionLinkPage mode="history" />}
+          />
           <Route path="/promotion/income" element={<PromotionIncomePage />} />
           <Route
             path="/promotion/tasks"
-            element={<Navigate to="/promotion/links" replace />}
+            element={<Navigate to="/promotion/create" replace />}
           />
         </Route>
       </Route>

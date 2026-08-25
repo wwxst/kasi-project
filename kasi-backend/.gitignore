@@ -35,3 +35,6 @@ build/
 ### Local runtime data ###
 dump.rdb
 .worktrees/
+
+# Local uploaded files
+/data/uploads/

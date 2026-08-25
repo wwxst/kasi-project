@@ -22,6 +22,7 @@ import { http, HttpResponse } from 'msw'
 import { setupServer } from 'msw/node'
 import { useAuthStore } from '../../features/auth/authStore'
 import { ScheduledTaskPage } from './ScheduledTaskPage'
+import type { ScheduledTask } from '../../features/scheduled-task/scheduledTaskTypes'
 
 vi.mock('@ant-design/pro-components', () => ({
   PageContainer: ({
@@ -42,6 +43,16 @@ const task = {
   title: 'GoodShort 短剧增量同步',
   description: '每隔60分钟执行一次GoodShort短剧目录增量同步',
   intervalMinutes: 60,
+  enabled: true,
+}
+
+const orderTask: ScheduledTask = {
+  taskCode: 'GOODSHORT_ORDER_SYNC',
+  title: 'GoodShort 订单同步',
+  description: '每隔1分钟同步最近3天的GoodShort订单',
+  cycleType: 'INTERVAL_MINUTES',
+  intervalValue: 1,
+  intervalMinutes: 5,
   enabled: true,
 }
 
@@ -81,6 +92,40 @@ function renderPage() {
 }
 
 describe('ScheduledTaskPage', () => {
+  it('renders and toggles the GoodShort order task from the existing task page', async () => {
+    let requestBody: unknown
+    server.use(
+      http.get('/api/admin/system/scheduled-tasks', () =>
+        HttpResponse.json({ code: 0, message: 'ok', data: [task, orderTask] }),
+      ),
+      http.put(
+        '/api/admin/system/scheduled-tasks/GOODSHORT_ORDER_SYNC',
+        async ({ request }) => {
+          requestBody = await request.json()
+          return HttpResponse.json({
+            code: 0,
+            message: 'ok',
+            data: { ...orderTask, ...(requestBody as Record<string, unknown>) },
+          })
+        },
+      ),
+    )
+
+    renderPage()
+
+    expect(await screen.findByText('GoodShort 订单同步')).toBeInTheDocument()
+    fireEvent.click(screen.getByLabelText('GoodShort 订单同步是否开启'))
+
+    await waitFor(() =>
+      expect(requestBody).toEqual({
+        cycleType: 'INTERVAL_MINUTES',
+        intervalValue: 1,
+        description: '每隔1分钟同步最近3天的GoodShort订单',
+        enabled: false,
+      }),
+    )
+  })
+
   it('renders only the compact five-column task table', async () => {
     renderPage()
 

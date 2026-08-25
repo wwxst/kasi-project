@@ -1,4 +1,5 @@
-.promotion-link-page {
+.promotion-link-page,
+.promotion-create-page {
   min-width: 0;
 }
 

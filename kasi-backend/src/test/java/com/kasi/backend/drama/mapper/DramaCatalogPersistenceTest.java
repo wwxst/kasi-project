@@ -34,6 +34,13 @@ class DramaCatalogPersistenceTest extends BaseAuthTest {
         assertThat(dramaMapper.upsert(drama)).isGreaterThanOrEqualTo(1);
         ProviderDrama stored = dramaMapper.findById(id);
         assertThat(stored.getTitle()).isEqualTo("Updated title");
+        assertThat(stored.getTitleZh()).isEqualTo("中文标题");
+        assertThat(stored.getLabelNames()).isEqualTo("[\"霸总\",\"爱情\"]");
+        assertThat(stored.getCategoryName()).isEqualTo("爱情");
+        assertThat(stored.getRemoteRank()).isEqualTo(3);
+        assertThat(stored.getNovelType()).isEqualTo("ORIGINAL");
+        assertThat(stored.getNovelSubType()).isEqualTo(1);
+        assertThat(stored.getRemoteCreatedAt()).isNotNull();
         assertThat(stored.getLocalStatus()).isEqualTo(DramaLocalStatus.PUBLISHED);
 
         ProviderDramaContent content = new ProviderDramaContent();
@@ -183,6 +190,9 @@ class DramaCatalogPersistenceTest extends BaseAuthTest {
     private ProviderDrama drama(Long connectionId, String externalId) {
         ProviderDrama drama = new ProviderDrama(); drama.setConnectionId(connectionId); drama.setExternalDramaId(externalId);
         drama.setTitle("Original title"); drama.setOriginalTitle("Original title"); drama.setLanguage("ENGLISH");
+        drama.setTitleZh("中文标题"); drama.setLabelNames("[\"霸总\",\"爱情\"]"); drama.setCategoryName("爱情");
+        drama.setRemoteRank(3); drama.setNovelType("ORIGINAL"); drama.setNovelSubType(1);
+        drama.setRemoteCreatedAt(LocalDateTime.of(2025, 8, 27, 11, 26, 18));
         drama.setDramaType("SERIES"); drama.setRemoteShowStatus("ONLINE"); drama.setLastSeenAt(LocalDateTime.now());
         return drama;
     }

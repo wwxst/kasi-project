@@ -5,14 +5,10 @@ import com.kasi.backend.promotion.dto.PromotionOrderSyncDTO;
 import com.kasi.backend.promotion.entity.PromotionOrder;
 import com.kasi.backend.promotion.mapper.PromotionOrderMapper;
 import com.kasi.backend.promotion.service.PromotionOrderAdminService;
-import com.kasi.backend.promotion.service.PromotionOrderService;
+import com.kasi.backend.promotion.service.PromotionOrderSyncService;
 import com.kasi.backend.promotion.vo.PromotionOrderPageVO;
 import com.kasi.backend.promotion.vo.PromotionOrderSyncResultVO;
 import com.kasi.backend.promotion.vo.PromotionOrderVO;
-import com.kasi.backend.provider.enums.ProviderCapability;
-import com.kasi.backend.provider.service.ProviderRuntimeConnectionService;
-import com.kasi.backend.provider.spi.OrderSyncProviderAdapter;
-import com.kasi.backend.provider.spi.OrderSyncRequest;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -24,43 +20,13 @@ import java.util.List;
 @Service
 @RequiredArgsConstructor
 public class PromotionOrderAdminServiceImpl implements PromotionOrderAdminService {
-    private static final int SYNC_PAGE_SIZE = 500;
     private static final int EXPORT_LIMIT = 10_000;
-    private final ProviderRuntimeConnectionService runtimeService;
-    private final PromotionOrderService orderService;
+    private final PromotionOrderSyncService orderSyncService;
     private final PromotionOrderMapper orderMapper;
 
     @Override
     public PromotionOrderSyncResultVO sync(PromotionOrderSyncDTO request) {
-        var runtime = runtimeService.resolve(request.getProviderId(), ProviderCapability.ORDER_SYNC);
-        OrderSyncProviderAdapter adapter = (OrderSyncProviderAdapter) runtime.adapter();
-        int pageNo = 1;
-        int fetched = 0;
-        int inserted = 0;
-        int updated = 0;
-        int unattributed = 0;
-        boolean hasNext;
-        do {
-            var page = adapter.fetchOrders(runtime.secret(), new OrderSyncRequest(
-                    request.getStartDate(), request.getEndDate(), pageNo, SYNC_PAGE_SIZE));
-            for (var record : page.records()) {
-                var result = orderService.upsert(runtime, record,
-                        request.getStartDate(), request.getEndDate());
-                fetched++;
-                if (result.inserted()) {
-                    inserted++;
-                } else {
-                    updated++;
-                }
-                if (!result.attributed()) {
-                    unattributed++;
-                }
-            }
-            hasNext = page.hasNext();
-            pageNo++;
-        } while (hasNext);
-        return PromotionOrderSyncResultVO.builder().fetchedCount(fetched).insertedCount(inserted)
-                .updatedCount(updated).unattributedCount(unattributed).build();
+        return orderSyncService.sync(request.getProviderId(), request.getStartDate(), request.getEndDate());
     }
 
     @Override

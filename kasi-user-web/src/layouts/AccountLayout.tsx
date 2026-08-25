@@ -8,15 +8,11 @@ import {
   Input,
   Layout,
   Menu,
-  Popup,
   Space,
 } from 'tdesign-react'
 import {
-  ChevronDownIcon,
   DashboardIcon,
   FileIcon,
-  HelpCircleIcon,
-  LogoGithubIcon,
   LinkIcon,
   LogoutIcon,
   MailIcon,
@@ -40,16 +36,19 @@ export function AccountLayout() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
 
-  const displayName = currentUser?.nickname || currentUser?.userNo || '用户'
+  const displayName =
+    currentUser?.nickname || currentUser?.mobile || currentUser?.email || '用户'
   const activeMenu = location.pathname.startsWith('/account/filing')
     ? '/account/filing'
-    : location.pathname.startsWith('/promotion/links')
-      ? '/promotion/links'
-      : location.pathname.startsWith('/promotion/income')
-        ? '/promotion/income'
-        : location.pathname.startsWith('/account/security')
-          ? '/account/security'
-          : '/account'
+    : location.pathname.startsWith('/promotion/create')
+      ? '/promotion/create'
+      : location.pathname.startsWith('/promotion/links')
+        ? '/promotion/links'
+        : location.pathname.startsWith('/promotion/income')
+          ? '/promotion/income'
+          : location.pathname.startsWith('/account/security')
+            ? '/account/security'
+            : '/account'
 
   useEffect(() => {
     setMobileMenuOpen(false)
@@ -129,6 +128,17 @@ export function AccountLayout() {
                 账号报白
               </Menu.MenuItem>
               <Menu.MenuItem
+                value="/promotion/create"
+                href="/promotion/create"
+                icon={<LinkIcon />}
+                onClick={({ e }) => {
+                  e.preventDefault()
+                  navigate('/promotion/create')
+                }}
+              >
+                创建推广
+              </Menu.MenuItem>
+              <Menu.MenuItem
                 value="/promotion/links"
                 href="/promotion/links"
                 icon={<LinkIcon />}
@@ -137,7 +147,7 @@ export function AccountLayout() {
                   navigate('/promotion/links')
                 }}
               >
-                创建推广
+                推广链接记录
               </Menu.MenuItem>
               <Menu.MenuItem
                 value="/promotion/income"
@@ -213,40 +223,6 @@ export function AccountLayout() {
                   aria-label="消息"
                 />
               </Badge>
-              <Popup content="代码仓库" placement="bottom" showArrow>
-                <Button
-                  className="account-header-icon"
-                  shape="square"
-                  size="large"
-                  variant="text"
-                  icon={<LogoGithubIcon />}
-                  aria-label="代码仓库"
-                  onClick={() =>
-                    window.open(
-                      'https://github.com/Tencent/tdesign-react-starter',
-                      '_blank',
-                      'noopener,noreferrer',
-                    )
-                  }
-                />
-              </Popup>
-              <Popup content="帮助文档" placement="bottom" showArrow>
-                <Button
-                  className="account-header-icon"
-                  shape="square"
-                  size="large"
-                  variant="text"
-                  icon={<HelpCircleIcon />}
-                  aria-label="帮助文档"
-                  onClick={() =>
-                    window.open(
-                      'https://tdesign.tencent.com/react/overview',
-                      '_blank',
-                      'noopener,noreferrer',
-                    )
-                  }
-                />
-              </Popup>
               <Dropdown
                 trigger="click"
                 onClick={({ value }) => {
@@ -268,7 +244,6 @@ export function AccountLayout() {
                     {displayName.slice(0, 1)}
                   </Avatar>
                   <span className="account-user-name">{displayName}</span>
-                  <ChevronDownIcon />
                 </Button>
                 <Dropdown.DropdownMenu>
                   <Dropdown.DropdownItem value="profile">
@@ -291,16 +266,6 @@ export function AccountLayout() {
                   </Dropdown.DropdownItem>
                 </Dropdown.DropdownMenu>
               </Dropdown>
-              <Button
-                className="account-header-icon"
-                shape="square"
-                size="large"
-                variant="text"
-                icon={<SettingIcon />}
-                aria-label="页面设置"
-              >
-                <span className="visually-hidden">页面设置</span>
-              </Button>
             </Space>
           </Layout.Header>
           <Layout.Content className="account-content">

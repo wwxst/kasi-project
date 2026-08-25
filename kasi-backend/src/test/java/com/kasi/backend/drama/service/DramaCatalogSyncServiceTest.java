@@ -22,6 +22,8 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.TransactionStatus;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
+import org.springframework.core.task.TaskExecutor;
 
 import java.time.Clock;
 import java.time.Instant;
@@ -33,6 +35,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
+import org.mockito.ArgumentCaptor;
 
 @DisplayName("短剧目录同步服务")
 class DramaCatalogSyncServiceTest {
@@ -41,6 +44,7 @@ class DramaCatalogSyncServiceTest {
     private ShortDramaConnectionMapper connectionMapper;
     private ProviderRuntimeConnectionService runtimeService;
     private DramaCatalogProviderAdapter adapter;
+    private TaskExecutor taskExecutor;
     private DramaCatalogSyncService service;
 
     @BeforeEach
@@ -50,6 +54,7 @@ class DramaCatalogSyncServiceTest {
         connectionMapper = mock(ShortDramaConnectionMapper.class);
         runtimeService = mock(ProviderRuntimeConnectionService.class);
         adapter = mock(DramaCatalogProviderAdapter.class);
+        taskExecutor = mock(TaskExecutor.class);
         PlatformTransactionManager transactionManager = mock(PlatformTransactionManager.class);
         when(transactionManager.getTransaction(any())).thenReturn(mock(TransactionStatus.class));
         when(checkpointMapper.requestRun(anyLong(), any(), anyBoolean())).thenReturn(1);
@@ -57,7 +62,30 @@ class DramaCatalogSyncServiceTest {
         Clock clock = Clock.fixed(Instant.parse("2026-08-20T08:00:00Z"), ZoneOffset.UTC);
         service = new com.kasi.backend.drama.service.impl.DramaCatalogSyncServiceImpl(
                 checkpointMapper, dramaMapper, connectionMapper, runtimeService,
-                transactionManager, properties, clock, "worker-test");
+                transactionManager, properties, clock, "worker-test", taskExecutor);
+    }
+
+    @Test
+    @DisplayName("手动同步事务提交后才异步唤醒，回滚不触发")
+    void requestSyncTriggersOnlyAfterCommit() {
+        when(runtimeService.resolve(7L, ProviderCapability.FULL_DRAMA_SYNC)).thenReturn(runtime());
+        when(connectionMapper.lockById(3L)).thenReturn(mock(com.kasi.backend.provider.entity.ShortDramaConnection.class));
+        when(checkpointMapper.find(3L, DramaSyncType.FULL, "ENGLISH")).thenReturn(null, checkpoint(11L, DramaSyncType.FULL));
+
+        TransactionSynchronizationManager.initSynchronization();
+        try {
+            service.requestSync(7L, DramaSyncType.FULL, List.of("ENGLISH"));
+
+            verifyNoInteractions(taskExecutor);
+            var synchronization = TransactionSynchronizationManager.getSynchronizations().get(0);
+            synchronization.afterCompletion(2);
+            verifyNoInteractions(taskExecutor);
+
+            synchronization.afterCommit();
+            verify(taskExecutor).execute(any(Runnable.class));
+        } finally {
+            TransactionSynchronizationManager.clearSynchronization();
+        }
     }
 
     @Test
@@ -168,8 +196,10 @@ class DramaCatalogSyncServiceTest {
         connection.setProviderId(7L);
         when(connectionMapper.findById(3L)).thenReturn(connection);
         when(runtimeService.resolve(7L, ProviderCapability.FULL_DRAMA_SYNC)).thenReturn(runtime());
-        ProviderDramaRecord record = new ProviderDramaRecord("book-1", "Title", null, null, null,
-                "ENGLISH", null, "ONLINE", null, List.of());
+        ProviderDramaRecord record = new ProviderDramaRecord("book-1", "Title", null, "中文标题", "Intro",
+                "https://img/1", List.of("霸总", "爱情"), "爱情", "ENGLISH", 3, "SERIES",
+                "ORIGINAL", 1, "ONLINE", LocalDateTime.of(2025, 8, 27, 11, 26, 18),
+                LocalDateTime.of(2025, 8, 28, 11, 26, 18), List.of());
         when(adapter.fetchFullDramas(any(), any())).thenReturn(
                 new DramaCatalogPage(List.of(record), 1, 100, 1, false, null));
         when(dramaMapper.findByConnectionAndExternalId(3L, "book-1")).thenReturn(null, storedDrama());
@@ -181,7 +211,15 @@ class DramaCatalogSyncServiceTest {
 
         var order = inOrder(adapter, dramaMapper, checkpointMapper);
         order.verify(adapter).fetchFullDramas(any(), any());
-        order.verify(dramaMapper).upsert(any(ProviderDrama.class));
+        ArgumentCaptor<ProviderDrama> dramaCaptor = ArgumentCaptor.forClass(ProviderDrama.class);
+        order.verify(dramaMapper).upsert(dramaCaptor.capture());
+        assertThat(dramaCaptor.getValue().getTitleZh()).isEqualTo("中文标题");
+        assertThat(dramaCaptor.getValue().getLabelNames()).isEqualTo("[\"霸总\",\"爱情\"]");
+        assertThat(dramaCaptor.getValue().getCategoryName()).isEqualTo("爱情");
+        assertThat(dramaCaptor.getValue().getRemoteRank()).isEqualTo(3);
+        assertThat(dramaCaptor.getValue().getNovelType()).isEqualTo("ORIGINAL");
+        assertThat(dramaCaptor.getValue().getNovelSubType()).isEqualTo(1);
+        assertThat(dramaCaptor.getValue().getRemoteCreatedAt()).isEqualTo(LocalDateTime.of(2025, 8, 27, 11, 26, 18));
         order.verify(checkpointMapper).updateProgress(11L, "worker-test", 2, null, 1, 1, 1, 0, 0, 0);
         order.verify(checkpointMapper).markSuccess(11L, "worker-test",
                 LocalDateTime.of(2026, 8, 20, 8, 0), 2, null);

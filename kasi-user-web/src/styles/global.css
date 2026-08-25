@@ -137,11 +137,7 @@ input {
   padding: 6px 10px;
   color: #1d2129;
   font-size: 14px;
-  font-weight: 600;
-}
-
-.account-user-menu .t-icon {
-  color: #86909c;
+  font-weight: 400;
 }
 
 .account-dropdown-item {
@@ -153,13 +149,13 @@ input {
 
 .account-user-avatar {
   flex: 0 0 auto;
-  background: #e7a34d;
-  color: #4f2f0e;
+  background-color: #bdbdbd !important;
+  color: #ffffff !important;
   font-weight: 700;
 }
 
 .account-user-name {
-  color: #4e5969;
+  color: #1d2129;
   font-size: 14px;
 }
 

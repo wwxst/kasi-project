@@ -22,10 +22,17 @@ import com.kasi.backend.provider.spi.DramaCatalogProviderAdapter;
 import com.kasi.backend.provider.spi.ProviderDramaRecord;
 import com.kasi.backend.provider.spi.ProviderRuntimeConnection;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.core.task.TaskExecutor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 import org.springframework.transaction.support.TransactionTemplate;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import tools.jackson.databind.json.JsonMapper;
 
 import java.time.Clock;
 import java.time.LocalDateTime;
@@ -36,6 +43,7 @@ import java.util.Locale;
 
 @Service
 public class DramaCatalogSyncServiceImpl implements DramaCatalogSyncService {
+    private static final Logger log = LoggerFactory.getLogger(DramaCatalogSyncServiceImpl.class);
     private final ProviderSyncCheckpointMapper checkpointMapper;
     private final ProviderDramaMapper dramaMapper;
     private final ShortDramaConnectionMapper connectionMapper;
@@ -44,6 +52,8 @@ public class DramaCatalogSyncServiceImpl implements DramaCatalogSyncService {
     private final DramaSyncProperties properties;
     private final Clock clock;
     private final String workerId;
+    private final TaskExecutor taskExecutor;
+    private final tools.jackson.databind.ObjectMapper objectMapper = JsonMapper.builder().build();
 
     public DramaCatalogSyncServiceImpl(ProviderSyncCheckpointMapper checkpointMapper,
                                        ProviderDramaMapper dramaMapper,
@@ -52,7 +62,8 @@ public class DramaCatalogSyncServiceImpl implements DramaCatalogSyncService {
                                        PlatformTransactionManager transactionManager,
                                        DramaSyncProperties properties,
                                        Clock clock,
-                                       @Value("${app.promotion.drama.sync.worker-id:${random.uuid}}") String workerId) {
+                                       @Value("${app.promotion.drama.sync.worker-id:${random.uuid}}") String workerId,
+                                       @Qualifier("dramaSyncTaskExecutor") TaskExecutor taskExecutor) {
         this.checkpointMapper = checkpointMapper;
         this.dramaMapper = dramaMapper;
         this.connectionMapper = connectionMapper;
@@ -61,6 +72,7 @@ public class DramaCatalogSyncServiceImpl implements DramaCatalogSyncService {
         this.properties = properties;
         this.clock = clock;
         this.workerId = workerId;
+        this.taskExecutor = taskExecutor;
     }
 
     @Override
@@ -94,7 +106,28 @@ public class DramaCatalogSyncServiceImpl implements DramaCatalogSyncService {
                 throw new BusinessException(ErrorCode.DRAMA_SYNC_TASK_RUNNING);
             }
         }
+        triggerAfterCommit();
         return tasks;
+    }
+
+    private void triggerAfterCommit() {
+        Runnable trigger = () -> {
+            try {
+                taskExecutor.execute(this::processDueBatch);
+            } catch (RuntimeException exception) {
+                log.warn("Failed to submit immediate drama catalog synchronization", exception);
+            }
+        };
+        if (!TransactionSynchronizationManager.isSynchronizationActive()) {
+            trigger.run();
+            return;
+        }
+        TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+            @Override
+            public void afterCommit() {
+                trigger.run();
+            }
+        });
     }
 
     @Override
@@ -282,14 +315,29 @@ public class DramaCatalogSyncServiceImpl implements DramaCatalogSyncService {
         drama.setExternalDramaId(record.externalDramaId());
         drama.setTitle(record.title());
         drama.setOriginalTitle(record.originalTitle());
+        drama.setTitleZh(record.titleZh());
         drama.setDescription(record.description());
         drama.setCoverUrl(record.coverUrl());
+        drama.setLabelNames(writeLabels(record.labelNames()));
+        drama.setCategoryName(record.categoryName());
         drama.setLanguage(record.language());
+        drama.setRemoteRank(record.remoteRank());
         drama.setDramaType(record.dramaType());
+        drama.setNovelType(record.novelType());
+        drama.setNovelSubType(record.novelSubType());
         drama.setRemoteShowStatus(record.remoteShowStatus());
+        drama.setRemoteCreatedAt(record.remoteCreatedAt());
         drama.setRemoteUpdatedAt(record.remoteUpdatedAt());
         drama.setLastSeenAt(LocalDateTime.now(clock));
         return drama;
+    }
+
+    private String writeLabels(List<String> labels) {
+        try {
+            return objectMapper.writeValueAsString(labels == null ? List.of() : labels);
+        } catch (tools.jackson.core.JacksonException exception) {
+            throw new IllegalStateException("Drama labels cannot be serialized", exception);
+        }
     }
 
     private DramaSyncType effectiveType(Long connectionId, DramaSyncType requestedType, String language) {

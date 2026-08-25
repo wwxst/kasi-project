@@ -1,7 +1,5 @@
 # Agent 指南
 
-> 根级规则优先：请先阅读 [仓库 AGENTS.md](../AGENTS.md) 和 [DEVELOPMENT.md](../DEVELOPMENT.md)。本文件只补充用户端 React、Vite、TDesign 和测试的项目特有约束。
-
 ## 范围
 
 本文件适用于 `E:/JavaProjects/kasi-project/kasi-user-web`。修改前先阅读

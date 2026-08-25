@@ -1,4 +1,6 @@
-export type ScheduledTaskCode = 'GOODSHORT_DRAMA_INCREMENTAL_SYNC'
+export type ScheduledTaskCode =
+  | 'GOODSHORT_DRAMA_INCREMENTAL_SYNC'
+  | 'GOODSHORT_ORDER_SYNC'
 
 export type ScheduledTaskCycleType =
   | 'INTERVAL_SECONDS'

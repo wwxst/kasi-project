@@ -202,6 +202,9 @@ describe('AppRouter', () => {
     ).toHaveAttribute('href', '/account')
     expect(
       within(navigation).getByRole('link', { name: '创建推广' }),
+    ).toHaveAttribute('href', '/promotion/create')
+    expect(
+      within(navigation).getByRole('link', { name: '推广链接记录' }),
     ).toHaveAttribute('href', '/promotion/links')
     expect(
       within(navigation).getByRole('link', {
@@ -209,5 +212,33 @@ describe('AppRouter', () => {
       }),
     ).toHaveAttribute('href', '/promotion/income')
     expect(screen.getByText('测试用户')).toBeInTheDocument()
+  })
+
+  it('renders the create promotion route separately from link history', async () => {
+    setSession()
+    server.use(
+      http.get('/api/user/auth/me', () =>
+        HttpResponse.json({ code: 0, message: 'success', data: currentUser }),
+      ),
+      http.get('/api/user/promotion/media-accounts', () =>
+        HttpResponse.json({ code: 0, message: 'success', data: [] }),
+      ),
+      http.get('/api/user/promotion/dramas', () =>
+        HttpResponse.json({
+          code: 0,
+          message: 'success',
+          data: { list: [], page: 1, size: 20, total: 0 },
+        }),
+      ),
+    )
+    window.history.replaceState({}, '', '/promotion/create')
+    render(<App />)
+
+    expect(
+      await screen.findByRole('heading', { name: '创建推广' }),
+    ).toBeInTheDocument()
+    expect(
+      screen.queryByRole('heading', { name: '推广链接记录' }),
+    ).not.toBeInTheDocument()
   })
 })

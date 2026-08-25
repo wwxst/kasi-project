@@ -18,6 +18,9 @@ public class GoodShortCatalogResponse {
         private List<GoodShortBookData> items;
         private Integer pageNo;
         private Integer pageSize;
+        private Integer current;
+        private Integer size;
+        private Integer pages;
         private Long total;
         private Boolean hasNext;
         private Long nextUpdateTime;

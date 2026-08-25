@@ -2,6 +2,20 @@
   width: 100%;
 }
 
+.analysis-page__welcome {
+  display: grid;
+  min-height: min(52vh, 520px);
+  margin: 0;
+  padding: 32px 20px;
+  align-items: center;
+  justify-items: center;
+  color: #1f2937;
+  font-size: clamp(28px, 4vw, 48px);
+  font-weight: 600;
+  line-height: 1.35;
+  text-align: center;
+}
+
 .analysis-metric-card,
 .analysis-sales-card,
 .analysis-detail-card,

@@ -1,25 +1,14 @@
-import { Col, Row } from 'antd'
-import { AnalysisMetricCards } from './AnalysisMetricCards'
-import { SalesCategoryCard } from './SalesCategoryCard'
-import { SalesOverview } from './SalesOverview'
-import { StoreOverview } from './StoreOverview'
-import { TopSearchCard } from './TopSearchCard'
+import { useAuthStore } from '../../features/auth/authStore'
 import './dashboard-page.css'
 
 export function DashboardPage() {
+  const realName = useAuthStore((state) => state.admin?.realName || '管理员')
+
   return (
     <div className="analysis-page">
-      <AnalysisMetricCards />
-      <SalesOverview />
-      <Row className="analysis-details" gutter={[24, 24]}>
-        <Col xs={24} xl={12}>
-          <TopSearchCard />
-        </Col>
-        <Col xs={24} xl={12}>
-          <SalesCategoryCard />
-        </Col>
-      </Row>
-      <StoreOverview />
+      <h1 className="analysis-page__welcome">
+        欢迎 {realName} 使用卡司短剧推广平台
+      </h1>
     </div>
   )
 }

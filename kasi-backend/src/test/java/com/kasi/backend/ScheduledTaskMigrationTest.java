@@ -36,6 +36,27 @@ class ScheduledTaskMigrationTest {
         assertThat(((Number) task.get("ENABLED")).intValue()).isEqualTo(1);
     }
 
+    @Test
+    @DisplayName("V17新增每分钟执行一次的GoodShort订单同步任务")
+    void migrationCreatesGoodShortOrderSyncTask() {
+        JdbcTemplate jdbc = migrateAllMigrations();
+
+        Map<String, Object> task = jdbc.queryForMap("""
+                SELECT task_code, title, description, cycle_type, interval_value,
+                       interval_minutes, enabled, next_run_at
+                FROM system_scheduled_task
+                WHERE task_code = 'GOODSHORT_ORDER_SYNC'
+                """);
+        assertThat(task.get("TASK_CODE")).isEqualTo("GOODSHORT_ORDER_SYNC");
+        assertThat(task.get("TITLE")).isEqualTo("GoodShort 订单同步");
+        assertThat(task.get("DESCRIPTION")).isEqualTo("每隔1分钟同步最近3天的GoodShort订单");
+        assertThat(task.get("CYCLE_TYPE")).isEqualTo("INTERVAL_MINUTES");
+        assertThat(((Number) task.get("INTERVAL_VALUE")).intValue()).isEqualTo(1);
+        assertThat(((Number) task.get("INTERVAL_MINUTES")).intValue()).isEqualTo(5);
+        assertThat(((Number) task.get("ENABLED")).intValue()).isEqualTo(1);
+        assertThat(task.get("NEXT_RUN_AT")).isNotNull();
+    }
+
     private static JdbcTemplate migrateAllMigrations() {
         DriverManagerDataSource dataSource = new DriverManagerDataSource();
         dataSource.setDriverClassName("org.h2.Driver");

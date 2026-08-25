@@ -3,11 +3,16 @@ package com.kasi.backend.admin.controller;
 import com.kasi.backend.BaseAuthTest;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.springframework.http.HttpMethod;
 import org.springframework.http.MediaType;
+import org.springframework.mock.web.MockMultipartFile;
 
 import java.util.Map;
+import java.util.Base64;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.hamcrest.Matchers.startsWith;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.multipart;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
@@ -17,6 +22,29 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 @DisplayName("管理员管理写操作")
 class AdminManagementMutationTest extends BaseAuthTest {
+
+    @Test
+    @DisplayName("超级管理员上传普通管理员头像")
+    void uploadManagedAdminAvatar() throws Exception {
+        Long targetId = jdbcTemplate.queryForObject(
+                "SELECT id FROM sys_admin_user WHERE username = 'operator'", Long.class);
+        MockMultipartFile file = new MockMultipartFile(
+                "file", "operator.png", "image/png",
+                Base64.getDecoder().decode(
+                        "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII="));
+
+        mockMvc.perform(multipart(HttpMethod.PUT, "/api/admin/management/{id}/avatar", targetId)
+                        .file(file)
+                        .header("Authorization", "Bearer " + loginAsAdmin()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(0))
+                .andExpect(jsonPath("$.data.id").value(targetId))
+                .andExpect(jsonPath("$.data.avatarUrl", startsWith("/uploads/admin-avatars/")));
+
+        String avatarUrl = jdbcTemplate.queryForObject(
+                "SELECT avatar_url FROM sys_admin_user WHERE id = ?", String.class, targetId);
+        assertThat(avatarUrl).startsWith("/uploads/admin-avatars/");
+    }
 
     @Test
     @DisplayName("超级管理员新增普通管理员并规范化联系方式")

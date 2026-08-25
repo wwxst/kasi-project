@@ -11,17 +11,25 @@ public class GoodShortBookData {
     private String bookId;
     @JsonAlias({"bookName", "name", "title"})
     private String bookName;
+    private String bookNameZh;
     @JsonAlias({"originalBookName", "originalName", "originalTitle"})
     private String originalBookName;
-    @JsonAlias({"introduction", "description", "intro"})
+    @JsonAlias({"introduce", "introduction", "description", "intro"})
     private String introduction;
-    @JsonAlias({"cover", "coverUrl", "coverImage"})
+    @JsonAlias({"bookCover", "cover", "coverUrl", "coverImage"})
     private String cover;
+    private List<String> labelNames;
+    private String typeTwoName;
     private String language;
+    private Integer rank;
     @JsonAlias({"type", "dramaType"})
     private String type;
+    private String novelType;
+    private Integer novelSubType;
     @JsonAlias({"showStatus", "status"})
     private String showStatus;
+    private String ctime;
+    private String utime;
     @JsonAlias({"updateTime", "updatedAt"})
     private String updateTime;
     @JsonAlias({"episodes", "contents", "episodeList"})

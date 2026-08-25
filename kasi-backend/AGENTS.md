@@ -1,7 +1,5 @@
 # Agent 指南
 
-> 根级规则优先：请先阅读 [仓库 AGENTS.md](../AGENTS.md) 和 [DEVELOPMENT.md](../DEVELOPMENT.md)。本文件只补充后端 Java、Spring、数据库、认证和测试的项目特有约束。
-
 ## 适用范围
 
 - 本文件适用于仓库根目录 `E:/JavaProjects/kasi-project/kasi-backend`。
@@ -19,7 +17,7 @@
 5. **最小改动优先**：只改动导致问题和验证所必需的代码，不为未发布 API 保留无意义兼容层，也不因“以后可能需要”提前引入抽象或复杂系统。
 6. **先定义验证**：实现前确定失败路径、成功路径和边界条件的测试或可重复检查；涉及安全、并发、事务、迁移和外部平台时，必须覆盖对应风险。
 7. **完成后再宣称**：运行与变更风险匹配的测试、编译、迁移/结构检查和 `git diff --check`；没有最新的零错误输出，不得宣称已修复或测试健康。
-8. **同步沉淀**：行为、边界、命令、迁移或架构发生变化时，同步更新 `README.md`、模块文档或 `DEVELOPMENT.md`；重要架构决策按 [根级 ADR](../docs/adr/ADR-0001-root-monorepo.md) 或后续 ADR 记录。
+8. **同步沉淀**：行为、边界、命令、迁移或架构发生变化时，同步更新 `README.md`、模块文档或 `DEVELOPMENT.md`；重要架构决策按 [docs/architecture-decisions.md](docs/architecture-decisions.md) 记录。
 9. **保持当前/规划分离**：文档、代码审查和交接中必须明确“当前已实现”“已批准但未实施”“建议/缺口”，不得把计划描述成现状。
 10. **保留用户改动**：禁止用 `git reset --hard`、`git checkout --` 或批量暂存覆盖无关改动；提交时按意图逐文件暂存并复核 diff。
 
@@ -33,28 +31,32 @@
   - `admin/` — 管理员认证、本人资料与密码维护，以及超级管理员管理普通管理员账号
   - `user/` — 推广用户注册、登录、获取当前用户、退出登录、修改密码、忘记密码流程，以及管理员可用的推广用户管理 CRUD
   - `provider/` — 短剧平台定义、接入账号持久层、AES-GCM 密钥加密、GoodShort 签名/连接探测，以及管理员平台接入管理 API
-  - `promotion/` — 推广用户媒体账号绑定、GoodShort 账号报备、推广链接、订单归因、CPS 佣金快照、管理员手动同步及管理员/用户查询导出 API
+  - `promotion/` — 推广用户媒体账号绑定、GoodShort 账号报备、推广链接、订单归因、CPS 佣金快照、订单共享同步服务、管理员手动补拉及管理员/用户查询导出 API
   - `drama/` — GoodShort 短剧目录与剧集持久层、全量/增量同步、检查点与租约、平台级分佣规则、`BigDecimal` 计算器、管理员 API 和定时调度
   - `auth/` — 可复用的验证码服务和密码重置 Token 机制（Redis 存储，Lua 原子消费/预占，TTL 自动过期）
-- 数据库迁移：`V1__kasi_promotion.sql` 创建基础业务表并植入唯一初始超级管理员，`V13__promotion_task.sql` 增加推广任务，`V14__provider_drama_promotion_metadata.sql` 增加短剧本地推广元数据，`V15__promotion_order_and_rule_history.sql` 增加分佣历史快照和推广订单；不植入平台接入密钥。目录默认同步 `ENGLISH`，全量调用 `initBooks`，增量调用 `incrementBooks`；目录同步不覆盖本地推广元数据。验证码和密码重置 Token 等临时数据由 Redis（`vc:*`、`pwd:*` 键）管理，TTL 自动过期。
+- 数据库迁移：`V1__kasi_promotion.sql` 创建基础业务表并植入唯一初始超级管理员，`V13__promotion_task.sql` 增加推广任务，`V14__provider_drama_promotion_metadata.sql` 增加短剧本地推广元数据，`V15__promotion_order_and_rule_history.sql` 增加分佣历史快照和推广订单，`V16__goodshort_drama_catalog_complete_fields.sql` 增加 GoodShort 短剧列表完整字段，`V17__goodshort_order_scheduled_sync.sql` 增加 GoodShort 订单自动同步任务；不植入平台接入密钥。目录默认同步 `ENGLISH`，全量调用 `initBooks`，增量调用 `incrementBooks`；目录同步不覆盖本地推广元数据。验证码和密码重置 Token 等临时数据由 Redis（`vc:*`、`pwd:*` 键）管理，TTL 自动过期。
 - `scripts/dev/seed_goodshort_drama_catalog.sql` 是 Flyway 之外的手动开发 seed，仅创建禁用且无凭据的 GoodShort 本地 fixture 连接；仅限本地使用，并必须通过遇错即停的 fail-fast 客户端执行。
 - 项目当前仍处于开发阶段，数据库可以删除重建；修改已执行的迁移后应重建开发数据库。未来生产首次建库也按 Flyway 版本顺序执行并植入初始账号，不新增运行时账号植入器。
 - 会话状态由 Redis（`auth:version:{type}:{userId}`、`auth:session:{jti}`）管理。JWT 携带 `jti`、`sessionVersion`，受保护请求必须同时校验签名、账号状态和 Redis 会话；Redis 不可用时安全失败返回 503，不能降级放行。
-- 修改密码、密码重置等敏感 MySQL 状态变更会先将账号版本切换为 `MUTATING:{nonce}`，数据库成功后再恢复新的 `ACTIVE:*` 版本，使旧 Token 失效。普通 logout 只撤销当前 `jti` 会话。
+- 修改密码、密码重置等敏感 MySQL 状态变更会先将账号版本切换为 `MUTATING:{nonce}`，事务提交或回滚完成后都按 nonce 恢复新的 `ACTIVE:*` 版本，使旧 Token 失效且数据库异常不会长期遗留 `MUTATING`。普通 logout 只撤销当前 `jti` 会话。
 - 管理员本人通过 `PUT /api/admin/auth/password` 修改密码时只提交新密码和确认密码，不要求原密码；成功后当前账号的旧 Token 全部失效。推广用户本人改密仍要求原密码。
 - 当前采用简单的 `is_super_admin` 权限控制，不是 RBAC。数据库只允许一个业务上的超级管理员；`ROLE_SUPER_ADMIN` 由数据库当前记录派生，不信任 JWT 声明。
 - 超级管理员可分页查询、新增、编辑、启禁用、重置密码和物理删除普通管理员；普通管理员不能被提升为超级管理员，管理接口不能操作唯一超级管理员。
 - 普通管理员和超级管理员均可查询 `/api/admin/drama/providers`；只有超级管理员可写入平台 URL、PID、KEY、启用状态或执行连接探测。平台 KEY 只保存 AES-GCM 密文，管理响应不得暴露明文密钥、密文或掩码片段。
 - 管理员只使用必填 `real_name`，不使用 `nickname`。`sys_admin_user` 不保留 `deleted_at`；管理员删除只执行物理 `DELETE`，删除后账号、手机号和邮箱可以复用。
+- 管理员头像只允许通过详情头像上传入口修改：本人使用 `PUT /api/admin/auth/avatar`，超级管理员修改普通管理员使用 `PUT /api/admin/management/{id}/avatar`。文件限制为 JPG/PNG/WebP、最大 2 MB，本地目录由 `APP_UPLOAD_DIR` 配置；新增和资料编辑 DTO 不接收头像 URL。
 - 推广用户不使用独立 `username`，只用手机号或邮箱登录；`user_no` 是后端生成的 12 位随机数字展示编号，内部关联继续使用自增 `id`。普通用户登录和本人信息 JSON 不返回内部 `id`，JWT `sub` 仍按现有认证契约保存内部 `id`。超级管理员和普通管理员均可通过 `/api/user/management/**` 分页、搜索、新增、编辑、启禁用、重置密码和物理删除推广用户。
 - 推广用户联系方式、状态、密码和删除等敏感管理操作先进入 Redis `MUTATING` 状态；Redis 失败时不得写 MySQL。绑定媒体账号的推广用户删除会返回 `USER_MEDIA_ACCOUNT_BOUND(3014)`，只能禁用；未绑定媒体账号的用户仍可物理删除。
+- 推广链接生成的 GoodShort HTTP 调用必须在数据库事务之外；`PENDING`、`SUCCESS`、`FAILED` 状态分别通过独立短事务持久化。订单同步遇到 `(connection_id, external_order_id)` 唯一键并发冲突时回读已有订单，不重写同步流程。
+- 管理后台 Dashboard 当前只显示当前管理员欢迎语，不展示静态 Demo 卡片；侧边栏、品牌链接、搜索回车和兜底路由统一使用 `/user-management`，真实数据大屏仍未实现。
 - `sys_admin_user` 和 `promotion_user` 均不保留 `deleted_at`；媒体账号表同样不保留 `deleted_at`，媒体账号不提供物理删除。
 - 媒体账号用户 API 位于 `/api/user/promotion/media-accounts`，管理员 API 位于 `/api/admin/promotion/media-accounts`；管理员支持分页查询、详情、编辑和失败报备重试，未加白时允许纠正媒体平台和账号 ID，已加白后锁定身份字段。响应不暴露平台连接 ID、PID、密钥或任务租约字段。报备任务默认每 30 秒领取到期任务，提交后 1 分钟首次查询，审核中每 5 分钟查询，已加白每 24 小时复核。
 - 短剧目录管理员 API 位于 `/api/admin/drama/catalog`；普通管理员和超级管理员均可分页查询、查看详情、触发同步、查询同步状态、修改本地上下架和维护短剧推广元数据（`PUT /api/admin/drama/catalog/{id}/promotion-metadata`）。同步默认每 5 分钟处理到期任务，支持断点续跑、过期租约接管和同连接/语言跨 FULL、INCREMENTAL 互斥；远端同步不得覆盖 `local_status` 或本地推广元数据，也不得物理删除本次未返回的历史短剧。
+- GoodShort 目录响应的 `bookId`、`bookName`、`bookNameZh`、`bookCover`、`labelNames`、`introduce`、`typeTwoName`、`language`、`rank`、`showStatus`、`novelType`、`novelSubType`、`ctime`、`utime` 全部转换为本地领域字段并保存；`labelNames` 使用 JSON 文本保存，管理端和用户端目录 VO 返回对应的 `titleZh`、`coverUrl`、`labelNames`、`categoryName`、`remoteRank`、`novelType`、`novelSubType`、`remoteCreatedAt`、`remoteUpdatedAt` 字段。增量请求按文档发送 `utimeStart`/`utimeEnd`。
 - 短剧平台分佣规则 API 位于 `/api/admin/drama/providers/{providerId}/commission-rules`：普通管理员和超级管理员均可 `GET`，只有超级管理员可 `POST` 首次设置和 `PUT` 覆盖。每个平台一条当前规则、无时间段/状态/删除；每次写入同步产生不可变 `provider_commission_rule_history` 快照。API 使用 `0..100` 百分比，数据库和订单快照使用 `0..1` 高精度比例；计算器最终金额保留两位并按 `HALF_UP` 四舍五入。
-- 推广链接和订单级 CPS 最小闭环已实现：用户通过 `/api/user/promotion/links` 生成 GoodShort 链接/口令，`requestKey` 幂等并保存 `trackingNo`；管理员通过 `POST /api/admin/promotion/orders/sync` 手动同步，订单以 `(connection_id, external_order_id)` 幂等，仅按 `customParams -> tracking_no -> user_id` 归因并保存原始 JSON 和五费率快照。管理员和用户分别可查询/CSV 导出，用户月度归属按 `paid_at`；退款保留原佣金并标记 `REVERSED`。自动订单同步、正式账单、钱包、提现和转化分析仍未实现。
+- 推广链接和订单级 CPS 最小闭环已实现：用户通过 `/api/user/promotion/links` 生成 GoodShort 链接/口令，`requestKey` 幂等并保存 `trackingNo`；`GOODSHORT_ORDER_SYNC` 每分钟自动同步最近 3 天，管理员仍可通过 `POST /api/admin/promotion/orders/sync` 手动补拉指定范围，订单以 `(connection_id, external_order_id)` 幂等，仅按 `customParams -> tracking_no -> user_id` 归因并保存原始 JSON 和五费率快照。管理员和用户分别可查询/CSV 导出，用户月度归属按 `paid_at`；退款保留原佣金并标记 `REVERSED`。正式账单、钱包、提现和转化分析仍未实现。
 - 推广任务创建已实现：用户通过 `/api/user/promotion/tasks` 提交短剧、任务名称和多个推广平台，后端按平台拆分并以 `(userId, requestKey, mediaType)` 幂等，`GET` 返回任务链接字段及点击、引流、订单、广告统计字段。当前创建状态为 `PENDING`，GoodShort 真实链接/口令生成和统计同步尚未实现；快速上线用户端继续以真实 `PromotionLink` 为入口，不展示任务中的 0 值统计。
-- 定时任务管理 API 位于 `/api/admin/system/scheduled-tasks`；固定任务 `GOODSHORT_DRAMA_INCREMENTAL_SYNC` 默认每 60 分钟入队，首次全量同步必须手动完成且成功基线存在后才会自动创建增量任务。周期支持 `INTERVAL_SECONDS/MINUTES/HOURS/DAYS`、`DAILY`、`WEEKLY`、`MONTHLY`、`YEARLY`，`INTERVAL_HOURS` 使用小时数和 `interval_minutes_part` 分钟余量，`INTERVAL_DAYS` 使用天数、`interval_hours_part` 小时余量和 `interval_minutes_part` 分钟余量；日历型周期同时保存执行时间及对应星期/日期字段。每分钟调度器只负责入队，现有短剧执行器继续每 5 分钟领取并执行；普通管理员只读，超级管理员可编辑周期、说明和启停状态。
+- 定时任务管理 API 位于 `/api/admin/system/scheduled-tasks`；固定任务 `GOODSHORT_DRAMA_INCREMENTAL_SYNC` 默认每 60 分钟入队，`GOODSHORT_ORDER_SYNC` 默认每 1 分钟同步最近 3 天；首次全量同步必须手动完成且成功基线存在后才会自动创建增量任务。周期支持 `INTERVAL_SECONDS/MINUTES/HOURS/DAYS`、`DAILY`、`WEEKLY`、`MONTHLY`、`YEARLY`，`INTERVAL_HOURS` 使用小时数和 `interval_minutes_part` 分钟余量，`INTERVAL_DAYS` 使用天数、`interval_hours_part` 小时余量和 `interval_minutes_part` 分钟余量；日历型周期同时保存执行时间及对应星期/日期字段。每分钟调度器扫描并执行到期任务，订单与目录任务复用同一分发器和数据库租约；普通管理员只读，超级管理员可编辑周期、说明和启停状态。
 - Git 仓库：`https://github.com/wwxst/kasi-backend.git`，远程 `origin`，分支 `master`。
 - 在文档和代码审查中，请将当前架构与规划架构区分开来。不要将规划中的模块描述为已实现的模块。
 
@@ -96,7 +98,7 @@ java -version
 
 ## 数据库与 Flyway
 
-- Flyway 当前按 `V1`、`V14`、`V15` 顺序迁移；开发阶段可删除数据库后重建，已有 V14 数据库通过 V15 增量增加订单和规则历史表。后续 schema 变更继续新增更高版本迁移，不修改已发布迁移。
+- Flyway 当前按 `V1`、`V13`、`V14`、`V15`、`V16`、`V17` 顺序迁移；开发阶段可删除数据库后重建，已有 V14 数据库通过 V15、V16、V17 增量增加订单、规则历史、GoodShort 短剧完整字段和订单自动同步任务。后续 schema 变更继续新增更高版本迁移，不修改已发布迁移。
 - 当前不启用 `baseline-on-migrate`。没有 Flyway 历史表的非空数据库必须明确失败，禁止为兼容旧库而静默跳过 V1。
 - 迁移脚本必须针对已选定的 schema。不要在应用迁移脚本中放置针对固定本地数据库的 `CREATE DATABASE` 或 `USE` 语句。
 - 迁移中修改的会话设置（包括 `FOREIGN_KEY_CHECKS`），若确实需要，应在迁移完成后恢复。
@@ -190,6 +192,10 @@ java -version
 - 将已验证的当前行为与未来工作或建议分开记录。
 - 除非有意更改 schema 契约，否则保留原有的中文数据库注释和技术名称。
 - 不要在聚焦任务中添加无关的重构、生成文件或元数据变更。
+# 会话敏感变更补充说明
+
+`MUTATING:{nonce}` 必须通过 `SessionService` 绑定事务完成回调；事务提交和回滚都恢复新的 `ACTIVE:*` 版本，禁止仅注册 `afterCommit` 导致数据库异常后长期遗留 `MUTATING`。
+
 # 当前分佣规则覆盖说明（2026-08-22）
 
 平台分佣规则采用默认配置：每个平台一条记录、无时间限制、无状态、不可删除；POST 首次设置，PUT 直接覆盖五项费率。普通管理员只读，超级管理员可设置和编辑。

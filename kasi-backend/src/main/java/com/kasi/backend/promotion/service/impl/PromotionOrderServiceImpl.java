@@ -16,6 +16,7 @@ import com.kasi.backend.provider.spi.ProviderOrderRecord;
 import com.kasi.backend.provider.spi.ProviderOrderStatus;
 import com.kasi.backend.provider.spi.ProviderRuntimeConnection;
 import lombok.RequiredArgsConstructor;
+import org.springframework.dao.DuplicateKeyException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -42,7 +43,17 @@ public class PromotionOrderServiceImpl implements PromotionOrderService {
         if (existing == null) {
             PromotionOrder order = fromRecord(runtime, record, syncStartDate, syncEndDate);
             applyAttributionAndCommission(order);
-            orderMapper.insert(order);
+            try {
+                orderMapper.insert(order);
+            } catch (DuplicateKeyException exception) {
+                PromotionOrder concurrent = orderMapper.findBySource(
+                        runtime.connectionId(), record.externalOrderId());
+                if (concurrent == null) {
+                    throw exception;
+                }
+                return new PromotionOrderUpsertResult(false,
+                        concurrent.getAttributionStatus() == PromotionAttributionStatus.ATTRIBUTED);
+            }
             return new PromotionOrderUpsertResult(true,
                     order.getAttributionStatus() == PromotionAttributionStatus.ATTRIBUTED);
         }

@@ -115,6 +115,12 @@
         UPDATE sys_admin_user SET status = #{status} WHERE id = #{id}
     </update>
 
+    <update id="updateAvatar">
+        UPDATE sys_admin_user
+        SET avatar_url = #{avatarUrl}, updated_by = #{updatedBy}, updated_at = CURRENT_TIMESTAMP
+        WHERE id = #{id}
+    </update>
+
     <delete id="deleteOrdinaryById">
         DELETE FROM sys_admin_user
         WHERE id = #{id} AND is_super_admin = 0

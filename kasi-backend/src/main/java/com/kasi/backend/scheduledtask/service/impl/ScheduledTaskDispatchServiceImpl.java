@@ -4,6 +4,7 @@ import com.kasi.backend.drama.config.DramaSyncProperties;
 import com.kasi.backend.drama.service.DramaCatalogSyncService;
 import com.kasi.backend.provider.entity.ShortDramaProvider;
 import com.kasi.backend.provider.mapper.ShortDramaProviderMapper;
+import com.kasi.backend.promotion.service.PromotionOrderSyncService;
 import com.kasi.backend.scheduledtask.config.ScheduledTaskProperties;
 import com.kasi.backend.scheduledtask.entity.SystemScheduledTask;
 import com.kasi.backend.scheduledtask.mapper.SystemScheduledTaskMapper;
@@ -26,6 +27,7 @@ public class ScheduledTaskDispatchServiceImpl implements ScheduledTaskDispatchSe
     private final SystemScheduledTaskMapper taskMapper;
     private final ShortDramaProviderMapper providerMapper;
     private final DramaCatalogSyncService syncService;
+    private final PromotionOrderSyncService orderSyncService;
     private final TransactionTemplate transactionTemplate;
     private final ScheduledTaskProperties properties;
     private final DramaSyncProperties dramaProperties;
@@ -43,10 +45,12 @@ public class ScheduledTaskDispatchServiceImpl implements ScheduledTaskDispatchSe
                                             Clock clock,
                                             @Value("${app.scheduled-task.worker-id:${random.uuid}}")
                                             String workerId,
+                                            PromotionOrderSyncService orderSyncService,
                                             ScheduledTaskScheduleCalculator scheduleCalculator) {
         this.taskMapper = taskMapper;
         this.providerMapper = providerMapper;
         this.syncService = syncService;
+        this.orderSyncService = orderSyncService;
         this.transactionTemplate = new TransactionTemplate(transactionManager);
         this.properties = properties;
         this.dramaProperties = dramaProperties;
@@ -62,9 +66,10 @@ public class ScheduledTaskDispatchServiceImpl implements ScheduledTaskDispatchSe
                                             ScheduledTaskProperties properties,
                                             DramaSyncProperties dramaProperties,
                                             Clock clock,
-                                            String workerId) {
+                                            String workerId,
+                                            PromotionOrderSyncService orderSyncService) {
         this(taskMapper, providerMapper, syncService, transactionManager, properties,
-                dramaProperties, clock, workerId, new ScheduledTaskScheduleCalculator());
+                dramaProperties, clock, workerId, orderSyncService, new ScheduledTaskScheduleCalculator());
     }
 
     @Override
@@ -109,6 +114,7 @@ public class ScheduledTaskDispatchServiceImpl implements ScheduledTaskDispatchSe
     private void dispatch(SystemScheduledTask task) {
         switch (task.getTaskCode()) {
             case GOODSHORT_DRAMA_INCREMENTAL_SYNC -> dispatchGoodShortDramaIncremental();
+            case GOODSHORT_ORDER_SYNC -> dispatchGoodShortOrderSync();
         }
     }
 
@@ -118,5 +124,14 @@ public class ScheduledTaskDispatchServiceImpl implements ScheduledTaskDispatchSe
             return;
         }
         syncService.requestScheduledIncremental(provider.getId(), dramaProperties.getLanguages());
+    }
+
+    private void dispatchGoodShortOrderSync() {
+        ShortDramaProvider provider = providerMapper.findByCode("GOODSHORT");
+        if (provider == null) {
+            return;
+        }
+        LocalDateTime endDate = LocalDateTime.now(clock);
+        orderSyncService.sync(provider.getId(), endDate.minusDays(3), endDate);
     }
 }

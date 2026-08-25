@@ -18,7 +18,6 @@ import {
   Clock3,
   ChevronLeft,
   ChevronRight,
-  Gauge,
   LibraryBig,
   ListOrdered,
   LogOut,
@@ -65,11 +64,6 @@ export function AdminLayout() {
         mode="inline"
         selectedKeys={[location.pathname]}
         items={[
-          {
-            key: '/dashboard',
-            icon: <Gauge size={18} strokeWidth={1.8} />,
-            label: <Link to="/dashboard">分析页</Link>,
-          },
           ...(admin?.isSuperAdmin === 1
             ? [
                 {
@@ -164,7 +158,7 @@ export function AdminLayout() {
       <Header className="admin-header">
         <Link
           className="admin-header__brand"
-          to="/dashboard"
+          to="/user-management"
           aria-label="Kasi 管理后台"
         >
           <span className="admin-header__mark" aria-hidden="true">
@@ -190,7 +184,7 @@ export function AdminLayout() {
               placeholder="输入内容查询"
               allowClear
               suffix={<Search size={15} />}
-              onPressEnter={() => navigate('/dashboard')}
+              onPressEnter={() => navigate('/user-management')}
             />
 
             <Popover

@@ -24,12 +24,14 @@ import java.util.Arrays;
 import java.util.Comparator;
 import java.util.Objects;
 import java.util.stream.Collectors;
+import tools.jackson.databind.json.JsonMapper;
 
 @Service
 @RequiredArgsConstructor
 public class DramaCatalogAdminServiceImpl implements DramaCatalogAdminService {
     private final ProviderDramaMapper dramaMapper;
     private final ShortDramaConnectionMapper connectionMapper;
+    private final tools.jackson.databind.ObjectMapper objectMapper = JsonMapper.builder().build();
 
     @Override
     @Transactional(readOnly = true)
@@ -101,23 +103,27 @@ public class DramaCatalogAdminServiceImpl implements DramaCatalogAdminService {
 
     private DramaListItemVO toListItem(ProviderDrama drama) {
         return DramaListItemVO.builder().id(drama.getId()).externalDramaId(drama.getExternalDramaId())
-                .title(drama.getTitle()).originalTitle(drama.getOriginalTitle()).description(drama.getDescription())
-                .coverUrl(drama.getCoverUrl()).language(drama.getLanguage()).dramaType(drama.getDramaType())
+                .title(drama.getTitle()).originalTitle(drama.getOriginalTitle()).titleZh(drama.getTitleZh())
+                .description(drama.getDescription()).coverUrl(drama.getCoverUrl()).labelNames(parseLabels(drama.getLabelNames()))
+                .categoryName(drama.getCategoryName()).language(drama.getLanguage()).remoteRank(drama.getRemoteRank())
+                .dramaType(drama.getDramaType()).novelType(drama.getNovelType()).novelSubType(drama.getNovelSubType())
                 .commissionScopes(parseScopes(drama.getCommissionScope()))
                 .promotionDescription(drama.getPromotionDescription())
                 .remoteShowStatus(drama.getRemoteShowStatus()).localStatus(drama.getLocalStatus())
-                .remoteUpdatedAt(drama.getRemoteUpdatedAt()).lastSeenAt(drama.getLastSeenAt())
+                .remoteCreatedAt(drama.getRemoteCreatedAt()).remoteUpdatedAt(drama.getRemoteUpdatedAt()).lastSeenAt(drama.getLastSeenAt())
                 .updatedAt(drama.getUpdatedAt()).build();
     }
 
     private DramaDetailVO toDetail(ProviderDrama drama, List<DramaContentVO> contents) {
         return DramaDetailVO.builder().id(drama.getId()).externalDramaId(drama.getExternalDramaId())
-                .title(drama.getTitle()).originalTitle(drama.getOriginalTitle()).description(drama.getDescription())
-                .coverUrl(drama.getCoverUrl()).language(drama.getLanguage()).dramaType(drama.getDramaType())
+                .title(drama.getTitle()).originalTitle(drama.getOriginalTitle()).titleZh(drama.getTitleZh())
+                .description(drama.getDescription()).coverUrl(drama.getCoverUrl()).labelNames(parseLabels(drama.getLabelNames()))
+                .categoryName(drama.getCategoryName()).language(drama.getLanguage()).remoteRank(drama.getRemoteRank())
+                .dramaType(drama.getDramaType()).novelType(drama.getNovelType()).novelSubType(drama.getNovelSubType())
                 .commissionScopes(parseScopes(drama.getCommissionScope()))
                 .promotionDescription(drama.getPromotionDescription())
                 .remoteShowStatus(drama.getRemoteShowStatus()).localStatus(drama.getLocalStatus())
-                .remoteUpdatedAt(drama.getRemoteUpdatedAt()).lastSeenAt(drama.getLastSeenAt())
+                .remoteCreatedAt(drama.getRemoteCreatedAt()).remoteUpdatedAt(drama.getRemoteUpdatedAt()).lastSeenAt(drama.getLastSeenAt())
                 .createdAt(drama.getCreatedAt()).updatedAt(drama.getUpdatedAt()).contents(contents).build();
     }
 
@@ -138,5 +144,14 @@ public class DramaCatalogAdminServiceImpl implements DramaCatalogAdminService {
                 .filter(scope -> !scope.isEmpty())
                 .map(PromotionCommissionScope::valueOf)
                 .toList();
+    }
+
+    private List<String> parseLabels(String value) {
+        if (value == null || value.isBlank()) return List.of();
+        try {
+            return List.of(objectMapper.readValue(value, String[].class));
+        } catch (tools.jackson.core.JacksonException exception) {
+            return List.of();
+        }
     }
 }

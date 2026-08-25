@@ -32,13 +32,13 @@ const dramas = {
   total: 1,
 }
 
-function renderPage() {
+function renderPage(mode: 'create' | 'history' = 'create') {
   const queryClient = new QueryClient({
     defaultOptions: { queries: { retry: false } },
   })
   return render(
     <QueryClientProvider client={queryClient}>
-      <PromotionLinkPage />
+      <PromotionLinkPage mode={mode} />
     </QueryClientProvider>,
   )
 }
@@ -208,5 +208,43 @@ describe('PromotionLinkPage', () => {
     expect(
       await screen.findByText('\u6682\u65e0\u53ef\u63a8\u5e7f\u77ed\u5267'),
     ).toBeInTheDocument()
+  })
+
+  it('keeps the link history page independent from the drama library', async () => {
+    let dramaRequests = 0
+    server.use(
+      http.get('/api/user/promotion/dramas', () => {
+        dramaRequests += 1
+        return HttpResponse.json({ code: 0, message: 'success', data: dramas })
+      }),
+      http.get('/api/user/promotion/links', () =>
+        HttpResponse.json({
+          code: 0,
+          message: 'success',
+          data: {
+            list: [
+              {
+                id: 9,
+                dramaTitle: '重返九零',
+                mediaAccountName: 'Creator 8',
+                externalCode: 'A12345',
+                trackingNo: 'tracking-9',
+                shareUrl: 'https://demo.test/link-9',
+                status: 'SUCCESS',
+              },
+            ],
+            page: 1,
+            size: 20,
+            total: 1,
+          },
+        }),
+      ),
+    )
+
+    renderPage('history')
+
+    expect(await screen.findByText('tracking-9')).toBeInTheDocument()
+    expect(screen.queryByText('短剧库')).not.toBeInTheDocument()
+    expect(dramaRequests).toBe(0)
   })
 })
