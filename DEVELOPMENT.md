@@ -1,5 +1,7 @@
 # Kasi Monorepo Development
 
+根目录是跨项目开发和文档规范的唯一入口。开始工作前先阅读 [文档与开发规范](docs/development/governance.md)，再阅读对应项目 README；不要把子项目中的历史计划当成当前实现。
+
 ## 目录边界
 
 ```text

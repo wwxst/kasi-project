@@ -22,6 +22,7 @@
 ## 文档入口
 
 - [开发总则](DEVELOPMENT.md)
+- [文档与开发规范](docs/development/governance.md)
 - [文档索引](docs/README.md)
 - [当前架构](docs/architecture/current.md)
 - [缺口清单](docs/development/gaps.md)

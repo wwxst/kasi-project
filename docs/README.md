@@ -7,4 +7,6 @@
 - `plans/`：实施计划
 - `archive/`：从子项目迁移来的历史设计和已完成计划，不作为当前行为契约
 
+工程规范入口：[文档与开发规范](development/governance.md)。跨项目架构决策统一记录在 [ADR 规则](adr/architecture-decisions.md)。
+
 阅读文档时，先看 `architecture/current.md`，再看对应项目文档；不要把归档目录中的未来方案当成当前实现。

@@ -481,8 +481,8 @@ Java 21 下编译会因 `release 25` 失败，必须使用 Java 25。
 
 本仓库的强制开发流程、变更分级、根因分析、阶段闸门和完成检查表见 [DEVELOPMENT.md](DEVELOPMENT.md)。代理或开发者开始修改代码、SQL、配置或测试前必须先阅读该文件和 `AGENTS.md`。
 
-- 重要架构决策按 [docs/architecture-decisions.md](docs/architecture-decisions.md) 记录，明确状态、影响、迁移/回滚和验证证据。
-- 当前尚未统一的工程规则见 [docs/development-gaps.md](docs/development-gaps.md)；该清单不是已批准功能路线图。
+- 重要架构决策按根目录 [docs/adr/architecture-decisions.md](../docs/adr/architecture-decisions.md) 记录，明确状态、影响、迁移/回滚和验证证据。
+- 当前尚未统一的工程规则见根目录 [docs/development/gaps.md](../docs/development/gaps.md)；该清单不是已批准功能路线图。
 - 文档必须区分当前已实现、已批准但未实施和建议/缺口，不得把规划内容描述为当前行为。
 # 当前分佣规则契约（2026-08-22）
 

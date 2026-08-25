@@ -4,13 +4,14 @@
 
 ## 当前范围
 
-当前已实现主线是 GoodShort 短剧推广 CPS：账号认证、平台接入、媒体账号报备、短剧目录同步、推广链接、订单人工同步、CPS 费率快照、订单佣金和按月查询/导出。订单钱包、自动结算和 CapCut/CPA/CPM 尚未纳入本次快速上线基线。
+当前已实现主线是 GoodShort 短剧推广 CPS：账号认证、平台接入、媒体账号报备、短剧目录同步、推广链接、订单每分钟自动同步最近 3 天（保留管理员手动补拉）、CPS 费率快照、订单佣金和按月查询/导出。订单钱包、自动结算和 CapCut/CPA/CPM 尚未纳入本次快速上线基线。
 
 “当前已实现”以 [当前架构](docs/architecture/current.md) 和各项目文档为准；未来建议以 [缺口清单](docs/development/gaps.md) 和 `docs/archive/` 中的历史设计为准。
 
 ## 快速入口
 
 - [开发总则](DEVELOPMENT.md)
+- [文档与开发规范](docs/development/governance.md)
 - [文档索引](docs/README.md)
 - [后端说明](docs/projects/kasi-backend.md)
 - [管理端说明](docs/projects/kasi-admin-web.md)
