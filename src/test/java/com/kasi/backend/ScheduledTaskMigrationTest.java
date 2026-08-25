@@ -48,7 +48,7 @@ class ScheduledTaskMigrationTest {
                 WHERE task_code = 'GOODSHORT_ORDER_SYNC'
                 """);
         assertThat(task.get("TASK_CODE")).isEqualTo("GOODSHORT_ORDER_SYNC");
-        assertThat(task.get("TITLE")).isEqualTo("GoodShort订单同步");
+        assertThat(task.get("TITLE")).isEqualTo("GoodShort 订单同步");
         assertThat(task.get("DESCRIPTION")).isEqualTo("每隔1分钟同步最近3天的GoodShort订单");
         assertThat(task.get("CYCLE_TYPE")).isEqualTo("INTERVAL_MINUTES");
         assertThat(((Number) task.get("INTERVAL_VALUE")).intValue()).isEqualTo(1);

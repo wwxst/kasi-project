@@ -3,6 +3,6 @@ INSERT INTO `system_scheduled_task`
      `interval_hours_part`, `interval_minutes_part`, `interval_minutes`,
      `enabled`, `next_run_at`)
 VALUES
-    ('GOODSHORT_ORDER_SYNC', 'GoodShort订单同步',
+    ('GOODSHORT_ORDER_SYNC', 'GoodShort 订单同步',
      '每隔1分钟同步最近3天的GoodShort订单', 'INTERVAL_MINUTES', 1,
      0, 0, 5, 1, TIMESTAMPADD(MINUTE, 1, CURRENT_TIMESTAMP));
