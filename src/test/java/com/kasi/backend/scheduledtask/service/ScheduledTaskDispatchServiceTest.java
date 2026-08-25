@@ -4,6 +4,7 @@ import com.kasi.backend.drama.config.DramaSyncProperties;
 import com.kasi.backend.drama.service.DramaCatalogSyncService;
 import com.kasi.backend.provider.entity.ShortDramaProvider;
 import com.kasi.backend.provider.mapper.ShortDramaProviderMapper;
+import com.kasi.backend.promotion.service.PromotionOrderSyncService;
 import com.kasi.backend.scheduledtask.config.ScheduledTaskProperties;
 import com.kasi.backend.scheduledtask.entity.SystemScheduledTask;
 import com.kasi.backend.scheduledtask.enums.ScheduledTaskCode;
@@ -34,6 +35,7 @@ class ScheduledTaskDispatchServiceTest {
     private SystemScheduledTaskMapper taskMapper;
     private ShortDramaProviderMapper providerMapper;
     private DramaCatalogSyncService syncService;
+    private PromotionOrderSyncService orderSyncService;
     private ScheduledTaskDispatchService service;
 
     @BeforeEach
@@ -41,6 +43,7 @@ class ScheduledTaskDispatchServiceTest {
         taskMapper = mock(SystemScheduledTaskMapper.class);
         providerMapper = mock(ShortDramaProviderMapper.class);
         syncService = mock(DramaCatalogSyncService.class);
+        orderSyncService = mock(PromotionOrderSyncService.class);
         PlatformTransactionManager transactionManager = mock(PlatformTransactionManager.class);
         when(transactionManager.getTransaction(any())).thenReturn(mock(TransactionStatus.class));
         ScheduledTaskProperties properties = new ScheduledTaskProperties();
@@ -48,7 +51,7 @@ class ScheduledTaskDispatchServiceTest {
         Clock clock = Clock.fixed(Instant.parse("2026-08-20T08:00:00Z"), ZoneOffset.UTC);
         service = new ScheduledTaskDispatchServiceImpl(
                 taskMapper, providerMapper, syncService, transactionManager,
-                properties, dramaProperties, clock, "scheduled-worker-test");
+                properties, dramaProperties, clock, "scheduled-worker-test", orderSyncService);
     }
 
     @Test
@@ -100,6 +103,55 @@ class ScheduledTaskDispatchServiceTest {
         verify(taskMapper).completeRun(1L, "scheduled-worker-test", NOW.plusMinutes(60));
     }
 
+    @Test
+    @DisplayName("到期GoodShort订单任务领取后同步最近三天并推进一分钟周期")
+    void dueGoodShortOrderTaskIsDispatchedAndAdvanced() {
+        SystemScheduledTask task = scheduledOrderTask();
+        when(taskMapper.findDue(NOW, 10)).thenReturn(List.of(task));
+        when(taskMapper.claimLease(1L, "scheduled-worker-test", NOW,
+                NOW.plusMinutes(2))).thenReturn(1);
+        ShortDramaProvider provider = new ShortDramaProvider();
+        provider.setId(7L);
+        provider.setProviderCode("GOODSHORT");
+        provider.setStatus(1);
+        when(providerMapper.findByCode("GOODSHORT")).thenReturn(provider);
+
+        service.processDueBatch();
+
+        verify(orderSyncService).sync(7L, NOW.minusDays(3), NOW);
+        verify(taskMapper).completeRun(1L, "scheduled-worker-test", NOW.plusMinutes(1));
+    }
+
+    @Test
+    @DisplayName("GoodShort订单任务丢失租约时不执行同步也不推进任务")
+    void lostLeaseSkipsGoodShortOrderDispatch() {
+        SystemScheduledTask task = scheduledOrderTask();
+        when(taskMapper.findDue(NOW, 10)).thenReturn(List.of(task));
+        when(taskMapper.claimLease(1L, "scheduled-worker-test", NOW,
+                NOW.plusMinutes(2))).thenReturn(0);
+
+        service.processDueBatch();
+
+        verify(providerMapper, never()).findByCode(any());
+        verify(orderSyncService, never()).sync(any(), any(), any());
+        verify(taskMapper, never()).completeRun(any(), any(), any());
+    }
+
+    @Test
+    @DisplayName("GoodShort订单任务找不到平台时不调用同步但推进一分钟周期")
+    void missingProviderStillAdvancesGoodShortOrderSchedule() {
+        SystemScheduledTask task = scheduledOrderTask();
+        when(taskMapper.findDue(NOW, 10)).thenReturn(List.of(task));
+        when(taskMapper.claimLease(1L, "scheduled-worker-test", NOW,
+                NOW.plusMinutes(2))).thenReturn(1);
+        when(providerMapper.findByCode("GOODSHORT")).thenReturn(null);
+
+        service.processDueBatch();
+
+        verify(orderSyncService, never()).sync(any(), any(), any());
+        verify(taskMapper).completeRun(1L, "scheduled-worker-test", NOW.plusMinutes(1));
+    }
+
     private SystemScheduledTask scheduledTask() {
         SystemScheduledTask task = new SystemScheduledTask();
         task.setId(1L);
@@ -107,6 +159,15 @@ class ScheduledTaskDispatchServiceTest {
         task.setIntervalMinutes(60);
         task.setEnabled(true);
         task.setNextRunAt(NOW.minusMinutes(1));
+        return task;
+    }
+
+    private SystemScheduledTask scheduledOrderTask() {
+        SystemScheduledTask task = scheduledTask();
+        task.setTaskCode(ScheduledTaskCode.GOODSHORT_ORDER_SYNC);
+        task.setIntervalMinutes(1);
+        task.setIntervalValue(1);
+        task.setCycleType(com.kasi.backend.scheduledtask.enums.ScheduledTaskCycleType.INTERVAL_MINUTES);
         return task;
     }
 }
