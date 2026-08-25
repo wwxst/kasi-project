@@ -3,8 +3,14 @@ package com.kasi.backend.admin.controller;
 import com.kasi.backend.BaseAuthTest;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.springframework.http.HttpMethod;
+import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.test.web.servlet.request.MockMvcRequestBuilders;
 
+import java.util.Base64;
+
+import static org.hamcrest.Matchers.startsWith;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
 /**
@@ -12,6 +18,42 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
  */
 @DisplayName("管理员认证")
 class AdminAuthControllerTest extends BaseAuthTest {
+
+    @Test
+    @DisplayName("管理员上传本人头像后原Token继续有效")
+    void uploadOwnAvatarKeepsTokenValid() throws Exception {
+        String token = loginAsAdmin();
+        MockMultipartFile file = new MockMultipartFile(
+                "file", "avatar.png", "image/png", pngBytes());
+
+        mockMvc.perform(MockMvcRequestBuilders.multipart(HttpMethod.PUT, "/api/admin/auth/avatar")
+                        .file(file)
+                        .header("Authorization", "Bearer " + token))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(0))
+                .andExpect(jsonPath("$.data.avatarUrl", startsWith("/uploads/admin-avatars/")));
+
+        String avatarUrl = jdbcTemplate.queryForObject(
+                "SELECT avatar_url FROM sys_admin_user WHERE username = ?", String.class, ADMIN_USERNAME);
+        assertThat(avatarUrl).startsWith("/uploads/admin-avatars/");
+        mockMvc.perform(MockMvcRequestBuilders.get("/api/admin/auth/me")
+                        .header("Authorization", "Bearer " + token))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.avatarUrl").value(avatarUrl));
+    }
+
+    @Test
+    @DisplayName("管理员上传伪图片时返回头像格式错误")
+    void uploadOwnAvatarRejectsInvalidImage() throws Exception {
+        MockMultipartFile file = new MockMultipartFile(
+                "file", "avatar.png", "image/png", "not-an-image".getBytes());
+
+        mockMvc.perform(MockMvcRequestBuilders.multipart(HttpMethod.PUT, "/api/admin/auth/avatar")
+                        .file(file)
+                        .header("Authorization", "Bearer " + loginAsAdmin()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(2012));
+    }
 
     @Test
     @DisplayName("超级管理员可在个人资料修改账号和资料")
@@ -225,5 +267,10 @@ class AdminAuthControllerTest extends BaseAuthTest {
                                 """))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.code").value(2005));
+    }
+
+    private byte[] pngBytes() {
+        return Base64.getDecoder().decode(
+                "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=");
     }
 }

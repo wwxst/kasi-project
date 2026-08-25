@@ -8,6 +8,7 @@ import com.kasi.backend.admin.dto.ResetAdminPasswordDTO;
 import com.kasi.backend.admin.entity.SysAdminUser;
 import com.kasi.backend.admin.mapper.SysAdminUserMapper;
 import com.kasi.backend.admin.service.AdminManagementService;
+import com.kasi.backend.admin.service.AdminAvatarStorageService;
 import com.kasi.backend.admin.vo.AdminDetailVO;
 import com.kasi.backend.admin.vo.AdminListItemVO;
 import com.kasi.backend.admin.vo.AdminPageVO;
@@ -21,6 +22,9 @@ import org.springframework.stereotype.Service;
 import org.springframework.dao.DuplicateKeyException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.util.List;
 import java.util.Locale;
@@ -33,6 +37,7 @@ public class AdminManagementServiceImpl implements AdminManagementService {
     private final SysAdminUserMapper sysAdminUserMapper;
     private final PasswordEncoder passwordEncoder;
     private final SessionService sessionService;
+    private final AdminAvatarStorageService adminAvatarStorageService;
 
     @Override
     @Transactional(readOnly = true)
@@ -77,7 +82,6 @@ public class AdminManagementServiceImpl implements AdminManagementService {
         admin.setRealName(request.getRealName());
         admin.setMobile(mobile);
         admin.setEmail(email);
-        admin.setAvatarUrl(request.getAvatarUrl());
         admin.setDepartmentId(request.getDepartmentId());
         admin.setRemark(request.getRemark());
         admin.setStatus(1);
@@ -115,7 +119,7 @@ public class AdminManagementServiceImpl implements AdminManagementService {
                 ? sessionService.beginMutation(SubjectType.ADMIN, targetId) : null;
 
         applyProfile(admin, request.getUsername(), request.getRealName(), mobile, email,
-                request.getAvatarUrl(), request.getDepartmentId(), request.getRemark(), operatorId);
+                request.getDepartmentId(), request.getRemark(), operatorId);
         updateProfile(admin);
         registerCompletion(mutation);
         return toDetailVO(sysAdminUserMapper.findById(targetId));
@@ -145,6 +149,24 @@ public class AdminManagementServiceImpl implements AdminManagementService {
             throw new IllegalStateException("管理员密码重置未生效");
         }
         registerCompletion(mutation);
+    }
+
+    @Override
+    @Transactional
+    public AdminDetailVO updateAvatar(Long operatorId, Long targetId, MultipartFile file) {
+        SysAdminUser admin = getMutableOrdinaryAdmin(targetId);
+        String previousAvatarUrl = admin.getAvatarUrl();
+        String avatarUrl = adminAvatarStorageService.store(file);
+        try {
+            if (sysAdminUserMapper.updateAvatar(targetId, avatarUrl, operatorId) != 1) {
+                throw new IllegalStateException("管理员头像更新未生效");
+            }
+            registerAvatarFileCompletion(avatarUrl, previousAvatarUrl);
+            return toDetailVO(sysAdminUserMapper.findById(targetId));
+        } catch (RuntimeException exception) {
+            adminAvatarStorageService.deleteIfLocal(avatarUrl);
+            throw exception;
+        }
     }
 
     @Override
@@ -198,13 +220,12 @@ public class AdminManagementServiceImpl implements AdminManagementService {
     }
 
     private void applyProfile(SysAdminUser admin, String username, String realName,
-                              String mobile, String email, String avatarUrl,
-                              Long departmentId, String remark, Long operatorId) {
+                              String mobile, String email, Long departmentId,
+                              String remark, Long operatorId) {
         admin.setUsername(username);
         admin.setRealName(realName);
         admin.setMobile(mobile);
         admin.setEmail(email);
-        admin.setAvatarUrl(avatarUrl);
         admin.setDepartmentId(departmentId);
         admin.setRemark(remark);
         admin.setUpdatedBy(operatorId);
@@ -226,6 +247,22 @@ public class AdminManagementServiceImpl implements AdminManagementService {
             return;
         }
         sessionService.registerMutationCompletion(mutation);
+    }
+
+    private void registerAvatarFileCompletion(String avatarUrl, String previousAvatarUrl) {
+        TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+            @Override
+            public void afterCommit() {
+                adminAvatarStorageService.deleteIfLocal(previousAvatarUrl);
+            }
+
+            @Override
+            public void afterCompletion(int status) {
+                if (status != STATUS_COMMITTED) {
+                    adminAvatarStorageService.deleteIfLocal(avatarUrl);
+                }
+            }
+        });
     }
 
     private String trimToNull(String value) {

@@ -44,7 +44,7 @@ class AdminManagementServiceTest {
         PasswordEncoder passwordEncoder = mock(PasswordEncoder.class);
         SessionService sessionService = mock(SessionService.class);
         AdminManagementServiceImpl service = new AdminManagementServiceImpl(
-                mapper, passwordEncoder, sessionService);
+                mapper, passwordEncoder, sessionService, mock(AdminAvatarStorageService.class));
         SysAdminUser target = new SysAdminUser();
         target.setId(2L);
         target.setUsername("operator");
@@ -75,7 +75,7 @@ class AdminManagementServiceTest {
         PasswordEncoder passwordEncoder = mock(PasswordEncoder.class);
         SessionService sessionService = mock(SessionService.class);
         AdminManagementServiceImpl service = new AdminManagementServiceImpl(
-                mapper, passwordEncoder, sessionService);
+                mapper, passwordEncoder, sessionService, mock(AdminAvatarStorageService.class));
         SysAdminUser target = new SysAdminUser();
         target.setId(2L);
         target.setIsSuperAdmin(0);
@@ -101,7 +101,7 @@ class AdminManagementServiceTest {
         PasswordEncoder passwordEncoder = mock(PasswordEncoder.class);
         SessionService sessionService = mock(SessionService.class);
         AdminManagementServiceImpl service = new AdminManagementServiceImpl(
-                mapper, passwordEncoder, sessionService);
+                mapper, passwordEncoder, sessionService, mock(AdminAvatarStorageService.class));
         SysAdminUser target = new SysAdminUser();
         target.setId(2L);
         target.setIsSuperAdmin(0);
@@ -125,7 +125,7 @@ class AdminManagementServiceTest {
         PasswordEncoder passwordEncoder = mock(PasswordEncoder.class);
         SessionService sessionService = mock(SessionService.class);
         AdminManagementServiceImpl service = new AdminManagementServiceImpl(
-                mapper, passwordEncoder, sessionService);
+                mapper, passwordEncoder, sessionService, mock(AdminAvatarStorageService.class));
         SysAdminUser target = new SysAdminUser();
         target.setId(2L);
         target.setUsername("operator");
@@ -162,7 +162,7 @@ class AdminManagementServiceTest {
         PasswordEncoder passwordEncoder = mock(PasswordEncoder.class);
         SessionService sessionService = mock(SessionService.class);
         AdminManagementServiceImpl service = new AdminManagementServiceImpl(
-                mapper, passwordEncoder, sessionService);
+                mapper, passwordEncoder, sessionService, mock(AdminAvatarStorageService.class));
         SysAdminUser target = new SysAdminUser();
         target.setId(2L);
         target.setIsSuperAdmin(0);
@@ -185,7 +185,7 @@ class AdminManagementServiceTest {
         PasswordEncoder passwordEncoder = mock(PasswordEncoder.class);
         SessionService sessionService = mock(SessionService.class);
         AdminManagementServiceImpl service = new AdminManagementServiceImpl(
-                mapper, passwordEncoder, sessionService);
+                mapper, passwordEncoder, sessionService, mock(AdminAvatarStorageService.class));
         SysAdminUser existing = new SysAdminUser();
         existing.setId(3L);
         when(mapper.findByUsername("finance1")).thenReturn(null, existing);

@@ -44,6 +44,7 @@
 - 超级管理员可分页查询、新增、编辑、启禁用、重置密码和物理删除普通管理员；普通管理员不能被提升为超级管理员，管理接口不能操作唯一超级管理员。
 - 普通管理员和超级管理员均可查询 `/api/admin/drama/providers`；只有超级管理员可写入平台 URL、PID、KEY、启用状态或执行连接探测。平台 KEY 只保存 AES-GCM 密文，管理响应不得暴露明文密钥、密文或掩码片段。
 - 管理员只使用必填 `real_name`，不使用 `nickname`。`sys_admin_user` 不保留 `deleted_at`；管理员删除只执行物理 `DELETE`，删除后账号、手机号和邮箱可以复用。
+- 管理员头像只允许通过详情头像上传入口修改：本人使用 `PUT /api/admin/auth/avatar`，超级管理员修改普通管理员使用 `PUT /api/admin/management/{id}/avatar`。文件限制为 JPG/PNG/WebP、最大 2 MB，本地目录由 `APP_UPLOAD_DIR` 配置；新增和资料编辑 DTO 不接收头像 URL。
 - 推广用户不使用独立 `username`，只用手机号或邮箱登录；`user_no` 是后端生成的 12 位随机数字展示编号，内部关联继续使用自增 `id`。普通用户登录和本人信息 JSON 不返回内部 `id`，JWT `sub` 仍按现有认证契约保存内部 `id`。超级管理员和普通管理员均可通过 `/api/user/management/**` 分页、搜索、新增、编辑、启禁用、重置密码和物理删除推广用户。
 - 推广用户联系方式、状态、密码和删除等敏感管理操作先进入 Redis `MUTATING` 状态；Redis 失败时不得写 MySQL。绑定媒体账号的推广用户删除会返回 `USER_MEDIA_ACCOUNT_BOUND(3014)`，只能禁用；未绑定媒体账号的用户仍可物理删除。
 - 推广链接生成的 GoodShort HTTP 调用必须在数据库事务之外；`PENDING`、`SUCCESS`、`FAILED` 状态分别通过独立短事务持久化。订单同步遇到 `(connection_id, external_order_id)` 唯一键并发冲突时回读已有订单，不重写同步流程。

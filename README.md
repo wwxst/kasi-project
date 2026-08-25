@@ -133,6 +133,7 @@ $env:Path = "$env:JAVA_HOME\bin;$env:Path"
 | GoodShort 探测 | 接口 URL 从平台接入配置读取，连接超时 3 秒、读取超时 10 秒；平台密钥从数据库密文解密后仅在适配器调用链内使用 |
 | 短剧目录同步 | 默认语言 `ENGLISH`、每页 100 条、每 5 分钟执行已入队任务；支持配置语言、批量、分页、租约和调度开关 |
 | 固定定时任务 | `GOODSHORT_DRAMA_INCREMENTAL_SYNC` 默认每 60 分钟入队；`GOODSHORT_ORDER_SYNC` 默认每 1 分钟同步最近 3 天；仅成功全量基线存在时自动创建增量任务 |
+| 管理员头像 | JPG/PNG/WebP，最大 2 MB；默认保存到 `./data/uploads/admin-avatars`，可通过 `APP_UPLOAD_DIR` 修改根目录 |
 
 应用要连接 MySQL，至少需要提供：
 
@@ -249,7 +250,8 @@ V14 为 `provider_drama` 增加 `commission_scope` 和 `promotion_description` �
 | GET | `/api/admin/auth/me` | 获取当前管理员信息 | ADMIN |
 | POST | `/api/admin/auth/logout` | 退出登录 | ADMIN |
 | PUT | `/api/admin/auth/password` | 修改本人密码（新密码 + 确认密码，无需原密码；成功后旧 Token 失效） | ADMIN |
-| PUT | `/api/admin/auth/profile` | 修改本人账号、真实姓名、手机、邮箱和头像 | ADMIN |
+| PUT | `/api/admin/auth/profile` | 修改本人账号、真实姓名、手机和邮箱 | ADMIN |
+| PUT | `/api/admin/auth/avatar` | 上传并修改本人头像（multipart 字段 `file`） | ADMIN |
 
 ### 6.3 管理员管理 API
 
@@ -263,9 +265,10 @@ V14 为 `provider_drama` 增加 `commission_scope` 和 `promotion_description` �
 | PUT | `/api/admin/management/{id}` | 编辑普通管理员资料 |
 | PATCH | `/api/admin/management/{id}/status` | 启用或禁用普通管理员 |
 | PUT | `/api/admin/management/{id}/password` | 重置普通管理员密码 |
+| PUT | `/api/admin/management/{id}/avatar` | 上传并修改普通管理员头像（multipart 字段 `file`） |
 | DELETE | `/api/admin/management/{id}` | 物理删除普通管理员 |
 
-管理员只使用必填 `realName`，没有昵称字段；`sys_admin_user` 不保留 `deleted_at`。修改账号、手机号、邮箱、状态、密码或删除前，服务先将目标账号 Redis 版本切换为 `MUTATING`；Redis 失败时不执行 MySQL 写入。事务提交或回滚完成时恢复新的 `ACTIVE` 版本，使旧 Token 全部失效且数据库异常不会长期锁死账号。物理删除后原账号、手机号和邮箱可以重新使用。
+管理员只使用必填 `realName`，没有昵称字段；`sys_admin_user` 不保留 `deleted_at`。新增和资料编辑接口不接收头像 URL，头像只能通过上传端点修改。上传文件使用服务端 UUID 文件名，公开读取路径为 `/uploads/admin-avatars/**`；替换成功后清理旧的本地头像。修改账号、手机号、邮箱、状态、密码或删除前，服务先将目标账号 Redis 版本切换为 `MUTATING`；Redis 失败时不执行 MySQL 写入。事务提交或回滚完成时恢复新的 `ACTIVE` 版本，使旧 Token 全部失效且数据库异常不会长期锁死账号。物理删除后原账号、手机号和邮箱可以重新使用。
 
 ### 6.4 推广用户认证 API
 
@@ -399,11 +402,12 @@ V14 为 `provider_drama` 增加 `commission_scope` 和 `promotion_description` �
 | 测试类 | 说明 |
 |--------|------|
 | `DefaultSuperAdminMigrationTest` | 使用 Flyway + H2 MySQL 模式验证生产 V1 初始化账号、权限字段和 BCrypt 密码 |
-| `AdminAuthControllerTest` | 管理员登录、本人资料、退出和无需原密码的本人改密（13 个用例） |
+| `AdminAuthControllerTest` | 管理员登录、本人资料、本人头像上传、退出和无需原密码的本人改密（15 个用例） |
 | `AdminManagementPermissionTest` | 超级管理员权限和 401/403 边界 |
 | `AdminManagementQueryTest` | 管理员分页、搜索和详情 |
 | `AdminManagementMutationTest` | 新增、编辑、启禁用、重置密码和物理删除 |
 | `AdminManagementServiceTest` | Redis-first、数据库失败和并发唯一键边界 |
+| `AdminAvatarStorageServiceTest` | 头像格式、大小、服务端文件名和安全清理边界 |
 | `SysAdminUserStructureTest` | 管理员表、Entity 和 Mapper 不保留软删除字段 |
 | `HistoricalCompatibilityStructureTest` | 认证接口、Mapper、错误码和 Flyway 配置不保留无调用的历史兼容残留 |
 | `UserAuthControllerTest` | 用户注册、登录、获取信息、退出、修改密码、忘记密码流程（13 个用例） |

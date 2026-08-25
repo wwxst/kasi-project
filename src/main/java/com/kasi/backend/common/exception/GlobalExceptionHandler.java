@@ -12,6 +12,7 @@ import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.multipart.MaxUploadSizeExceededException;
 
 import java.util.stream.Collectors;
 
@@ -58,6 +59,13 @@ public class GlobalExceptionHandler {
         log.warn("请求体格式错误: {}", e.getMessage());
         return ResponseEntity.ok(ApiResponse.error(ErrorCode.VALIDATION_ERROR.getCode(),
                 ErrorCode.VALIDATION_ERROR.getMessage()));
+    }
+
+    @ExceptionHandler(MaxUploadSizeExceededException.class)
+    public ResponseEntity<ApiResponse<Void>> handleMaxUploadSizeExceeded(MaxUploadSizeExceededException e) {
+        return ResponseEntity.ok(ApiResponse.error(
+                ErrorCode.ADMIN_AVATAR_TOO_LARGE.getCode(),
+                ErrorCode.ADMIN_AVATAR_TOO_LARGE.getMessage()));
     }
 
     /**

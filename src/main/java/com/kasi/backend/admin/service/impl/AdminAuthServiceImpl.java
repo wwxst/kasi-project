@@ -8,6 +8,7 @@ import com.kasi.backend.admin.vo.CurrentAdminVO;
 import com.kasi.backend.admin.entity.SysAdminUser;
 import com.kasi.backend.admin.mapper.SysAdminUserMapper;
 import com.kasi.backend.admin.service.AdminAuthService;
+import com.kasi.backend.admin.service.AdminAvatarStorageService;
 import com.kasi.backend.common.enums.SubjectType;
 import com.kasi.backend.common.enums.UserStatus;
 import com.kasi.backend.common.exception.BusinessException;
@@ -23,6 +24,9 @@ import org.springframework.dao.DuplicateKeyException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.time.LocalDateTime;
 import java.util.Locale;
@@ -40,6 +44,7 @@ public class AdminAuthServiceImpl implements AdminAuthService {
     private final PasswordEncoder passwordEncoder;
     private final TokenService tokenService;
     private final SessionService sessionService;
+    private final AdminAvatarStorageService adminAvatarStorageService;
 
     @Value("${app.jwt.expiration:7200}")
     private long jwtExpiration;
@@ -173,7 +178,6 @@ public class AdminAuthServiceImpl implements AdminAuthService {
         admin.setRealName(request.getRealName());
         admin.setMobile(mobile);
         admin.setEmail(email);
-        admin.setAvatarUrl(request.getAvatarUrl());
         admin.setUpdatedBy(adminId);
         try {
             if (sysAdminUserMapper.updateProfile(admin) != 1) {
@@ -187,6 +191,43 @@ public class AdminAuthServiceImpl implements AdminAuthService {
             sessionService.registerMutationCompletion(mutation);
         }
         return getCurrentAdmin(adminId);
+    }
+
+    @Override
+    @Transactional
+    public CurrentAdminVO updateAvatar(Long adminId, MultipartFile file) {
+        SysAdminUser admin = sysAdminUserMapper.findByIdForUpdate(adminId);
+        if (admin == null) {
+            throw new BusinessException(ErrorCode.ADMIN_NOT_FOUND);
+        }
+        String previousAvatarUrl = admin.getAvatarUrl();
+        String avatarUrl = adminAvatarStorageService.store(file);
+        try {
+            if (sysAdminUserMapper.updateAvatar(adminId, avatarUrl, adminId) != 1) {
+                throw new IllegalStateException("管理员头像更新未生效");
+            }
+            registerAvatarFileCompletion(avatarUrl, previousAvatarUrl);
+            return getCurrentAdmin(adminId);
+        } catch (RuntimeException exception) {
+            adminAvatarStorageService.deleteIfLocal(avatarUrl);
+            throw exception;
+        }
+    }
+
+    private void registerAvatarFileCompletion(String avatarUrl, String previousAvatarUrl) {
+        TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+            @Override
+            public void afterCommit() {
+                adminAvatarStorageService.deleteIfLocal(previousAvatarUrl);
+            }
+
+            @Override
+            public void afterCompletion(int status) {
+                if (status != STATUS_COMMITTED) {
+                    adminAvatarStorageService.deleteIfLocal(avatarUrl);
+                }
+            }
+        });
     }
 
     private void ensureProfileUnique(Long adminId, String username, String mobile, String email) {
