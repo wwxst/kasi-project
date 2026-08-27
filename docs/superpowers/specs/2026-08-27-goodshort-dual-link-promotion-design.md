@@ -63,12 +63,11 @@ GoodShort 使用 `pid + bookId + customParams + codeMedia` 作为唯一标识。
   "dramaId": 23,
   "mediaTypes": ["TIKTOK", "YOUTUBE"],
   "requestKey": "0f1d8f7f-9c3b-4f58-bd11-1c3d9a7b4e21",
-  "campaignName": "夏季投放",
-  "generateVariants": ["LANDING", "ONELINK"]
+  "campaignName": "夏季投放"
 }
 ```
 
-后端为每个平台和变体生成独立追踪号，并调用 GoodShort 一次。响应返回批次号及每条链接的状态、口令、分享链接、追踪号和错误摘要。
+后端固定为每个平台生成 `LANDING` 和 `ONELINK` 两个变体，为每个平台和变体生成独立追踪号，并调用 GoodShort 一次。响应返回批次号及每条链接的状态、口令、分享链接、追踪号和错误摘要。
 
 创建前只校验：用户有效、短剧属于目标平台、短剧本地已上架、甲方状态有效、平台连接可用、平台存在分佣规则以及适配器支持推广链接。不得校验或要求 `mediaAccountId`、账号启用状态或账号报白状态。
 
