@@ -29,6 +29,7 @@ GoodShort 文档将 `content` 定义为视频链接，没有说明 URL 的有效
 - 目录全量同步后，自动为新增短剧排队同步免费剧集。
 - 目录增量同步后，自动为新增或发生变化的短剧排队同步免费剧集。
 - 提供管理员按单部短剧手动触发或重试的接口。
+- 提供管理员按勾选短剧批量触发和按平台一键同步全部短剧的接口。
 - 将 GoodShort 免费内容 URL 持久化，用户播放和下载直接读取本地最新地址。
 - 复用统一的任务租约、状态、错误和重试语义。
 - 同步过程不阻塞目录分页请求，且遵守 GoodShort 的调用限流。
@@ -37,7 +38,6 @@ GoodShort 文档将 `content` 定义为视频链接，没有说明 URL 的有效
 
 - 不同步收费剧集。
 - 不在用户请求中隐式写入剧集数据。
-- 不新增批量手动同步接口。
 - 不改变现有短剧上下架、推广元数据和目录检查点语义。
 
 ## 3. 推荐方案
@@ -141,7 +141,45 @@ POST /api/admin/drama/catalog/{id}/contents/sync
 
 接口只创建或重置该短剧的剧集同步任务，不在 HTTP 请求中等待 GoodShort 完成。响应返回任务 ID、状态和最近一次统计信息。
 
-### 7.2 查询任务状态
+### 7.2 按勾选短剧批量请求同步
+
+```text
+POST /api/admin/drama/catalog/contents/sync
+权限：ROLE_ADMIN
+```
+
+请求体：
+
+```json
+{
+  "dramaIds": [1, 2, 3]
+}
+```
+
+`dramaIds` 必填、去重且最多 100 个。接口为每个有效短剧创建或重置任务；已经 `RUNNING` 的任务跳过，不中断当前 worker。响应返回请求数量、成功排队数量、运行中跳过数量、不存在或不可同步数量，以及各短剧的任务状态。
+
+### 7.3 一键同步全部短剧
+
+```text
+POST /api/admin/drama/catalog/contents/sync/all
+权限：ROLE_ADMIN
+```
+
+请求体：
+
+```json
+{
+  "providerId": 1,
+  "language": "ENGLISH",
+  "missingOnly": false
+}
+```
+
+`providerId` 必填；`language` 可选，不传时处理该平台全部已同步语言；`missingOnly` 默认 `false`，为 `true` 时只排队没有剧集或 `content_url` 为空的短剧。
+
+一键全部同步只选择甲方当前在线的短剧，不受本地 `PUBLISHED/OFFLINE` 状态影响。接口按数据库分页创建或合并任务，不在 HTTP 请求中调用 GoodShort。响应只返回匹配数量、成功排队数量和运行中跳过数量，不返回全部任务明细。
+
+### 7.4 查询任务状态
 
 ```text
 GET /api/admin/drama/catalog/{id}/contents/sync/status
@@ -150,7 +188,7 @@ GET /api/admin/drama/catalog/{id}/contents/sync/status
 
 响应返回任务状态、重试次数、获取/新增/更新数量和最后错误信息。
 
-### 7.3 现有接口保持不变
+### 7.5 现有接口保持不变
 
 ```text
 GET /api/admin/drama/catalog/{id}
@@ -159,6 +197,8 @@ GET /api/user/promotion/dramas/{id}/free-content
 ```
 
 管理员和用户详情继续读取本地 `provider_drama_content`。用户端免费资源接口改为读取已持久化的 `content_url`，并将同一地址作为 `playUrl` 和 `downloadUrl` 返回；该接口不再实时调用 GoodShort，也不负责创建剧集记录。
+
+三个手动同步入口都在事务提交后立即唤醒同一个剧集任务 worker。它们只改变任务状态，不复制同步逻辑，也不绕过限流、租约和重试。
 
 ## 8. 数据库与实现边界
 
@@ -180,7 +220,7 @@ GET /api/user/promotion/dramas/{id}/free-content
 GoodShort 免费内容适配器：成功、空 data、业务失败、5xx、429、网络异常
 剧集任务服务：新增任务、合并重复任务、URL 校验和持久化、成功 upsert、失败重试、租约互斥
 目录同步联动：新短剧、远端更新时间变化、本地无剧集时自动入队
-管理员接口：正常触发、查询状态、任务运行中、匿名 401、普通用户 403
+管理员接口：单部触发、勾选批量、一键全部、仅缺失过滤、查询状态、任务运行中、匿名 401、普通用户 403
 用户免费资源接口：只读取数据库 URL，不调用 GoodShort，非法或缺失 URL 不返回
 数据库结构：任务表唯一约束、状态默认值、索引和初始化脚本
 ```
