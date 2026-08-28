@@ -36,7 +36,7 @@
 system_scheduled_task
   id                    固定任务以 task_code 作为稳定主键，应用不需要代理主键
   title                 固定任务名称由 ScheduledTaskCode 提供
-  interval_minutes      旧客户端兼容字段，真实周期由结构化周期字段表达
+  interval_minutes      旧兼容字段，无当前消费者，随 schema 一并删除
   created_at            无读取消费者
   updated_at            无读取消费者，租约更新不需要持久化审计时间
 

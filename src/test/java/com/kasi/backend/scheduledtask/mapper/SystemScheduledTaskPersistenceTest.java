@@ -25,7 +25,8 @@ class SystemScheduledTaskPersistenceTest extends BaseAuthTest {
         LocalDateTime nextRunAt = LocalDateTime.now().plusMinutes(30).withNano(0);
 
         assertThat(task).isNotNull();
-        assertThat(mapper.updateConfig(task.getTaskCode(), "更新后的说明", 30, true, nextRunAt))
+        assertThat(mapper.updateConfig(task.getTaskCode(), "更新后的说明", "INTERVAL_MINUTES", 30,
+                null, null, null, null, null, null, true, nextRunAt))
                 .isEqualTo(1);
 
         SystemScheduledTask stored = mapper.findByTaskCode(task.getTaskCode());

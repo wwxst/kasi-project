@@ -73,7 +73,7 @@ GoodShort 订单原先只能由管理员手动调用同步接口，无法稳定�
 
 新增固定任务 `GOODSHORT_ORDER_SYNC`，默认每分钟同步最近 3 天。复用现有调度扫描器、任务租约和管理页，不增加第二个 Spring `@Scheduled`、第二张任务表或第二个页面。抽取 `PromotionOrderSyncService`，供自动任务和 `POST /api/admin/promotion/orders/sync` 手动补拉共同使用。自动窗口由调度器的 `Clock` 计算为 `now.minusDays(3)` 到 `now`；历史范围继续由管理员显式传入。
 
-任务有效周期由 `cycle_type=INTERVAL_MINUTES` 和 `interval_value=1` 驱动。旧版兼容字段 `interval_minutes` 仍保存合法值 5，不扩大既有数据库检查约束。
+任务有效周期由 `cycle_type=INTERVAL_MINUTES` 和 `interval_value=1` 驱动；当前 schema 不保留旧版 `interval_minutes` 兼容字段。
 
 ### 备选方案
 

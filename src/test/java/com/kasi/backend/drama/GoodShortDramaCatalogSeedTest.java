@@ -124,7 +124,7 @@ class GoodShortDramaCatalogSeedTest {
         Map<String, Object> connection = jdbc.queryForMap(
                 "SELECT connection_name, currency, status, filing_mode, partner_id, api_key_ciphertext, base_url "
                         + "FROM short_drama_connection");
-        assertThat(connection.get("CONNECTION_NAME")).isEqualTo("GoodShort 本地假数据");
+        assertThat(connection.get("CONNECTION_NAME")).isEqualTo("GoodShort local fixture");
         assertThat(connection.get("CURRENCY")).isEqualTo("USD");
         assertThat(((Number) connection.get("STATUS")).intValue()).isZero();
         assertThat(connection.get("FILING_MODE")).isEqualTo("MANUAL");
@@ -177,17 +177,17 @@ class GoodShortDramaCatalogSeedTest {
                 "SELECT COUNT(*) FROM provider_drama_content c JOIN provider_drama d ON d.id = c.drama_id "
                         + "WHERE d.external_drama_id LIKE '990000%'", Long.class)).isEqualTo(204L);
         List<Map<String, Object>> checkpoints = jdbc.queryForList(
-                "SELECT sync_type, language, total_fetched, total_upserted, inserted_count, updated_count, skipped_count "
+                "SELECT sync_type, language, total_fetched, inserted_count, updated_count, error_count "
                         + "FROM provider_sync_checkpoint ORDER BY sync_type, language");
         assertThat(checkpoints).containsExactlyInAnyOrder(
-                Map.of("SYNC_TYPE", "FULL", "LANGUAGE", "ENGLISH", "TOTAL_FETCHED", 12, "TOTAL_UPSERTED", 12,
-                        "INSERTED_COUNT", 12, "UPDATED_COUNT", 0, "SKIPPED_COUNT", 0),
-                Map.of("SYNC_TYPE", "FULL", "LANGUAGE", "SPANISH", "TOTAL_FETCHED", 12, "TOTAL_UPSERTED", 12,
-                        "INSERTED_COUNT", 12, "UPDATED_COUNT", 0, "SKIPPED_COUNT", 0),
-                Map.of("SYNC_TYPE", "INCREMENTAL", "LANGUAGE", "ENGLISH", "TOTAL_FETCHED", 12, "TOTAL_UPSERTED", 11,
-                        "INSERTED_COUNT", 2, "UPDATED_COUNT", 9, "SKIPPED_COUNT", 1),
-                Map.of("SYNC_TYPE", "INCREMENTAL", "LANGUAGE", "SPANISH", "TOTAL_FETCHED", 12, "TOTAL_UPSERTED", 11,
-                        "INSERTED_COUNT", 1, "UPDATED_COUNT", 10, "SKIPPED_COUNT", 1));
+                Map.of("SYNC_TYPE", "FULL", "LANGUAGE", "ENGLISH", "TOTAL_FETCHED", 12,
+                        "INSERTED_COUNT", 12, "UPDATED_COUNT", 0, "ERROR_COUNT", 0),
+                Map.of("SYNC_TYPE", "FULL", "LANGUAGE", "SPANISH", "TOTAL_FETCHED", 12,
+                        "INSERTED_COUNT", 12, "UPDATED_COUNT", 0, "ERROR_COUNT", 0),
+                Map.of("SYNC_TYPE", "INCREMENTAL", "LANGUAGE", "ENGLISH", "TOTAL_FETCHED", 12,
+                        "INSERTED_COUNT", 2, "UPDATED_COUNT", 9, "ERROR_COUNT", 0),
+                Map.of("SYNC_TYPE", "INCREMENTAL", "LANGUAGE", "SPANISH", "TOTAL_FETCHED", 12,
+                        "INSERTED_COUNT", 1, "UPDATED_COUNT", 10, "ERROR_COUNT", 0));
         List<Integer> episodeCounts = jdbc.queryForList(
                 "SELECT COUNT(*) FROM provider_drama_content GROUP BY drama_id ORDER BY drama_id", Integer.class);
         assertThat(episodeCounts).hasSize(24);

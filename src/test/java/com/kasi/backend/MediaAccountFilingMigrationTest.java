@@ -2,8 +2,8 @@ package com.kasi.backend;
 
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
-import org.springframework.dao.DataAccessException;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.dao.DataAccessException;
 
 import static com.kasi.backend.support.DatabaseInitializationTestSupport.initializeDatabase;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -73,9 +73,11 @@ class MediaAccountFilingMigrationTest {
         assertThatThrownBy(() -> jdbc.update("INSERT INTO promotion_media_account "
                 + "(user_id, media_type, external_account_id) VALUES (?, 'TIKTOK', 'creator-1')", userId))
                 .isInstanceOf(DataAccessException.class);
-        assertThatThrownBy(() -> jdbc.update(
-                "DELETE FROM promotion_user WHERE id = ?", userId))
-                .isInstanceOf(DataAccessException.class);
+        assertThat(jdbc.update("DELETE FROM promotion_user WHERE id = ?", userId)).isEqualTo(1);
+        assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM promotion_user WHERE id = ?", Long.class, userId))
+                .isZero();
+        assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM promotion_media_account WHERE id = ?", Long.class, mediaId))
+                .isEqualTo(1L);
     }
 
     private static boolean tableExists(JdbcTemplate jdbc, String tableName) {

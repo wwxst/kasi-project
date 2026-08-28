@@ -15,9 +15,6 @@ public class UpdateScheduledTaskDTO {
     private ScheduledTaskCycleType cycleType;
 
     /** 兼容旧客户端；新客户端应提交 intervalValue。 */
-    @Min(5)
-    @Max(1440)
-
     @Min(1)
     @Max(1440)
     private Integer intervalValue;

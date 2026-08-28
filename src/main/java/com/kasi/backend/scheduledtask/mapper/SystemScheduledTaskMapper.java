@@ -31,12 +31,6 @@ public interface SystemScheduledTaskMapper {
                      @Param("nextRunAt") LocalDateTime nextRunAt);
 
     default int updateConfig(ScheduledTaskCode taskCode, String description,
-                             int intervalMinutes, boolean enabled, LocalDateTime nextRunAt) {
-        return updateConfig(taskCode, description, "INTERVAL_MINUTES", intervalMinutes,
-                null, null, null, null, null, null, enabled, nextRunAt);
-    }
-
-    default int updateConfig(ScheduledTaskCode taskCode, String description,
                              String cycleType, Integer intervalValue,
                              LocalTime timeOfDay, Integer dayOfWeek,
                              Integer dayOfMonth, Integer monthOfYear,
@@ -55,12 +49,6 @@ public interface SystemScheduledTaskMapper {
                     @Param("owner") String owner,
                     @Param("nextRunAt") LocalDateTime nextRunAt);
 
-    default int claimLease(Long id, String owner, LocalDateTime now, LocalDateTime leaseUntil) {
-        return claimLease(ScheduledTaskCode.GOODSHORT_DRAMA_INCREMENTAL_SYNC, owner, now, leaseUntil);
-    }
-    default int completeRun(Long id, String owner, LocalDateTime nextRunAt) {
-        return completeRun(ScheduledTaskCode.GOODSHORT_DRAMA_INCREMENTAL_SYNC, owner, nextRunAt);
-    }
     default int claimLease(String taskCode, String owner, LocalDateTime now, LocalDateTime leaseUntil) {
         return claimLease(ScheduledTaskCode.valueOf(taskCode), owner, now, leaseUntil);
     }

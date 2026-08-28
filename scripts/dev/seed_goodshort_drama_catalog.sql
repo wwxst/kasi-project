@@ -1,6 +1,5 @@
 -- LOCAL DEVELOPMENT ONLY: deterministic GoodShort catalog fixtures.
--- FORBIDDEN in production or shared environments. This is not a Flyway migration
--- and is never invoked by the runtime application.
+-- This script is never invoked by the runtime application.
 
 BEGIN;
 
@@ -25,7 +24,7 @@ CREATE TEMPORARY TABLE seed_goodshort_guard (
 
 INSERT INTO seed_goodshort_guard (guard_value) VALUES (1);
 
--- Missing provider and non-fixture connections both fail before any fixture write.
+-- A missing provider or a real connection deliberately causes a duplicate-key failure.
 INSERT INTO seed_goodshort_guard (guard_value)
 SELECT 1
 WHERE NOT EXISTS (
@@ -59,21 +58,19 @@ SELECT @goodshort_provider_id, 'GoodShort local fixture', 'USD', 0, 'MANUAL',
        NULL, NULL, NULL
 WHERE @goodshort_provider_id IS NOT NULL
   AND NOT EXISTS (
-    SELECT 1 FROM short_drama_connection WHERE provider_id = @goodshort_provider_id
-);
+      SELECT 1 FROM short_drama_connection WHERE provider_id = @goodshort_provider_id
+  );
 
 SET @goodshort_connection_id = (
     SELECT id FROM short_drama_connection
     WHERE provider_id = @goodshort_provider_id
       AND connection_name = 'GoodShort local fixture'
-      AND currency = 'USD' AND status = 0 AND filing_mode = 'MANUAL'
-      AND partner_id IS NULL AND api_key_ciphertext IS NULL AND base_url IS NULL
 );
 
 INSERT INTO provider_drama (
     connection_id, external_drama_id, title, original_title, description,
     cover_url, language, drama_type, remote_show_status, local_status,
-    remote_updated_at, last_seen_at
+    remote_created_at, remote_updated_at, last_seen_at
 )
 SELECT
     @goodshort_connection_id,
@@ -99,15 +96,9 @@ SELECT
     END,
     '2026-01-01 00:00:00',
     '2026-01-02 00:00:00',
+    '2026-01-02 00:00:00'
 FROM seed_goodshort_numbers
 WHERE @goodshort_connection_id IS NOT NULL
-  AND EXISTS (
-      SELECT 1 FROM short_drama_connection c
-      WHERE c.id = @goodshort_connection_id
-        AND c.connection_name = 'GoodShort local fixture'
-        AND c.currency = 'USD' AND c.status = 0 AND c.filing_mode = 'MANUAL'
-        AND c.partner_id IS NULL AND c.api_key_ciphertext IS NULL AND c.base_url IS NULL
-  )
 ON DUPLICATE KEY UPDATE
     title = VALUES(title),
     original_title = VALUES(original_title),
@@ -117,6 +108,7 @@ ON DUPLICATE KEY UPDATE
     drama_type = VALUES(drama_type),
     remote_show_status = VALUES(remote_show_status),
     local_status = VALUES(local_status),
+    remote_created_at = VALUES(remote_created_at),
     remote_updated_at = VALUES(remote_updated_at),
     last_seen_at = VALUES(last_seen_at);
 
@@ -131,8 +123,6 @@ SELECT
     CONCAT(d.title, ' Episode ', n.n),
     CASE WHEN n.n <= 2 THEN 1 ELSE 0 END,
     300 + (n.n * 15),
-    '2026-01-02 00:00:00',
-    '2026-01-01 00:00:00',
     '2026-01-02 00:00:00'
 FROM provider_drama d
 JOIN seed_goodshort_numbers drama_number
@@ -141,13 +131,6 @@ JOIN seed_goodshort_episode_numbers n
   ON n.n <= 5 + MOD(drama_number.n - 1, 8)
 WHERE d.connection_id = @goodshort_connection_id
   AND @goodshort_connection_id IS NOT NULL
-  AND EXISTS (
-      SELECT 1 FROM short_drama_connection c
-      WHERE c.id = @goodshort_connection_id
-        AND c.connection_name = 'GoodShort local fixture'
-        AND c.currency = 'USD' AND c.status = 0 AND c.filing_mode = 'MANUAL'
-        AND c.partner_id IS NULL AND c.api_key_ciphertext IS NULL AND c.base_url IS NULL
-  )
 ON DUPLICATE KEY UPDATE
     external_content_id = VALUES(external_content_id),
     title = VALUES(title),
@@ -157,35 +140,22 @@ ON DUPLICATE KEY UPDATE
 
 INSERT INTO provider_sync_checkpoint (
     connection_id, sync_type, language, status, page_no, page_size,
-    update_time, last_success_at, requested_at, started_at, finished_at,
-    total_fetched, total_upserted, inserted_count, updated_count,
-    skipped_count, error_count, last_error_code, last_error_message,
-    lease_owner, lease_until
+    update_time, last_success_at, requested_at, total_fetched,
+    inserted_count, updated_count, error_count, last_error_code,
+    last_error_message, lease_owner, lease_until
 )
 SELECT @goodshort_connection_id, sync_type, language, 'SUCCESS', 1, 100,
        CASE WHEN sync_type = 'FULL' THEN 100 ELSE 200 END,
-       '2026-01-03 00:00:00', '2026-01-03 00:00:00', '2026-01-03 00:00:00',
-       '2026-01-03 00:00:00',
-       CASE WHEN sync_type = 'FULL' THEN 12 ELSE 12 END,
-       CASE WHEN sync_type = 'FULL' THEN 12 ELSE 11 END,
+       '2026-01-03 00:00:00', '2026-01-03 00:00:00', 12,
        CASE WHEN sync_type = 'FULL' THEN 12
             WHEN language = 'ENGLISH' THEN 2 ELSE 1 END,
        CASE WHEN sync_type = 'FULL' THEN 0
             WHEN language = 'ENGLISH' THEN 9 ELSE 10 END,
-       CASE WHEN sync_type = 'FULL' THEN 0 ELSE 1 END,
-       0, NULL, NULL, NULL, NULL,
-       '2026-01-01 00:00:00', '2026-01-03 00:00:00'
+       0, NULL, NULL, NULL, NULL
 FROM (SELECT 'FULL' AS sync_type UNION ALL SELECT 'INCREMENTAL') sync_types
 JOIN (SELECT 'ENGLISH' AS language UNION ALL SELECT 'SPANISH') languages
 ON 1 = 1
 WHERE @goodshort_connection_id IS NOT NULL
-  AND EXISTS (
-      SELECT 1 FROM short_drama_connection c
-      WHERE c.id = @goodshort_connection_id
-        AND c.connection_name = 'GoodShort local fixture'
-        AND c.currency = 'USD' AND c.status = 0 AND c.filing_mode = 'MANUAL'
-        AND c.partner_id IS NULL AND c.api_key_ciphertext IS NULL AND c.base_url IS NULL
-  )
 ON DUPLICATE KEY UPDATE
     status = VALUES(status),
     page_no = VALUES(page_no),
@@ -193,13 +163,9 @@ ON DUPLICATE KEY UPDATE
     update_time = VALUES(update_time),
     last_success_at = VALUES(last_success_at),
     requested_at = VALUES(requested_at),
-    started_at = VALUES(started_at),
-    finished_at = VALUES(finished_at),
     total_fetched = VALUES(total_fetched),
-    total_upserted = VALUES(total_upserted),
     inserted_count = VALUES(inserted_count),
     updated_count = VALUES(updated_count),
-    skipped_count = VALUES(skipped_count),
     error_count = VALUES(error_count),
     last_error_code = VALUES(last_error_code),
     last_error_message = VALUES(last_error_message),
