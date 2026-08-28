@@ -73,7 +73,6 @@ class PromotionOrderPersistenceTest extends BaseAuthTest {
         order.setRawPayloadJson("{\"orderId\":\"" + externalOrderId + "\"}");
         order.setSyncStartDate(LocalDateTime.of(2025, 7, 1, 0, 0));
         order.setSyncEndDate(LocalDateTime.of(2025, 7, 1, 23, 59, 59));
-        order.setFirstSyncedAt(LocalDateTime.of(2025, 7, 2, 8, 0));
         order.setLastSyncedAt(LocalDateTime.of(2025, 7, 2, 8, 0));
         return order;
     }

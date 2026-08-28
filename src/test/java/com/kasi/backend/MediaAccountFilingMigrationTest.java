@@ -1,24 +1,20 @@
 package com.kasi.backend;
 
-import org.flywaydb.core.Flyway;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.dao.DataAccessException;
 import org.springframework.jdbc.core.JdbcTemplate;
-import org.springframework.jdbc.datasource.DriverManagerDataSource;
 
-import javax.sql.DataSource;
-import java.util.UUID;
-
+import static com.kasi.backend.support.DatabaseInitializationTestSupport.initializeDatabase;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 class MediaAccountFilingMigrationTest {
 
     @Test
-    @DisplayName("V1创建平台接入、媒体账号、报备表及接口域名")
-    void migrateCreatesMediaAccountFilingSchemaAndBaseUrl() {
-        JdbcTemplate jdbc = migrateAllMigrations();
+    @DisplayName("初始化脚本创建平台接入、媒体账号、报备表及接口域名")
+    void initializationCreatesMediaAccountFilingSchemaAndBaseUrl() {
+        JdbcTemplate jdbc = initializeDatabase("media_account_filing");
 
         assertThat(tableExists(jdbc, "SHORT_DRAMA_PROVIDER")).isTrue();
         assertThat(tableExists(jdbc, "SHORT_DRAMA_CONNECTION")).isTrue();
@@ -80,22 +76,6 @@ class MediaAccountFilingMigrationTest {
         assertThatThrownBy(() -> jdbc.update(
                 "DELETE FROM promotion_user WHERE id = ?", userId))
                 .isInstanceOf(DataAccessException.class);
-    }
-
-    private static JdbcTemplate migrateAllMigrations() {
-        DriverManagerDataSource dataSource = new DriverManagerDataSource();
-        dataSource.setDriverClassName("org.h2.Driver");
-        dataSource.setUrl("jdbc:h2:mem:media_account_filing_" + UUID.randomUUID()
-                + ";MODE=MySQL;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE");
-        dataSource.setUsername("sa");
-        dataSource.setPassword("");
-
-        Flyway.configure()
-                .dataSource(dataSource)
-                .locations("classpath:db/migration")
-                .load()
-                .migrate();
-        return new JdbcTemplate(dataSource);
     }
 
     private static boolean tableExists(JdbcTemplate jdbc, String tableName) {

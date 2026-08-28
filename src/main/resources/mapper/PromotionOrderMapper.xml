@@ -22,7 +22,6 @@
         <result column="tracking_no" property="trackingNo"/>
         <result column="promotion_link_id" property="promotionLinkId"/>
         <result column="user_id" property="userId"/>
-        <result column="media_account_id" property="mediaAccountId"/>
         <result column="drama_id" property="dramaId"/>
         <result column="attribution_status" property="attributionStatus"/>
         <result column="rule_history_id" property="ruleHistoryId"/>
@@ -36,7 +35,6 @@
         <result column="raw_payload_json" property="rawPayloadJson"/>
         <result column="sync_start_date" property="syncStartDate"/>
         <result column="sync_end_date" property="syncEndDate"/>
-        <result column="first_synced_at" property="firstSyncedAt"/>
         <result column="last_synced_at" property="lastSyncedAt"/>
         <result column="last_error_message" property="lastErrorMessage"/>
         <result column="created_at" property="createdAt"/>
@@ -47,7 +45,7 @@
         connection_id, provider_id, external_order_id, external_user_id, external_drama_id,
         search_code, channel_code, partner_id, order_amount_minor, order_amount, currency,
         raw_status, status, paid_at, provider_updated_at, custom_params, raw_payload_json,
-        sync_start_date, sync_end_date, first_synced_at, last_synced_at
+        sync_start_date, sync_end_date, last_synced_at
     </sql>
 
     <select id="findBySource" resultMap="PromotionOrderMap">
@@ -63,7 +61,7 @@
 
     <insert id="insert" useGeneratedKeys="true" keyProperty="id">
         INSERT INTO promotion_order
-        (<include refid="sourceColumns"/>, tracking_no, promotion_link_id, user_id, media_account_id,
+        (<include refid="sourceColumns"/>, tracking_no, promotion_link_id, user_id,
          drama_id, attribution_status, rule_history_id, channel_fee_rate, principal_fee_rate,
          principal_commission_rate, downstream_fee_rate, downstream_commission_rate,
          commission_amount, commission_status, last_error_message)
@@ -71,8 +69,8 @@
         (#{connectionId}, #{providerId}, #{externalOrderId}, #{externalUserId}, #{externalDramaId},
          #{searchCode}, #{channelCode}, #{partnerId}, #{orderAmountMinor}, #{orderAmount}, #{currency},
          #{rawStatus}, #{status}, #{paidAt}, #{providerUpdatedAt}, #{customParams}, #{rawPayloadJson},
-         #{syncStartDate}, #{syncEndDate}, #{firstSyncedAt}, #{lastSyncedAt}, #{trackingNo},
-         #{promotionLinkId}, #{userId}, #{mediaAccountId}, #{dramaId}, #{attributionStatus},
+         #{syncStartDate}, #{syncEndDate}, #{lastSyncedAt}, #{trackingNo},
+         #{promotionLinkId}, #{userId}, #{dramaId}, #{attributionStatus},
          #{ruleHistoryId}, #{channelFeeRate}, #{principalFeeRate}, #{principalCommissionRate},
          #{downstreamFeeRate}, #{downstreamCommissionRate}, #{commissionAmount},
          #{commissionStatus}, #{lastErrorMessage})
@@ -98,7 +96,7 @@
     <update id="applyAttributionAndCommission">
         UPDATE promotion_order
         SET tracking_no=#{trackingNo}, promotion_link_id=#{promotionLinkId}, user_id=#{userId},
-            media_account_id=#{mediaAccountId}, drama_id=#{dramaId},
+            drama_id=#{dramaId},
             attribution_status=#{attributionStatus}, rule_history_id=#{ruleHistoryId},
             channel_fee_rate=#{channelFeeRate}, principal_fee_rate=#{principalFeeRate},
             principal_commission_rate=#{principalCommissionRate}, downstream_fee_rate=#{downstreamFeeRate},

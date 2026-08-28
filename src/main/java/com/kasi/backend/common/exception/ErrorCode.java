@@ -73,6 +73,9 @@ public enum ErrorCode {
     DRAMA_LOCAL_STATUS_INVALID(6010, "短剧本地状态只允许已发布或已下架"),
     PROVIDER_COMMISSION_RULE_NOT_FOUND(6011, "平台分佣规则不存在"),
     PROVIDER_COMMISSION_RULE_EXISTS(6012, "该平台默认分佣规则已存在"),
+    DRAMA_DOWNLOAD_TASK_NOT_FOUND(6013, "下载任务不存在"),
+    DRAMA_DOWNLOAD_TASK_EXPIRED(6014, "下载文件已过期"),
+    DRAMA_DOWNLOAD_RESOURCE_UNAVAILABLE(6015, "所选剧集暂无可下载素材"),
 
     // ========== 推广媒体与报备错误 ==========
     MEDIA_ACCOUNT_NOT_FOUND(7001, "媒体账号不存在"),

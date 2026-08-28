@@ -5,8 +5,6 @@ CREATE TABLE IF NOT EXISTS short_drama_provider (
     provider_code VARCHAR(32) NOT NULL,
     provider_name VARCHAR(64) NOT NULL,
     status TINYINT NOT NULL DEFAULT 1,
-    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     UNIQUE (provider_code)
 );
 
@@ -24,10 +22,7 @@ CREATE TABLE IF NOT EXISTS short_drama_connection (
     updated_by BIGINT DEFAULT NULL,
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    UNIQUE (provider_id),
-    CONSTRAINT fk_test_drama_connection_provider
-        FOREIGN KEY (provider_id) REFERENCES short_drama_provider (id)
-);
+    UNIQUE (provider_id));
 
 MERGE INTO short_drama_provider (provider_code, provider_name, status)
 KEY (provider_code) VALUES ('GOODSHORT', 'GoodShort', 1);
@@ -44,10 +39,7 @@ CREATE TABLE IF NOT EXISTS provider_commission_rule (
     updated_by BIGINT NOT NULL,
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    UNIQUE (provider_id),
-    CONSTRAINT fk_test_provider_commission_provider
-        FOREIGN KEY (provider_id) REFERENCES short_drama_provider (id)
-);
+    UNIQUE (provider_id));
 
 CREATE TABLE IF NOT EXISTS sys_admin_user (
     id BIGINT AUTO_INCREMENT PRIMARY KEY,
@@ -105,10 +97,7 @@ CREATE TABLE IF NOT EXISTS promotion_media_account (
     data_version INT NOT NULL DEFAULT 1,
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    UNIQUE (media_type, external_account_id),
-    CONSTRAINT fk_test_media_account_user
-        FOREIGN KEY (user_id) REFERENCES promotion_user (id)
-);
+    UNIQUE (media_type, external_account_id));
 
 CREATE TABLE IF NOT EXISTS provider_media_filing (
     id BIGINT AUTO_INCREMENT PRIMARY KEY,
@@ -131,14 +120,7 @@ CREATE TABLE IF NOT EXISTS provider_media_filing (
     last_error_message VARCHAR(512) DEFAULT NULL,
     lease_owner VARCHAR(64) DEFAULT NULL,
     lease_until TIMESTAMP DEFAULT NULL,
-    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    UNIQUE (connection_id, media_account_id),
-    CONSTRAINT fk_test_filing_connection
-        FOREIGN KEY (connection_id) REFERENCES short_drama_connection (id),
-    CONSTRAINT fk_test_filing_media_account
-        FOREIGN KEY (media_account_id) REFERENCES promotion_media_account (id)
-);
+    UNIQUE (connection_id, media_account_id));
 
 CREATE TABLE IF NOT EXISTS provider_drama (
     id BIGINT AUTO_INCREMENT PRIMARY KEY,
@@ -159,15 +141,13 @@ CREATE TABLE IF NOT EXISTS provider_drama (
       commission_scope VARCHAR(255),
       promotion_description CLOB,
       remote_show_status VARCHAR(32),
-    local_status VARCHAR(16) NOT NULL DEFAULT 'DRAFT',
+    local_status VARCHAR(16) NOT NULL DEFAULT 'PUBLISHED',
     remote_created_at TIMESTAMP,
     remote_updated_at TIMESTAMP,
     last_seen_at TIMESTAMP,
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    UNIQUE (connection_id, external_drama_id),
-    CONSTRAINT fk_test_drama_connection FOREIGN KEY (connection_id) REFERENCES short_drama_connection (id)
-);
+    UNIQUE (connection_id, external_drama_id));
 
 CREATE TABLE IF NOT EXISTS provider_drama_content (
     id BIGINT AUTO_INCREMENT PRIMARY KEY,
@@ -178,11 +158,7 @@ CREATE TABLE IF NOT EXISTS provider_drama_content (
     is_free TINYINT NOT NULL DEFAULT 0,
     duration_seconds INT,
     remote_updated_at TIMESTAMP,
-    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    UNIQUE (drama_id, sequence_no),
-    CONSTRAINT fk_test_drama_content_drama FOREIGN KEY (drama_id) REFERENCES provider_drama (id) ON DELETE CASCADE
-);
+    UNIQUE (drama_id, sequence_no));
 
 CREATE TABLE IF NOT EXISTS promotion_link (
     id BIGINT AUTO_INCREMENT PRIMARY KEY,
@@ -190,60 +166,24 @@ CREATE TABLE IF NOT EXISTS promotion_link (
     provider_id BIGINT NOT NULL,
     connection_id BIGINT NOT NULL,
     drama_id BIGINT NOT NULL,
-    media_account_id BIGINT NOT NULL,
+    batch_no VARCHAR(64) NOT NULL,
+    media_type VARCHAR(32) NOT NULL,
+    link_variant VARCHAR(16) NOT NULL,
     request_key VARCHAR(64) NOT NULL,
     tracking_no VARCHAR(64) NOT NULL,
     campaign_name VARCHAR(128),
-    provider_code VARCHAR(32) NOT NULL,
     external_code VARCHAR(255),
     share_url VARCHAR(2048),
-    custom_params VARCHAR(255),
-    landing_type VARCHAR(32) NOT NULL DEFAULT 'DEFAULT',
     status VARCHAR(16) NOT NULL DEFAULT 'PENDING',
     last_error_code VARCHAR(64),
     last_error_message VARCHAR(512),
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     UNIQUE (tracking_no),
-    UNIQUE (user_id, request_key),
-    FOREIGN KEY (user_id) REFERENCES promotion_user (id),
-    FOREIGN KEY (provider_id) REFERENCES short_drama_provider (id),
-    FOREIGN KEY (connection_id) REFERENCES short_drama_connection (id),
-    FOREIGN KEY (drama_id) REFERENCES provider_drama (id),
-    FOREIGN KEY (media_account_id) REFERENCES promotion_media_account (id)
-);
+    UNIQUE (user_id, request_key, media_type, link_variant),
+    INDEX idx_test_promotion_link_batch (user_id, batch_no));
 
-CREATE TABLE IF NOT EXISTS promotion_task (
-    id BIGINT AUTO_INCREMENT PRIMARY KEY,
-    user_id BIGINT NOT NULL,
-    provider_id BIGINT NOT NULL,
-    connection_id BIGINT NOT NULL,
-    drama_id BIGINT NOT NULL,
-    request_key VARCHAR(64) NOT NULL,
-    task_name VARCHAR(128) NOT NULL,
-    media_type VARCHAR(32) NOT NULL,
-    tracking_no VARCHAR(64) NOT NULL,
-    external_code VARCHAR(255),
-    direct_url VARCHAR(2048),
-    status VARCHAR(16) NOT NULL DEFAULT 'PENDING',
-    last_error_code VARCHAR(64),
-    last_error_message VARCHAR(512),
-    code_search_count BIGINT NOT NULL DEFAULT 0,
-    direct_click_count BIGINT NOT NULL DEFAULT 0,
-    app_click_count BIGINT NOT NULL DEFAULT 0,
-    lead_count BIGINT NOT NULL DEFAULT 0,
-    order_amount DECIMAL(18,2) NOT NULL DEFAULT 0,
-    order_count BIGINT NOT NULL DEFAULT 0,
-    ad_amount DECIMAL(18,2) NOT NULL DEFAULT 0,
-    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    UNIQUE (user_id, request_key, media_type),
-    UNIQUE (tracking_no),
-    CONSTRAINT fk_test_promotion_task_user FOREIGN KEY (user_id) REFERENCES promotion_user (id),
-    CONSTRAINT fk_test_promotion_task_provider FOREIGN KEY (provider_id) REFERENCES short_drama_provider (id),
-    CONSTRAINT fk_test_promotion_task_connection FOREIGN KEY (connection_id) REFERENCES short_drama_connection (id),
-    CONSTRAINT fk_test_promotion_task_drama FOREIGN KEY (drama_id) REFERENCES provider_drama (id)
-);
+
 
 CREATE TABLE IF NOT EXISTS provider_commission_rule_history (
     id BIGINT AUTO_INCREMENT PRIMARY KEY,
@@ -255,10 +195,7 @@ CREATE TABLE IF NOT EXISTS provider_commission_rule_history (
     downstream_fee_rate DECIMAL(12, 10) NOT NULL,
     downstream_commission_rate DECIMAL(12, 10) NOT NULL,
     created_by BIGINT NOT NULL,
-    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (provider_id) REFERENCES short_drama_provider (id),
-    FOREIGN KEY (rule_id) REFERENCES provider_commission_rule (id)
-);
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP);
 
 CREATE TABLE IF NOT EXISTS promotion_order (
     id BIGINT AUTO_INCREMENT PRIMARY KEY,
@@ -281,7 +218,6 @@ CREATE TABLE IF NOT EXISTS promotion_order (
     tracking_no VARCHAR(64),
     promotion_link_id BIGINT,
     user_id BIGINT,
-    media_account_id BIGINT,
     drama_id BIGINT,
     attribution_status VARCHAR(16) NOT NULL DEFAULT 'UNATTRIBUTED',
     rule_history_id BIGINT,
@@ -295,20 +231,11 @@ CREATE TABLE IF NOT EXISTS promotion_order (
     raw_payload_json CLOB NOT NULL,
     sync_start_date TIMESTAMP NOT NULL,
     sync_end_date TIMESTAMP NOT NULL,
-    first_synced_at TIMESTAMP NOT NULL,
     last_synced_at TIMESTAMP NOT NULL,
     last_error_message VARCHAR(512),
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    UNIQUE (connection_id, external_order_id),
-    FOREIGN KEY (connection_id) REFERENCES short_drama_connection (id),
-    FOREIGN KEY (provider_id) REFERENCES short_drama_provider (id),
-    FOREIGN KEY (promotion_link_id) REFERENCES promotion_link (id),
-    FOREIGN KEY (user_id) REFERENCES promotion_user (id),
-    FOREIGN KEY (media_account_id) REFERENCES promotion_media_account (id),
-    FOREIGN KEY (drama_id) REFERENCES provider_drama (id),
-    FOREIGN KEY (rule_history_id) REFERENCES provider_commission_rule_history (id)
-);
+    UNIQUE (connection_id, external_order_id));
 
 CREATE TABLE IF NOT EXISTS provider_sync_checkpoint (
     id BIGINT AUTO_INCREMENT PRIMARY KEY,
@@ -321,13 +248,9 @@ CREATE TABLE IF NOT EXISTS provider_sync_checkpoint (
     update_time BIGINT,
     last_success_at TIMESTAMP,
     requested_at TIMESTAMP,
-    started_at TIMESTAMP,
-    finished_at TIMESTAMP,
     total_fetched INT NOT NULL DEFAULT 0,
-    total_upserted INT NOT NULL DEFAULT 0,
     inserted_count INT NOT NULL DEFAULT 0,
     updated_count INT NOT NULL DEFAULT 0,
-    skipped_count INT NOT NULL DEFAULT 0,
     error_count INT NOT NULL DEFAULT 0,
     last_error_code VARCHAR(64),
     last_error_message VARCHAR(512),
@@ -335,30 +258,36 @@ CREATE TABLE IF NOT EXISTS provider_sync_checkpoint (
     lease_until TIMESTAMP,
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    UNIQUE (connection_id, sync_type, language),
-    CONSTRAINT fk_test_sync_checkpoint_connection FOREIGN KEY (connection_id) REFERENCES short_drama_connection (id)
-);
+    UNIQUE (connection_id, sync_type, language));
 
 CREATE TABLE IF NOT EXISTS system_scheduled_task (
-    id BIGINT AUTO_INCREMENT PRIMARY KEY,
-    task_code VARCHAR(64) NOT NULL,
-    title VARCHAR(128) NOT NULL,
+    task_code VARCHAR(64) NOT NULL PRIMARY KEY,
     description VARCHAR(255) NOT NULL,
     cycle_type VARCHAR(32) NOT NULL DEFAULT 'INTERVAL_MINUTES',
-    interval_value INT DEFAULT 60,
+    interval_value INT DEFAULT NULL,
     interval_hours_part INT DEFAULT 0,
     interval_minutes_part INT DEFAULT 0,
     time_of_day TIME,
     day_of_week TINYINT,
     day_of_month TINYINT,
     month_of_year TINYINT,
-    interval_minutes INT NOT NULL,
     enabled TINYINT NOT NULL DEFAULT 1,
     next_run_at TIMESTAMP,
     lease_owner VARCHAR(64),
     lease_until TIMESTAMP,
-    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    UNIQUE (task_code),
-    CHECK (interval_minutes BETWEEN 5 AND 1440)
+    INDEX idx_system_scheduled_task_due (enabled, next_run_at, lease_until)
 );
+
+CREATE TABLE IF NOT EXISTS drama_download_task (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    user_id BIGINT NOT NULL,
+    drama_id BIGINT NOT NULL,
+    status VARCHAR(16) NOT NULL DEFAULT 'PENDING',
+    content_ids_json CLOB NOT NULL,
+    file_path VARCHAR(1024),
+    file_name VARCHAR(255),
+    total_count INT NOT NULL DEFAULT 0,
+    completed_count INT NOT NULL DEFAULT 0,
+    error_message VARCHAR(512),
+    expires_at TIMESTAMP NOT NULL,
+    INDEX idx_drama_download_status_expires (status, expires_at));

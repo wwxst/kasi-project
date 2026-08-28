@@ -149,12 +149,12 @@ public class AdminAuthServiceImpl implements AdminAuthService {
 
         // 加密并更新
         SessionMutation mutation = sessionService.beginMutation(SubjectType.ADMIN, adminId);
+        sessionService.registerMutationCompletion(mutation);
         String encodedPassword = passwordEncoder.encode(request.getNewPassword());
         int updated = sysAdminUserMapper.updatePassword(adminId, encodedPassword, LocalDateTime.now());
         if (updated != 1) {
             throw new IllegalStateException("管理员密码更新未生效");
         }
-        sessionService.registerMutationCompletion(mutation);
 
         log.info("管理员 [{}] 修改密码成功", admin.getUsername());
     }
@@ -174,6 +174,9 @@ public class AdminAuthServiceImpl implements AdminAuthService {
                 || !Objects.equals(email, admin.getEmail());
         SessionMutation mutation = identifierChanged
                 ? sessionService.beginMutation(SubjectType.ADMIN, adminId) : null;
+        if (mutation != null) {
+            sessionService.registerMutationCompletion(mutation);
+        }
         admin.setUsername(request.getUsername());
         admin.setRealName(request.getRealName());
         admin.setMobile(mobile);
@@ -186,9 +189,6 @@ public class AdminAuthServiceImpl implements AdminAuthService {
         } catch (DuplicateKeyException exception) {
             ensureProfileUnique(adminId, admin.getUsername(), admin.getMobile(), admin.getEmail());
             throw exception;
-        }
-        if (mutation != null) {
-            sessionService.registerMutationCompletion(mutation);
         }
         return getCurrentAdmin(adminId);
     }

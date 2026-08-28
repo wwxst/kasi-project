@@ -9,23 +9,20 @@ import java.time.LocalTime;
 
 @Data
 public class SystemScheduledTask {
-    private Long id;
+    @Deprecated private Long id;
     private ScheduledTaskCode taskCode;
-    private String title;
     private String description;
     private ScheduledTaskCycleType cycleType;
     private Integer intervalValue;
+    @Deprecated private Integer intervalMinutes;
     private Integer intervalHoursPart;
     private Integer intervalMinutesPart;
     private LocalTime timeOfDay;
     private Integer dayOfWeek;
     private Integer dayOfMonth;
     private Integer monthOfYear;
-    private Integer intervalMinutes;
     private Boolean enabled;
     private LocalDateTime nextRunAt;
     private String leaseOwner;
     private LocalDateTime leaseUntil;
-    private LocalDateTime createdAt;
-    private LocalDateTime updatedAt;
 }

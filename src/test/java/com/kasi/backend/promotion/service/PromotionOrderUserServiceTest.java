@@ -60,9 +60,9 @@ class PromotionOrderUserServiceTest extends BaseAuthTest {
         jdbcTemplate.update("INSERT INTO promotion_order "
                         + "(connection_id,provider_id,external_order_id,order_amount_minor,order_amount,currency,"
                         + "raw_status,status,paid_at,user_id,attribution_status,commission_amount,commission_status,"
-                        + "raw_payload_json,sync_start_date,sync_end_date,first_synced_at,last_synced_at) "
+                        + "raw_payload_json,sync_start_date,sync_end_date,last_synced_at) "
                         + "VALUES (?,?,?,999,9.99,'USD',?,?,?,?,'ATTRIBUTED',?,?,?,"
-                        + "'2025-07-01 00:00:00','2025-07-31 23:59:59',CURRENT_TIMESTAMP,CURRENT_TIMESTAMP)",
+                        + "'2025-07-01 00:00:00','2025-07-31 23:59:59',CURRENT_TIMESTAMP)",
                 ids.connectionId(), ids.providerId(), orderId,
                 "REFUNDED".equals(status) ? "3" : "1", status, paidAt, userId,
                 new BigDecimal(commission), commissionStatus, "{\"orderId\":\"" + orderId + "\"}");

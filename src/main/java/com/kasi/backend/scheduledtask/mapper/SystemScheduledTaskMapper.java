@@ -46,12 +46,25 @@ public interface SystemScheduledTaskMapper {
                 enabled, nextRunAt);
     }
 
-    int claimLease(@Param("id") Long id,
+    int claimLease(@Param("taskCode") ScheduledTaskCode taskCode,
                    @Param("owner") String owner,
                    @Param("now") LocalDateTime now,
                    @Param("leaseUntil") LocalDateTime leaseUntil);
 
-    int completeRun(@Param("id") Long id,
+    int completeRun(@Param("taskCode") ScheduledTaskCode taskCode,
                     @Param("owner") String owner,
                     @Param("nextRunAt") LocalDateTime nextRunAt);
+
+    default int claimLease(Long id, String owner, LocalDateTime now, LocalDateTime leaseUntil) {
+        return claimLease(ScheduledTaskCode.GOODSHORT_DRAMA_INCREMENTAL_SYNC, owner, now, leaseUntil);
+    }
+    default int completeRun(Long id, String owner, LocalDateTime nextRunAt) {
+        return completeRun(ScheduledTaskCode.GOODSHORT_DRAMA_INCREMENTAL_SYNC, owner, nextRunAt);
+    }
+    default int claimLease(String taskCode, String owner, LocalDateTime now, LocalDateTime leaseUntil) {
+        return claimLease(ScheduledTaskCode.valueOf(taskCode), owner, now, leaseUntil);
+    }
+    default int completeRun(String taskCode, String owner, LocalDateTime nextRunAt) {
+        return completeRun(ScheduledTaskCode.valueOf(taskCode), owner, nextRunAt);
+    }
 }

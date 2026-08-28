@@ -7,6 +7,8 @@ import java.time.LocalDateTime;
 
 @Data
 public class ProviderSyncCheckpoint {
+    @Deprecated private Integer totalUpserted;
+    @Deprecated private Integer skippedCount;
     private Long id;
     private Long connectionId;
     private DramaSyncType syncType;
@@ -17,13 +19,9 @@ public class ProviderSyncCheckpoint {
     private Long updateTime;
     private LocalDateTime lastSuccessAt;
     private LocalDateTime requestedAt;
-    private LocalDateTime startedAt;
-    private LocalDateTime finishedAt;
     private Integer totalFetched;
-    private Integer totalUpserted;
     private Integer insertedCount;
     private Integer updatedCount;
-    private Integer skippedCount;
     private Integer errorCount;
     private String lastErrorCode;
     private String lastErrorMessage;

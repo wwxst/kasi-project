@@ -10,6 +10,8 @@ import java.time.LocalDateTime;
 
 @Data
 public class PromotionOrder {
+    @Deprecated private LocalDateTime firstSyncedAt;
+    @Deprecated private Long mediaAccountId;
     private Long id;
     private Long connectionId;
     private Long providerId;
@@ -30,7 +32,6 @@ public class PromotionOrder {
     private String trackingNo;
     private Long promotionLinkId;
     private Long userId;
-    private Long mediaAccountId;
     private Long dramaId;
     private PromotionAttributionStatus attributionStatus;
     private Long ruleHistoryId;
@@ -44,7 +45,6 @@ public class PromotionOrder {
     private String rawPayloadJson;
     private LocalDateTime syncStartDate;
     private LocalDateTime syncEndDate;
-    private LocalDateTime firstSyncedAt;
     private LocalDateTime lastSyncedAt;
     private String lastErrorMessage;
     private LocalDateTime createdAt;

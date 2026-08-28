@@ -50,8 +50,8 @@ class UserPasswordResetServiceTest extends BaseAuthTest {
     }
 
     @Test
-    @DisplayName("数据库结果不确定异常保持PROCESSING不可重放")
-    void resetPasswordWhenDatabaseResultUnknownKeepsProcessing() {
+    @DisplayName("数据库异常回滚后恢复READY供重试")
+    void resetPasswordWhenDatabaseFailsRestoresReady() {
         PasswordResetTokenReservation reservation = reservation();
         when(passwordResetTokenService.reserveToken("token")).thenReturn(reservation);
         when(promotionUserMapper.findByIdForUpdate(7L)).thenReturn(
@@ -65,8 +65,26 @@ class UserPasswordResetServiceTest extends BaseAuthTest {
                 () -> userAuthService().resetPassword(request()));
 
         verify(sessionService).beginMutation(SubjectType.USER, 7L);
-        verify(passwordResetTokenService, never()).restoreReady(reservation);
+        verify(sessionService).registerMutationCompletion(any(SessionMutation.class));
+        verify(passwordResetTokenService).restoreReady(reservation);
         verify(passwordResetTokenService, never()).completeToken(reservation);
+    }
+
+    @Test
+    @DisplayName("密码更新提交后消费重置Token")
+    void resetPasswordWhenCommittedConsumesToken() {
+        PasswordResetTokenReservation reservation = reservation();
+        when(passwordResetTokenService.reserveToken("token")).thenReturn(reservation);
+        when(promotionUserMapper.findByIdForUpdate(7L)).thenReturn(
+                org.mockito.Mockito.mock(com.kasi.backend.user.entity.PromotionUser.class));
+        when(sessionService.beginMutation(SubjectType.USER, 7L))
+                .thenReturn(new SessionMutation(SubjectType.USER, 7L, "nonce"));
+        when(promotionUserMapper.updatePassword(anyLong(), any())).thenReturn(1);
+
+        userAuthService().resetPassword(request());
+
+        verify(passwordResetTokenService).completeToken(reservation);
+        verify(passwordResetTokenService, never()).restoreReady(reservation);
     }
 
     private UserAuthService userAuthService() {

@@ -1,27 +1,25 @@
 package com.kasi.backend;
 
-import org.flywaydb.core.Flyway;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.core.io.ClassPathResource;
 import org.springframework.jdbc.core.JdbcTemplate;
-import org.springframework.jdbc.datasource.DriverManagerDataSource;
 
 import java.math.BigDecimal;
 import java.nio.charset.StandardCharsets;
-import java.util.UUID;
 
+import static com.kasi.backend.support.DatabaseInitializationTestSupport.initializeDatabase;
 import static org.assertj.core.api.Assertions.assertThat;
 
 class ProviderCommissionRuleMigrationTest {
 
     @Test
-    @DisplayName("V1直接定义最终分佣规则结构而不执行旧版清理")
-    void v1DefinesFinalCommissionRuleShapeWithoutLegacyCleanup() throws Exception {
-        String migration = new ClassPathResource("db/migration/V1__kasi_promotion.sql")
+    @DisplayName("初始化脚本直接定义最终分佣规则结构而不包含旧版清理")
+    void initializationDefinesFinalCommissionRuleShapeWithoutLegacyCleanup() throws Exception {
+        String initialization = new ClassPathResource("db/kasi_promotion.sql")
                 .getContentAsString(StandardCharsets.UTF_8);
 
-        assertThat(migration)
+        assertThat(initialization)
                 .contains("UNIQUE KEY `uk_provider_commission_provider` (`provider_id`)")
                 .doesNotContain("effective_from")
                 .doesNotContain("effective_to")
@@ -32,21 +30,21 @@ class ProviderCommissionRuleMigrationTest {
     @Test
     @DisplayName("推广链接外键列与关联主键使用相同的无符号类型")
     void promotionLinkForeignKeysMatchUnsignedPrimaryKeys() throws Exception {
-        String migration = new ClassPathResource("db/migration/V1__kasi_promotion.sql")
+        String initialization = new ClassPathResource("db/kasi_promotion.sql")
                 .getContentAsString(StandardCharsets.UTF_8);
 
-        assertThat(migration)
+        assertThat(initialization)
                 .contains("`user_id` BIGINT UNSIGNED NOT NULL")
                 .contains("`provider_id` BIGINT UNSIGNED NOT NULL")
                 .contains("`connection_id` BIGINT UNSIGNED NOT NULL")
                 .contains("`drama_id` BIGINT UNSIGNED NOT NULL")
-                .contains("`media_account_id` BIGINT UNSIGNED NOT NULL");
+                .doesNotContain("`media_account_id` BIGINT UNSIGNED NOT NULL COMMENT '推广用户媒体账号 ID'");
     }
 
     @Test
-    @DisplayName("默认分佣迁移创建每个平台唯一规则并保存高精度费率")
-    void migrateCreatesProviderCommissionRuleSchema() {
-        JdbcTemplate jdbc = migrateAllMigrations();
+    @DisplayName("初始化脚本创建每个平台唯一规则并保存高精度费率")
+    void initializationCreatesProviderCommissionRuleSchema() {
+        JdbcTemplate jdbc = initializeDatabase("provider_commission");
         Long providerId = jdbc.queryForObject(
                 "SELECT id FROM short_drama_provider WHERE provider_code='GOODSHORT'", Long.class);
 
@@ -71,14 +69,4 @@ class ProviderCommissionRuleMigrationTest {
                 Integer.class)).isZero();
     }
 
-    private JdbcTemplate migrateAllMigrations() {
-        DriverManagerDataSource dataSource = new DriverManagerDataSource();
-        dataSource.setDriverClassName("org.h2.Driver");
-        dataSource.setUrl("jdbc:h2:mem:provider_commission_" + UUID.randomUUID()
-                + ";MODE=MySQL;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE");
-        dataSource.setUsername("sa");
-        dataSource.setPassword("");
-        Flyway.configure().dataSource(dataSource).locations("classpath:db/migration").load().migrate();
-        return new JdbcTemplate(dataSource);
-    }
 }

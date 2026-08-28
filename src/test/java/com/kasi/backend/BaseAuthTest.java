@@ -86,8 +86,8 @@ public abstract class BaseAuthTest {
 
         // 按外键依赖从子表到父表清理数据库表
         jdbcTemplate.execute("DELETE FROM promotion_order");
-        jdbcTemplate.execute("DELETE FROM promotion_task");
         jdbcTemplate.execute("DELETE FROM promotion_link");
+        jdbcTemplate.execute("DELETE FROM drama_download_task");
         jdbcTemplate.execute("DELETE FROM provider_drama_content");
         jdbcTemplate.execute("DELETE FROM provider_drama");
         jdbcTemplate.execute("DELETE FROM provider_sync_checkpoint");
@@ -103,11 +103,10 @@ public abstract class BaseAuthTest {
 
         jdbcTemplate.update("""
                 INSERT INTO system_scheduled_task
-                    (task_code, title, description, cycle_type, interval_value, interval_minutes, enabled, next_run_at)
-                VALUES (?, ?, ?, 'INTERVAL_MINUTES', ?, ?, ?, TIMESTAMPADD(MINUTE, 60, CURRENT_TIMESTAMP))
+                    (task_code, description, cycle_type, interval_value, enabled, next_run_at)
+                VALUES (?, ?, 'INTERVAL_MINUTES', ?, ?, TIMESTAMPADD(MINUTE, 60, CURRENT_TIMESTAMP))
                 """,
-                "GOODSHORT_DRAMA_INCREMENTAL_SYNC", "GoodShort 短剧增量同步",
-                "每隔60分钟执行一次GoodShort短剧目录增量同步", 60, 60, 1);
+                "GOODSHORT_DRAMA_INCREMENTAL_SYNC", "每隔60分钟执行一次GoodShort短剧目录增量同步", 60, 1);
 
         jdbcTemplate.update(
                 "INSERT INTO short_drama_provider (provider_code, provider_name, status) VALUES (?, ?, ?)",

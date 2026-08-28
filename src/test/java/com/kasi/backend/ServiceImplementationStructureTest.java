@@ -67,7 +67,7 @@ class ServiceImplementationStructureTest extends BaseAuthTest {
         assertThat(PromotionLinkPersistenceService.class).isInterface();
         assertThat(applicationContext.getBean(PromotionLinkPersistenceService.class))
                 .isInstanceOf(PromotionLinkPersistenceServiceImpl.class);
-        for (String method : new String[]{"preparePending", "markSuccess", "markFailed"}) {
+        for (String method : new String[]{"prepareBatchPending", "markSuccess", "markFailed"}) {
             Transactional transactional = findTransactional(method);
             assertThat(transactional.propagation()).isEqualTo(Propagation.REQUIRES_NEW);
         }

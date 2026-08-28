@@ -14,15 +14,14 @@ public class PromotionLinkVO {
     private String providerName;
     private Long dramaId;
     private String dramaTitle;
-    private Long mediaAccountId;
+    private String batchNo;
+    private String requestKey;
     private String mediaType;
-    private String mediaAccountName;
+    private String linkVariant;
     private String campaignName;
     private String trackingNo;
     private String externalCode;
     private String shareUrl;
-    private String customParams;
-    private String landingType;
     private PromotionLinkStatus status;
     private String lastErrorCode;
     private String lastErrorMessage;

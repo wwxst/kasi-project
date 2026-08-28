@@ -55,12 +55,12 @@ class HistoricalCompatibilityStructureTest extends BaseAuthTest {
     }
 
     @Test
-    @DisplayName("Flyway不为非空旧库自动建立基线")
-    void flywayDoesNotBaselineUnmanagedDatabase() throws Exception {
+    @DisplayName("应用配置不再包含数据库自动迁移配置")
+    void applicationDoesNotConfigureAutomaticDatabaseMigration() throws Exception {
         String applicationProperties = Files.readString(
                 Path.of("src/main/resources/application.properties"), StandardCharsets.UTF_8);
 
-        assertThat(applicationProperties).doesNotContain("spring.flyway.baseline-on-migrate");
+        assertThat(applicationProperties).doesNotContain("spring.flyway.");
     }
 
     @Test

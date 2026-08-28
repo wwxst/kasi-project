@@ -5,9 +5,7 @@
 <mapper namespace="com.kasi.backend.scheduledtask.mapper.SystemScheduledTaskMapper">
 
     <resultMap id="ScheduledTaskMap" type="com.kasi.backend.scheduledtask.entity.SystemScheduledTask">
-        <id column="id" property="id"/>
         <result column="task_code" property="taskCode"/>
-        <result column="title" property="title"/>
         <result column="description" property="description"/>
         <result column="cycle_type" property="cycleType"/>
         <result column="interval_value" property="intervalValue"/>
@@ -17,17 +15,14 @@
         <result column="day_of_week" property="dayOfWeek"/>
         <result column="day_of_month" property="dayOfMonth"/>
         <result column="month_of_year" property="monthOfYear"/>
-        <result column="interval_minutes" property="intervalMinutes"/>
         <result column="enabled" property="enabled"/>
         <result column="next_run_at" property="nextRunAt"/>
         <result column="lease_owner" property="leaseOwner"/>
         <result column="lease_until" property="leaseUntil"/>
-        <result column="created_at" property="createdAt"/>
-        <result column="updated_at" property="updatedAt"/>
     </resultMap>
 
     <select id="findAll" resultMap="ScheduledTaskMap">
-        SELECT * FROM system_scheduled_task ORDER BY id ASC
+        SELECT * FROM system_scheduled_task ORDER BY task_code ASC
     </select>
 
     <select id="findByTaskCode" resultMap="ScheduledTaskMap">
@@ -41,7 +36,7 @@
           AND next_run_at IS NOT NULL
           AND next_run_at &lt;= #{now}
           AND (lease_until IS NULL OR lease_until &lt;= #{now})
-        ORDER BY next_run_at ASC, id ASC
+        ORDER BY next_run_at ASC, task_code ASC
         LIMIT #{limit}
     </select>
 
@@ -56,26 +51,18 @@
             day_of_week = #{dayOfWeek},
             day_of_month = #{dayOfMonth},
             month_of_year = #{monthOfYear},
-            interval_minutes = LEAST(1440, GREATEST(5, CASE
-                WHEN #{cycleType} = 'INTERVAL_SECONDS' THEN GREATEST(5, CEILING(#{intervalValue} / 60.0))
-                WHEN #{cycleType} = 'INTERVAL_MINUTES' THEN #{intervalValue}
-                WHEN #{cycleType} = 'INTERVAL_HOURS' THEN #{intervalValue} * 60
-                WHEN #{cycleType} = 'INTERVAL_DAYS' THEN #{intervalValue} * 1440
-                ELSE 60 END)),
             enabled = #{enabled},
             next_run_at = #{nextRunAt},
             lease_owner = NULL,
-            lease_until = NULL,
-            updated_at = CURRENT_TIMESTAMP
+            lease_until = NULL
         WHERE task_code = #{taskCode}
     </update>
 
     <update id="claimLease">
         UPDATE system_scheduled_task
         SET lease_owner = #{owner},
-            lease_until = #{leaseUntil},
-            updated_at = CURRENT_TIMESTAMP
-        WHERE id = #{id}
+            lease_until = #{leaseUntil}
+        WHERE task_code = #{taskCode}
           AND enabled = 1
           AND next_run_at IS NOT NULL
           AND next_run_at &lt;= #{now}
@@ -86,9 +73,7 @@
         UPDATE system_scheduled_task
         SET next_run_at = #{nextRunAt},
             lease_owner = NULL,
-            lease_until = NULL,
-            updated_at = CURRENT_TIMESTAMP
-        WHERE id = #{id}
+            lease_until = NULL WHERE task_code = #{taskCode}
           AND lease_owner = #{owner}
     </update>
 

@@ -38,7 +38,7 @@ FROM short_drama_connection c
 JOIN short_drama_provider p ON p.id = c.provider_id
 WHERE p.provider_code = 'GOODSHORT'
   AND NOT (
-      c.connection_name = 'GoodShort 本地假数据'
+      c.connection_name = 'GoodShort local fixture'
       AND c.currency = 'USD'
       AND c.status = 0
       AND c.filing_mode = 'MANUAL'
@@ -55,7 +55,7 @@ INSERT INTO short_drama_connection (
     provider_id, connection_name, currency, status, filing_mode,
     partner_id, api_key_ciphertext, base_url
 )
-SELECT @goodshort_provider_id, 'GoodShort 本地假数据', 'USD', 0, 'MANUAL',
+SELECT @goodshort_provider_id, 'GoodShort local fixture', 'USD', 0, 'MANUAL',
        NULL, NULL, NULL
 WHERE @goodshort_provider_id IS NOT NULL
   AND NOT EXISTS (
@@ -65,7 +65,7 @@ WHERE @goodshort_provider_id IS NOT NULL
 SET @goodshort_connection_id = (
     SELECT id FROM short_drama_connection
     WHERE provider_id = @goodshort_provider_id
-      AND connection_name = 'GoodShort 本地假数据'
+      AND connection_name = 'GoodShort local fixture'
       AND currency = 'USD' AND status = 0 AND filing_mode = 'MANUAL'
       AND partner_id IS NULL AND api_key_ciphertext IS NULL AND base_url IS NULL
 );
@@ -73,7 +73,7 @@ SET @goodshort_connection_id = (
 INSERT INTO provider_drama (
     connection_id, external_drama_id, title, original_title, description,
     cover_url, language, drama_type, remote_show_status, local_status,
-    remote_updated_at, last_seen_at, created_at, updated_at
+    remote_updated_at, last_seen_at
 )
 SELECT
     @goodshort_connection_id,
@@ -99,14 +99,12 @@ SELECT
     END,
     '2026-01-01 00:00:00',
     '2026-01-02 00:00:00',
-    '2026-01-01 00:00:00',
-    '2026-01-02 00:00:00'
 FROM seed_goodshort_numbers
 WHERE @goodshort_connection_id IS NOT NULL
   AND EXISTS (
       SELECT 1 FROM short_drama_connection c
       WHERE c.id = @goodshort_connection_id
-        AND c.connection_name = 'GoodShort 本地假数据'
+        AND c.connection_name = 'GoodShort local fixture'
         AND c.currency = 'USD' AND c.status = 0 AND c.filing_mode = 'MANUAL'
         AND c.partner_id IS NULL AND c.api_key_ciphertext IS NULL AND c.base_url IS NULL
   )
@@ -120,12 +118,11 @@ ON DUPLICATE KEY UPDATE
     remote_show_status = VALUES(remote_show_status),
     local_status = VALUES(local_status),
     remote_updated_at = VALUES(remote_updated_at),
-    last_seen_at = VALUES(last_seen_at),
-    updated_at = VALUES(updated_at);
+    last_seen_at = VALUES(last_seen_at);
 
 INSERT INTO provider_drama_content (
     drama_id, external_content_id, sequence_no, title, is_free,
-    duration_seconds, remote_updated_at, created_at, updated_at
+    duration_seconds, remote_updated_at
 )
 SELECT
     d.id,
@@ -147,7 +144,7 @@ WHERE d.connection_id = @goodshort_connection_id
   AND EXISTS (
       SELECT 1 FROM short_drama_connection c
       WHERE c.id = @goodshort_connection_id
-        AND c.connection_name = 'GoodShort 本地假数据'
+        AND c.connection_name = 'GoodShort local fixture'
         AND c.currency = 'USD' AND c.status = 0 AND c.filing_mode = 'MANUAL'
         AND c.partner_id IS NULL AND c.api_key_ciphertext IS NULL AND c.base_url IS NULL
   )
@@ -156,15 +153,14 @@ ON DUPLICATE KEY UPDATE
     title = VALUES(title),
     is_free = VALUES(is_free),
     duration_seconds = VALUES(duration_seconds),
-    remote_updated_at = VALUES(remote_updated_at),
-    updated_at = VALUES(updated_at);
+    remote_updated_at = VALUES(remote_updated_at);
 
 INSERT INTO provider_sync_checkpoint (
     connection_id, sync_type, language, status, page_no, page_size,
     update_time, last_success_at, requested_at, started_at, finished_at,
     total_fetched, total_upserted, inserted_count, updated_count,
     skipped_count, error_count, last_error_code, last_error_message,
-    lease_owner, lease_until, created_at, updated_at
+    lease_owner, lease_until
 )
 SELECT @goodshort_connection_id, sync_type, language, 'SUCCESS', 1, 100,
        CASE WHEN sync_type = 'FULL' THEN 100 ELSE 200 END,
@@ -186,7 +182,7 @@ WHERE @goodshort_connection_id IS NOT NULL
   AND EXISTS (
       SELECT 1 FROM short_drama_connection c
       WHERE c.id = @goodshort_connection_id
-        AND c.connection_name = 'GoodShort 本地假数据'
+        AND c.connection_name = 'GoodShort local fixture'
         AND c.currency = 'USD' AND c.status = 0 AND c.filing_mode = 'MANUAL'
         AND c.partner_id IS NULL AND c.api_key_ciphertext IS NULL AND c.base_url IS NULL
   )
@@ -208,8 +204,7 @@ ON DUPLICATE KEY UPDATE
     last_error_code = VALUES(last_error_code),
     last_error_message = VALUES(last_error_message),
     lease_owner = VALUES(lease_owner),
-    lease_until = VALUES(lease_until),
-    updated_at = VALUES(updated_at);
+    lease_until = VALUES(lease_until);
 
 /*!50000 DROP TEMPORARY TABLE seed_goodshort_guard */;
 /*!50000 DROP TEMPORARY TABLE seed_goodshort_numbers */;

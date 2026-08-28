@@ -46,7 +46,7 @@ class PromotionUserCreationServiceTest {
         service.create(user);
 
         assertThat(user.getUserNo()).isEqualTo("583104726918");
-        assertThat(user.getNickname()).isEqualTo("用户583104726918");
+        assertThat(user.getNickname()).isEqualTo("卡司用户26918");
         assertThat(user.getId()).isEqualTo(42L);
         verify(promotionUserMapper).insert(user);
     }
@@ -71,7 +71,7 @@ class PromotionUserCreationServiceTest {
         service.create(user);
 
         assertThat(user.getUserNo()).isEqualTo("200000000002");
-        assertThat(user.getNickname()).isEqualTo("用户200000000002");
+        assertThat(user.getNickname()).isEqualTo("卡司用户00002");
         verify(userNumberGenerator, times(2)).generate();
         verify(promotionUserMapper, times(2)).insert(user);
     }

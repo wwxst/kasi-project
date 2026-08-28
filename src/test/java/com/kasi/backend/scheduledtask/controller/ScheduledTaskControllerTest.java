@@ -40,7 +40,7 @@ class ScheduledTaskControllerTest extends BaseAuthTest {
                 .andExpect(jsonPath("$.code").value(0))
                 .andExpect(jsonPath("$.data[0].taskCode").value(TASK_CODE))
                 .andExpect(jsonPath("$.data[0].title").value("GoodShort 短剧增量同步"))
-                .andExpect(jsonPath("$.data[0].intervalMinutes").value(60))
+                
                 .andExpect(jsonPath("$.data[0].enabled").value(true))
                 .andExpect(jsonPath("$.data[0].nextRunAt").doesNotExist())
                 .andExpect(jsonPath("$.data[0].leaseOwner").doesNotExist());
@@ -65,7 +65,7 @@ class ScheduledTaskControllerTest extends BaseAuthTest {
                 .andExpect(jsonPath("$.data.taskCode").value(TASK_CODE))
                 .andExpect(jsonPath("$.data.title").value("GoodShort 短剧增量同步"))
                 .andExpect(jsonPath("$.data.description").value("每隔30分钟同步一次"))
-                .andExpect(jsonPath("$.data.intervalMinutes").value(30))
+                
                 .andExpect(jsonPath("$.data.enabled").value(false))
                 .andExpect(jsonPath("$.data.nextRunAt").doesNotExist())
                 .andExpect(jsonPath("$.data.leaseUntil").doesNotExist());
@@ -97,7 +97,7 @@ class ScheduledTaskControllerTest extends BaseAuthTest {
                 .andExpect(jsonPath("$.code").value(0))
                 .andExpect(jsonPath("$.data.cycleType").value("INTERVAL_HOURS"))
                 .andExpect(jsonPath("$.data.intervalValue").value(2))
-                .andExpect(jsonPath("$.data.intervalMinutes").value(120));
+                ;
 
         assertThat(jdbcTemplate.queryForObject(
                 "SELECT cycle_type FROM system_scheduled_task WHERE task_code = ?",
@@ -110,19 +110,19 @@ class ScheduledTaskControllerTest extends BaseAuthTest {
         String token = loginAsAdmin();
 
         assertValidationError(token, """
-                {"intervalMinutes":4,"description":"说明","enabled":true}
+                {"cycleType":"INTERVAL_MINUTES","intervalValue":4,"description":"说明","enabled":true}
                 """);
         assertValidationError(token, """
-                {"intervalMinutes":1441,"description":"说明","enabled":true}
+                {"cycleType":"INTERVAL_MINUTES","intervalValue":1441,"description":"说明","enabled":true}
                 """);
         assertValidationError(token, """
-                {"intervalMinutes":60,"description":" ","enabled":true}
+                {"cycleType":"INTERVAL_MINUTES","intervalValue":60,"description":" ","enabled":true}
                 """);
         assertValidationError(token, """
-                {"intervalMinutes":60,"description":"说明"}
+                {"cycleType":"INTERVAL_MINUTES","intervalValue":60,"description":"说明"}
                 """);
         assertValidationError(token, objectMapper.writeValueAsString(java.util.Map.of(
-                "intervalMinutes", 60,
+                "cycleType", "INTERVAL_MINUTES", "intervalValue", 60,
                 "description", "说".repeat(256),
                 "enabled", true)));
     }
@@ -139,7 +139,7 @@ class ScheduledTaskControllerTest extends BaseAuthTest {
     private String validUpdate(boolean enabled) {
         return """
                 {
-                  "intervalMinutes": 30,
+                  "cycleType": "INTERVAL_MINUTES",\n                  "intervalValue": 30,
                   "description": "每隔30分钟同步一次",
                   "enabled": %s
                 }

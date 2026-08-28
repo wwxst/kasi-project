@@ -87,6 +87,7 @@ public class UserManagementServiceImpl implements UserManagementService {
         checkUniqueContacts(mobile, email, id);
         boolean contactChanged = !Objects.equals(mobile, user.getMobile()) || !Objects.equals(email, user.getEmail());
         SessionMutation mutation = contactChanged ? sessionService.beginMutation(SubjectType.USER, id) : null;
+        registerCompletion(mutation);
         user.setMobile(mobile);
         user.setEmail(email);
         user.setNickname(request.getNickname().trim());
@@ -100,7 +101,6 @@ public class UserManagementServiceImpl implements UserManagementService {
         } catch (DuplicateKeyException exception) {
             throw mapDuplicateContact(exception, mobile, email, id);
         }
-        registerCompletion(mutation);
         return toDetailVO(promotionUserMapper.findById(id));
     }
 
@@ -109,10 +109,10 @@ public class UserManagementServiceImpl implements UserManagementService {
     public void updateStatus(Long id, UpdateUserStatusDTO request) {
         requireUserForUpdate(id);
         SessionMutation mutation = sessionService.beginMutation(SubjectType.USER, id);
+        registerCompletion(mutation);
         if (promotionUserMapper.updateStatus(id, request.getStatus()) != 1) {
             throw new IllegalStateException("推广用户状态更新未生效");
         }
-        registerCompletion(mutation);
     }
 
     @Override
@@ -123,10 +123,10 @@ public class UserManagementServiceImpl implements UserManagementService {
         }
         requireUserForUpdate(id);
         SessionMutation mutation = sessionService.beginMutation(SubjectType.USER, id);
+        registerCompletion(mutation);
         if (promotionUserMapper.updatePassword(id, passwordEncoder.encode(request.getNewPassword())) != 1) {
             throw new IllegalStateException("推广用户密码更新未生效");
         }
-        registerCompletion(mutation);
     }
 
     @Override
@@ -137,10 +137,10 @@ public class UserManagementServiceImpl implements UserManagementService {
             throw new BusinessException(ErrorCode.USER_MEDIA_ACCOUNT_BOUND);
         }
         SessionMutation mutation = sessionService.beginMutation(SubjectType.USER, id);
+        registerCompletion(mutation);
         if (promotionUserMapper.deleteById(id) != 1) {
             throw new IllegalStateException("推广用户删除未生效");
         }
-        registerCompletion(mutation);
     }
 
     private PromotionUser requireUser(Long id) {

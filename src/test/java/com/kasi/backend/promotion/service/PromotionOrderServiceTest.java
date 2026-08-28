@@ -160,7 +160,6 @@ class PromotionOrderServiceTest {
         PromotionLink link = new PromotionLink();
         link.setId(21L);
         link.setUserId(11L);
-        link.setMediaAccountId(41L);
         link.setDramaId(51L);
         link.setTrackingNo("tracking-1");
         return link;

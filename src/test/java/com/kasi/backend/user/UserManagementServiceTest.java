@@ -2,6 +2,7 @@ package com.kasi.backend.user;
 
 import com.kasi.backend.common.enums.SubjectType;
 import com.kasi.backend.common.exception.AuthStateUnavailableException;
+import com.kasi.backend.security.entity.SessionMutation;
 import com.kasi.backend.security.service.SessionService;
 import com.kasi.backend.user.dto.ResetUserPasswordDTO;
 import com.kasi.backend.user.dto.UpdateUserDTO;
@@ -78,6 +79,28 @@ class UserManagementServiceTest {
         assertThatThrownBy(() -> service.delete(1L))
                 .isInstanceOf(AuthStateUnavailableException.class);
         verify(promotionUserMapper, never()).deleteById(anyLong());
+    }
+
+    @Test
+    @DisplayName("数据库写失败前已注册Redis会话恢复回调")
+    void databaseFailureRegistersSessionRecoveryBeforeWrite() {
+        PromotionUser user = new PromotionUser();
+        user.setId(1L);
+        SessionMutation mutation = new SessionMutation(SubjectType.USER, 1L, "nonce");
+        when(promotionUserMapper.findByIdForUpdate(1L)).thenReturn(user);
+        when(sessionService.beginMutation(SubjectType.USER, 1L)).thenReturn(mutation);
+        when(promotionUserMapper.updateStatus(1L, 0))
+                .thenThrow(new IllegalStateException("database failure"));
+        UpdateUserStatusDTO request = new UpdateUserStatusDTO();
+        request.setStatus(0);
+
+        assertThatThrownBy(() -> service.updateStatus(1L, request))
+                .isInstanceOf(IllegalStateException.class);
+
+        var order = inOrder(sessionService, promotionUserMapper);
+        order.verify(sessionService).beginMutation(SubjectType.USER, 1L);
+        order.verify(sessionService).registerMutationCompletion(mutation);
+        order.verify(promotionUserMapper).updateStatus(1L, 0);
     }
 
     private PromotionUser prepareRedisFailure() {

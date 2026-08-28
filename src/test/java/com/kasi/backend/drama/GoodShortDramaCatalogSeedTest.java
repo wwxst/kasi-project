@@ -1,13 +1,11 @@
 package com.kasi.backend.drama;
 
-import org.flywaydb.core.Flyway;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.core.io.FileSystemResource;
 import org.springframework.core.io.support.EncodedResource;
 import org.springframework.dao.DataAccessException;
 import org.springframework.jdbc.core.JdbcTemplate;
-import org.springframework.jdbc.datasource.DriverManagerDataSource;
 import org.springframework.jdbc.datasource.init.ScriptUtils;
 
 import java.nio.charset.StandardCharsets;
@@ -21,11 +19,11 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
-import java.util.UUID;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
+import static com.kasi.backend.support.DatabaseInitializationTestSupport.initializeDatabase;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
@@ -89,7 +87,7 @@ class GoodShortDramaCatalogSeedTest {
     @Test
     @DisplayName("本地 GoodShort 种子可重复执行且保持目录 ID 稳定")
     void seedIsIdempotentAndProducesExpectedCatalog() {
-        JdbcTemplate jdbc = migrateAllMigrations();
+        JdbcTemplate jdbc = initializeDatabase("goodshort_seed");
 
         executeSeed(jdbc);
         Map<String, Long> dramaIdsBefore = jdbc.queryForList(
@@ -224,7 +222,7 @@ class GoodShortDramaCatalogSeedTest {
     @Test
     @DisplayName("存在真实 GoodShort 接入时本地种子拒绝写入")
     void seedRejectsExistingRealConnectionWithoutWritingFixtures() {
-        JdbcTemplate jdbc = migrateAllMigrations();
+        JdbcTemplate jdbc = initializeDatabase("goodshort_seed");
         Long providerId = jdbc.queryForObject(
                 "SELECT id FROM short_drama_provider WHERE provider_code = 'GOODSHORT'", Long.class);
         jdbc.update("INSERT INTO short_drama_connection "
@@ -281,22 +279,6 @@ class GoodShortDramaCatalogSeedTest {
         } catch (SQLException | java.io.IOException ex) {
             throw new IllegalStateException("Failed to clean H2 seed temporary tables", ex);
         }
-    }
-
-    private static JdbcTemplate migrateAllMigrations() {
-        DriverManagerDataSource dataSource = new DriverManagerDataSource();
-        dataSource.setDriverClassName("org.h2.Driver");
-        dataSource.setUrl("jdbc:h2:mem:goodshort_seed_" + UUID.randomUUID()
-                + ";MODE=MySQL;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE");
-        dataSource.setUsername("sa");
-        dataSource.setPassword("");
-
-        Flyway.configure()
-                .dataSource(dataSource)
-                .locations("classpath:db/migration")
-                .load()
-                .migrate();
-        return new JdbcTemplate(dataSource);
     }
 
     private static Set<String> parseTemporaryTableNames(String script) {

@@ -88,7 +88,7 @@ public class ScheduledTaskDispatchServiceImpl implements ScheduledTaskDispatchSe
             } catch (RuntimeException exception) {
                 log.error("系统定时任务执行失败: taskCode={}", task.getTaskCode(), exception);
             } finally {
-                taskMapper.completeRun(task.getId(), workerId,
+                taskMapper.completeRun(task.getTaskCode(), workerId,
                         nextRun(task, now));
             }
         }
@@ -96,15 +96,13 @@ public class ScheduledTaskDispatchServiceImpl implements ScheduledTaskDispatchSe
 
     private boolean claim(SystemScheduledTask task, LocalDateTime now) {
         Boolean claimed = transactionTemplate.execute(status ->
-                taskMapper.claimLease(task.getId(), workerId, now,
+                taskMapper.claimLease(task.getTaskCode(), workerId, now,
                         now.plus(properties.getLeaseDuration())) == 1);
         return Boolean.TRUE.equals(claimed);
     }
 
     private LocalDateTime nextRun(SystemScheduledTask task, LocalDateTime now) {
-        if (task.getCycleType() == null || task.getIntervalValue() == null) {
-            return now.plusMinutes(task.getIntervalMinutes());
-        }
+        if (task.getCycleType() == null || task.getIntervalValue() == null) return now.plusHours(1);
         return scheduleCalculator.nextRun(task.getCycleType(), task.getIntervalValue(),
                 task.getIntervalHoursPart(), task.getIntervalMinutesPart(),
                 task.getTimeOfDay(), task.getDayOfWeek(), task.getDayOfMonth(),

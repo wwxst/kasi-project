@@ -4,7 +4,9 @@ import com.kasi.backend.admin.dto.UpdateAdminProfileDTO;
 import com.kasi.backend.admin.entity.SysAdminUser;
 import com.kasi.backend.admin.mapper.SysAdminUserMapper;
 import com.kasi.backend.admin.service.impl.AdminAuthServiceImpl;
+import com.kasi.backend.common.enums.SubjectType;
 import com.kasi.backend.common.exception.BusinessException;
+import com.kasi.backend.security.entity.SessionMutation;
 import com.kasi.backend.security.service.SessionService;
 import com.kasi.backend.security.service.TokenService;
 import org.junit.jupiter.api.DisplayName;
@@ -15,6 +17,7 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
@@ -36,8 +39,10 @@ class AdminAuthServiceTest {
         current.setUsername("kasiadmin");
         SysAdminUser existing = new SysAdminUser();
         existing.setId(2L);
+        SessionMutation mutation = new SessionMutation(SubjectType.ADMIN, 1L, "nonce");
         when(mapper.findByIdForUpdate(1L)).thenReturn(current);
         when(mapper.findByUsername("kasiadmin2")).thenReturn(null, existing);
+        when(sessionService.beginMutation(SubjectType.ADMIN, 1L)).thenReturn(mutation);
         when(mapper.updateProfile(any(SysAdminUser.class)))
                 .thenThrow(new DuplicateKeyException("duplicate"));
         UpdateAdminProfileDTO request = new UpdateAdminProfileDTO();
@@ -48,5 +53,9 @@ class AdminAuthServiceTest {
                 BusinessException.class, () -> service.updateProfile(1L, request));
 
         assertThat(exception.getCode()).isEqualTo(2007);
+        var order = inOrder(sessionService, mapper);
+        order.verify(sessionService).beginMutation(SubjectType.ADMIN, 1L);
+        order.verify(sessionService).registerMutationCompletion(mutation);
+        order.verify(mapper).updateProfile(any(SysAdminUser.class));
     }
 }

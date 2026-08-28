@@ -21,6 +21,20 @@
 9. **保持当前/规划分离**：文档、代码审查和交接中必须明确“当前已实现”“已批准但未实施”“建议/缺口”，不得把计划描述成现状。
 10. **保留用户改动**：禁止用 `git reset --hard`、`git checkout --` 或批量暂存覆盖无关改动；提交时按意图逐文件暂存并复核 diff。
 
+## 最小实现原则（强制）
+
+以最小、最直接、最精简的代码完成当前明确需求。
+
+* 不主动增加测试代码，除非任务明确要求。
+* 不为假设中的未来问题进行防御性编程。
+* 不为尚未出现的场景增加兼容层、兜底逻辑、抽象层或扩展机制。
+* 不提前设计未来可能需要的功能。
+* 优先使用简单、直接、易理解的实现方式，避免过度封装和过度抽象。
+* 只实现当前需求所必需的代码，并尽量保持最小改动范围。
+* 对当前需求明确涉及的必要错误处理和输入边界正常处理，不得为了精简而破坏代码正确性。
+
+**核心原则：只解决现在已经存在的问题，不为假设中的未来编写代码。**
+
 ## 当前项目现状
 
 - 该项目是一个单模块 Spring Boot 应用，位于 `com.kasi.backend` 包下。
@@ -32,11 +46,11 @@
   - `user/` — 推广用户注册、登录、获取当前用户、退出登录、修改密码、忘记密码流程，以及管理员可用的推广用户管理 CRUD
   - `provider/` — 短剧平台定义、接入账号持久层、AES-GCM 密钥加密、GoodShort 签名/连接探测，以及管理员平台接入管理 API
   - `promotion/` — 推广用户媒体账号绑定、GoodShort 账号报备、推广链接、订单归因、CPS 佣金快照、订单共享同步服务、管理员手动补拉及管理员/用户查询导出 API
-  - `drama/` — GoodShort 短剧目录与剧集持久层、全量/增量同步、检查点与租约、平台级分佣规则、`BigDecimal` 计算器、管理员 API 和定时调度
+  - `drama/` — GoodShort 短剧目录与剧集持久层、全量/增量同步、检查点与租约、平台级分佣规则、剧集资源缓存、HLS/直链下载任务、ZIP 与过期清理
   - `auth/` — 可复用的验证码服务和密码重置 Token 机制（Redis 存储，Lua 原子消费/预占，TTL 自动过期）
-- 数据库迁移：`V1__kasi_promotion.sql` 创建基础业务表并植入唯一初始超级管理员，`V13__promotion_task.sql` 增加推广任务，`V14__provider_drama_promotion_metadata.sql` 增加短剧本地推广元数据，`V15__promotion_order_and_rule_history.sql` 增加分佣历史快照和推广订单，`V16__goodshort_drama_catalog_complete_fields.sql` 增加 GoodShort 短剧列表完整字段，`V17__goodshort_order_scheduled_sync.sql` 增加 GoodShort 订单自动同步任务；不植入平台接入密钥。目录默认同步 `ENGLISH`，全量调用 `initBooks`，增量调用 `incrementBooks`；目录同步不覆盖本地推广元数据。验证码和密码重置 Token 等临时数据由 Redis（`vc:*`、`pwd:*` 键）管理，TTL 自动过期。
-- `scripts/dev/seed_goodshort_drama_catalog.sql` 是 Flyway 之外的手动开发 seed，仅创建禁用且无凭据的 GoodShort 本地 fixture 连接；仅限本地使用，并必须通过遇错即停的 fail-fast 客户端执行。
-- 项目当前仍处于开发阶段，数据库可以删除重建；修改已执行的迁移后应重建开发数据库。未来生产首次建库也按 Flyway 版本顺序执行并植入初始账号，不新增运行时账号植入器。
+- 数据库使用唯一初始化文件 `src/main/resources/db/kasi_promotion.sql`，一次创建当前全部业务表、索引、外键和固定初始数据；不保留 Flyway 或版本迁移，也不植入平台接入密钥。
+- `scripts/dev/seed_goodshort_drama_catalog.sql` 是初始化之外的手动开发 seed，仅创建禁用且无凭据的 GoodShort 本地 fixture 连接；仅限本地使用，并必须通过遇错即停的 fail-fast 客户端执行。
+- 项目当前仍处于开发阶段，数据库可以删除重建。应用启动不自动建表或升级；schema 变化后应删除开发数据库，对空库重新执行唯一初始化 SQL。
 - 会话状态由 Redis（`auth:version:{type}:{userId}`、`auth:session:{jti}`）管理。JWT 携带 `jti`、`sessionVersion`，受保护请求必须同时校验签名、账号状态和 Redis 会话；Redis 不可用时安全失败返回 503，不能降级放行。
 - 修改密码、密码重置等敏感 MySQL 状态变更会先将账号版本切换为 `MUTATING:{nonce}`，事务提交或回滚完成后都按 nonce 恢复新的 `ACTIVE:*` 版本，使旧 Token 失效且数据库异常不会长期遗留 `MUTATING`。普通 logout 只撤销当前 `jti` 会话。
 - 管理员本人通过 `PUT /api/admin/auth/password` 修改密码时只提交新密码和确认密码，不要求原密码；成功后当前账号的旧 Token 全部失效。推广用户本人改密仍要求原密码。
@@ -46,16 +60,20 @@
 - 管理员只使用必填 `real_name`，不使用 `nickname`。`sys_admin_user` 不保留 `deleted_at`；管理员删除只执行物理 `DELETE`，删除后账号、手机号和邮箱可以复用。
 - 管理员头像只允许通过详情头像上传入口修改：本人使用 `PUT /api/admin/auth/avatar`，超级管理员修改普通管理员使用 `PUT /api/admin/management/{id}/avatar`。文件限制为 JPG/PNG/WebP、最大 2 MB，本地目录由 `APP_UPLOAD_DIR` 配置；新增和资料编辑 DTO 不接收头像 URL。
 - 推广用户不使用独立 `username`，只用手机号或邮箱登录；`user_no` 是后端生成的 12 位随机数字展示编号，内部关联继续使用自增 `id`。普通用户登录和本人信息 JSON 不返回内部 `id`，JWT `sub` 仍按现有认证契约保存内部 `id`。超级管理员和普通管理员均可通过 `/api/user/management/**` 分页、搜索、新增、编辑、启禁用、重置密码和物理删除推广用户。
+- 普通用户自助注册时，后端在创建账号时生成并持久化默认昵称 `卡司用户` 加 5 位数字后缀；后缀取本次 12 位随机 `user_no` 的末 5 位并保留前导零。管理员创建或编辑推广用户时继续使用请求中的昵称。
 - 推广用户联系方式、状态、密码和删除等敏感管理操作先进入 Redis `MUTATING` 状态；Redis 失败时不得写 MySQL。绑定媒体账号的推广用户删除会返回 `USER_MEDIA_ACCOUNT_BOUND(3014)`，只能禁用；未绑定媒体账号的用户仍可物理删除。
 - 推广链接生成的 GoodShort HTTP 调用必须在数据库事务之外；`PENDING`、`SUCCESS`、`FAILED` 状态分别通过独立短事务持久化。订单同步遇到 `(connection_id, external_order_id)` 唯一键并发冲突时回读已有订单，不重写同步流程。
 - 管理后台 Dashboard 当前只显示当前管理员欢迎语，不展示静态 Demo 卡片；侧边栏、品牌链接、搜索回车和兜底路由统一使用 `/user-management`，真实数据大屏仍未实现。
 - `sys_admin_user` 和 `promotion_user` 均不保留 `deleted_at`；媒体账号表同样不保留 `deleted_at`，媒体账号不提供物理删除。
 - 媒体账号用户 API 位于 `/api/user/promotion/media-accounts`，管理员 API 位于 `/api/admin/promotion/media-accounts`；管理员支持分页查询、详情、编辑和失败报备重试，未加白时允许纠正媒体平台和账号 ID，已加白后锁定身份字段。响应不暴露平台连接 ID、PID、密钥或任务租约字段。报备任务默认每 30 秒领取到期任务，提交后 1 分钟首次查询，审核中每 5 分钟查询，已加白每 24 小时复核。
-- 短剧目录管理员 API 位于 `/api/admin/drama/catalog`；普通管理员和超级管理员均可分页查询、查看详情、触发同步、查询同步状态、修改本地上下架和维护短剧推广元数据（`PUT /api/admin/drama/catalog/{id}/promotion-metadata`）。同步默认每 5 分钟处理到期任务，支持断点续跑、过期租约接管和同连接/语言跨 FULL、INCREMENTAL 互斥；远端同步不得覆盖 `local_status` 或本地推广元数据，也不得物理删除本次未返回的历史短剧。
+- 短剧目录管理员 API 位于 `/api/admin/drama/catalog`；普通管理员和超级管理员均可分页查询、查看详情、触发同步、查询同步状态、修改本地上下架和维护短剧推广元数据（`PUT /api/admin/drama/catalog/{id}/promotion-metadata`）。同步默认每 5 分钟处理到期任务，支持断点续跑、过期租约接管和同连接/语言跨 FULL、INCREMENTAL 互斥；新同步的甲方在线短剧默认 `PUBLISHED`，甲方非在线时同步为 `OFFLINE`，已有已上架短剧遇甲方下架时自动下架，甲方恢复在线不自动重新上架；本地推广元数据不被覆盖，也不物理删除本次未返回的历史短剧。
+- 用户端短剧 API `/api/user/promotion/dramas` 只返回本地已上架且甲方在线的短剧，列表按甲方 `remoteCreatedAt` 发布时间倒序（`remote_created_at DESC, id DESC`）分页，不使用本地 `createdAt` 代替发布时间。
+- 用户端短剧详情资源 API 为 `GET /api/user/promotion/dramas/{id}/free-content`，仅对已上架且甲方在线的短剧调用 GoodShort `/open/book/freeContent`。资源在 Redis 缓存 5 分钟，`refresh=true` 可强制失效刷新；返回 URL 必须命中 `GOODSHORT_MEDIA_HOSTS` 且不得指向内网、非标准端口或含用户信息。
+- 用户短剧素材下载通过 `POST /api/user/promotion/dramas/{dramaId}/downloads` 创建本人任务，`GET /api/user/promotion/downloads/{taskId}` 查询进度，`GET /api/user/promotion/downloads/{taskId}/file` 下载 ZIP。HLS 由 FFmpeg 合并为 MP4，普通资源流式保存并受连接 10 秒、单次读取 30 秒超时限制；单集失败最多重试 3 次，403/404 只刷新一次资源地址，任务文件默认 24 小时过期并由调度器清理。用户只能读取自己的任务和文件。
 - GoodShort 目录响应的 `bookId`、`bookName`、`bookNameZh`、`bookCover`、`labelNames`、`introduce`、`typeTwoName`、`language`、`rank`、`showStatus`、`novelType`、`novelSubType`、`ctime`、`utime` 全部转换为本地领域字段并保存；`labelNames` 使用 JSON 文本保存，管理端和用户端目录 VO 返回对应的 `titleZh`、`coverUrl`、`labelNames`、`categoryName`、`remoteRank`、`novelType`、`novelSubType`、`remoteCreatedAt`、`remoteUpdatedAt` 字段。增量请求按文档发送 `utimeStart`/`utimeEnd`。
 - 短剧平台分佣规则 API 位于 `/api/admin/drama/providers/{providerId}/commission-rules`：普通管理员和超级管理员均可 `GET`，只有超级管理员可 `POST` 首次设置和 `PUT` 覆盖。每个平台一条当前规则、无时间段/状态/删除；每次写入同步产生不可变 `provider_commission_rule_history` 快照。API 使用 `0..100` 百分比，数据库和订单快照使用 `0..1` 高精度比例；计算器最终金额保留两位并按 `HALF_UP` 四舍五入。
 - 推广链接和订单级 CPS 最小闭环已实现：用户通过 `/api/user/promotion/links` 生成 GoodShort 链接/口令，`requestKey` 幂等并保存 `trackingNo`；`GOODSHORT_ORDER_SYNC` 每分钟自动同步最近 3 天，管理员仍可通过 `POST /api/admin/promotion/orders/sync` 手动补拉指定范围，订单以 `(connection_id, external_order_id)` 幂等，仅按 `customParams -> tracking_no -> user_id` 归因并保存原始 JSON 和五费率快照。管理员和用户分别可查询/CSV 导出，用户月度归属按 `paid_at`；退款保留原佣金并标记 `REVERSED`。正式账单、钱包、提现和转化分析仍未实现。
-- 推广任务创建已实现：用户通过 `/api/user/promotion/tasks` 提交短剧、任务名称和多个推广平台，后端按平台拆分并以 `(userId, requestKey, mediaType)` 幂等，`GET` 返回任务链接字段及点击、引流、订单、广告统计字段。当前创建状态为 `PENDING`，GoodShort 真实链接/口令生成和统计同步尚未实现；快速上线用户端继续以真实 `PromotionLink` 为入口，不展示任务中的 0 值统计。
+- 推广任务壳已删除；用户端以真实 `PromotionLink` 为推广入口。
 - 定时任务管理 API 位于 `/api/admin/system/scheduled-tasks`；固定任务 `GOODSHORT_DRAMA_INCREMENTAL_SYNC` 默认每 60 分钟入队，`GOODSHORT_ORDER_SYNC` 默认每 1 分钟同步最近 3 天；首次全量同步必须手动完成且成功基线存在后才会自动创建增量任务。周期支持 `INTERVAL_SECONDS/MINUTES/HOURS/DAYS`、`DAILY`、`WEEKLY`、`MONTHLY`、`YEARLY`，`INTERVAL_HOURS` 使用小时数和 `interval_minutes_part` 分钟余量，`INTERVAL_DAYS` 使用天数、`interval_hours_part` 小时余量和 `interval_minutes_part` 分钟余量；日历型周期同时保存执行时间及对应星期/日期字段。每分钟调度器扫描并执行到期任务，订单与目录任务复用同一分发器和数据库租约；普通管理员只读，超级管理员可编辑周期、说明和启停状态。
 - Git 仓库：`https://github.com/wwxst/kasi-backend.git`，远程 `origin`，分支 `master`。
 - 在文档和代码审查中，请将当前架构与规划架构区分开来。不要将规划中的模块描述为已实现的模块。
@@ -88,7 +106,7 @@ java -version
 - 平台分佣规则聚焦校验（PowerShell 需使用 `--%` 原样传递逗号列表）：`./mvnw.cmd --% -Dtest=ProviderCommissionRuleMigrationTest,ProviderCommissionRulePersistenceTest,ProviderCommissionCalculatorTest,ProviderCommissionRuleServiceTest,ProviderCommissionRuleConcurrencyTest,ProviderCommissionRuleControllerTest test`。
 - 提交更改前运行 `git diff --check`。
 - 在没有显示零错误的最新输出之前，不要宣称测试套件是健康的。
-- 每新增一个控制器、服务、映射器、迁移脚本或安全规则，都应添加针对性的测试。优先使用可复现的测试数据库，而非开发人员本机数据库。
+- 每新增一个控制器、服务、映射器、数据库结构或安全规则，都应添加针对性的测试。优先使用可复现的测试数据库，而非开发人员本机数据库。
 
 ## 配置与密钥
 
@@ -96,12 +114,12 @@ java -version
 - 数据源设置优先使用环境变量或特定 profile 的本地配置。标准的 Spring Boot 变量为 `SPRING_DATASOURCE_URL`、`SPRING_DATASOURCE_USERNAME` 和 `SPRING_DATASOURCE_PASSWORD`。
 - 将生产环境与测试环境的数据源配置分开。不要让默认测试依赖于开发人员的 MySQL 实例。
 
-## 数据库与 Flyway
+## 数据库初始化
 
-- Flyway 当前按 `V1`、`V13`、`V14`、`V15`、`V16`、`V17` 顺序迁移；开发阶段可删除数据库后重建，已有 V14 数据库通过 V15、V16、V17 增量增加订单、规则历史、GoodShort 短剧完整字段和订单自动同步任务。后续 schema 变更继续新增更高版本迁移，不修改已发布迁移。
-- 当前不启用 `baseline-on-migrate`。没有 Flyway 历史表的非空数据库必须明确失败，禁止为兼容旧库而静默跳过 V1。
-- 迁移脚本必须针对已选定的 schema。不要在应用迁移脚本中放置针对固定本地数据库的 `CREATE DATABASE` 或 `USE` 语句。
-- 迁移中修改的会话设置（包括 `FOREIGN_KEY_CHECKS`），若确实需要，应在迁移完成后恢复。
+- `src/main/resources/db/kasi_promotion.sql` 是生产数据库结构的唯一真理源，只允许对已选定的空 schema 手动执行。
+- 应用不包含 Flyway，也不自动创建、升级或修补数据库；禁止为已有数据库增加历史兼容 SQL。开发阶段 schema 变化后直接删除并重建数据库。
+- 初始化 SQL 不包含针对固定本地数据库的 `CREATE DATABASE` 或 `USE` 语句。
+- 初始化中若修改会话设置（包括 `FOREIGN_KEY_CHECKS`），必须在脚本完成前恢复。
 - 慎重添加外键和约束。`department_id`、`created_by` 和 `updated_by` 目前没有对应的引用表或约束。
 - 在实现账号复用或恢复流程之前，请协调好软删除行为与唯一账号字段之间的关系。
 - 保持 schema 注释、状态值、密码存储假设以及服务层校验的一致性。
@@ -149,7 +167,7 @@ java -version
 ## 测试编写规范
 
 - 认证模块测试**必须继承** [BaseAuthTest.java](src/test/java/com/kasi/backend/BaseAuthTest.java)，它提供了 H2 数据库初始化、测试数据准备和登录辅助方法。
-- 数据库迁移测试不属于认证接口测试，可以不继承 `BaseAuthTest`；应使用隔离的 H2 MySQL 模式数据库实际执行生产迁移。
+- 数据库初始化测试不属于认证接口测试，可以不继承 `BaseAuthTest`；应使用隔离的 H2 MySQL 模式数据库实际执行生产初始化 SQL。
 - 每个测试方法使用 `@DisplayName` 注解写中文描述。
 - 测试命名采用 `{方法名}_{场景}_{预期结果}` 驼峰格式（如 `loginWithWrongPassword`）。
 - 调用受保护接口时，通过 `loginAsAdmin()` / `loginAsUser()` 获取 Token，不要手动构造 JWT。
@@ -175,20 +193,20 @@ java -version
 - Service 层涉及**多条写操作**（插入/更新/删除）的方法必须使用 `@Transactional`。
 - 只读操作（`SELECT`）建议使用 `@Transactional(readOnly = true)` 以优化数据库性能。
 - 事务边界应定义在 Service 方法上，**不要在 Controller 层开启事务**。
-- 当前认证模块中需要事务的场景：用户注册（插入用户 + 标记验证码已用）、密码重置（数据库更新密码；Redis Token 在成功提交后删除）。敏感状态变更前必须先完成 Redis 会话失效/进入 `MUTATING`，Redis 失败不得继续修改密码等关键状态。
+- 当前认证模块中需要事务的场景：用户注册（插入用户 + 标记验证码已用）、密码重置（数据库更新密码；Redis Token 在成功提交后删除、回滚时恢复 `READY`）。敏感状态变更前必须先完成 Redis 会话失效/进入 `MUTATING`，并在 MySQL 写入前注册事务完成回调；Redis 失败不得继续修改密码等关键状态。
 
 ## 安全
 
 - 仅引入 Security Starter 并不构成一个认证设计方案。在暴露账号端点之前，请先定义登录机制、会话或令牌生命周期、密码哈希、角色以及 401/403 行为。
 - 切勿比较或持久化原始密码。使用强 `PasswordEncoder`，并同时测试认证成功和被拒绝的路径。
-- 固定初始超级管理员账号为 `admin`，初始推广用户邮箱为 `19193171667@163.com`；两者密码只以 BCrypt 哈希写入 V1，首次登录后应立即修改默认密码。不得把明文密码写入数据库、日志或 API 响应。
+- 固定初始超级管理员账号为 `admin`，初始推广用户邮箱为 `19193171667@163.com`；两者密码只以 BCrypt 哈希写入唯一初始化 SQL，首次登录后应立即修改默认密码。不得把明文密码写入数据库、日志或 API 响应。
 - 将 `is_super_admin` 和 `status` 视为领域规则，而非受信任的请求字段。
 - 验证码发送器按 profile 隔离：`local` 仅使用 `ConsoleVerificationCodeSender`，`test` 使用测试 sender；生产环境必须提供真实 sender，不能以 Console 输出代替实际投递。
 
 ## 文档规则
 
 - **每次完成一个功能更新或代码变更后，必须同步更新和沉淀相关文档**（包括本 AGENTS.md、README.md 以及相关模块的设计文档），确保文档与代码保持一致。
-- 当命令、模块边界、数据库迁移或运行时前置条件发生变化时，请更新 [README.md]。
+- 当命令、模块边界、数据库初始化或运行时前置条件发生变化时，请更新 [README.md]。
 - 将已验证的当前行为与未来工作或建议分开记录。
 - 除非有意更改 schema 契约，否则保留原有的中文数据库注释和技术名称。
 - 不要在聚焦任务中添加无关的重构、生成文件或元数据变更。
@@ -199,3 +217,4 @@ java -version
 # 当前分佣规则覆盖说明（2026-08-22）
 
 平台分佣规则采用默认配置：每个平台一条记录、无时间限制、无状态、不可删除；POST 首次设置，PUT 直接覆盖五项费率。普通管理员只读，超级管理员可设置和编辑。
+- 推广链接当前按批次、媒体平台和 `LANDING/ONELINK` 变体生成，不绑定媒体账号或报白状态；每个平台两条记录共享 `batch_no`，每条记录使用独立 `tracking_no/customParams`，失败变体可单独重试。

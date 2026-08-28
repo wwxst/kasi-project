@@ -28,7 +28,8 @@ public class PromotionUserCreationServiceImpl implements PromotionUserCreationSe
             user.setId(null);
             user.setUserNo(userNumberGenerator.generate());
             if (defaultNickname) {
-                user.setNickname("用户" + user.getUserNo());
+                String userNo = user.getUserNo();
+                user.setNickname("卡司用户" + userNo.substring(userNo.length() - 5));
             }
             try {
                 if (promotionUserMapper.insert(user) != 1) {
