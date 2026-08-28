@@ -13,6 +13,4 @@ public class ProviderDramaContent {
     private Boolean free;
     private Integer durationSeconds;
     private LocalDateTime remoteUpdatedAt;
-    private LocalDateTime createdAt;
-    private LocalDateTime updatedAt;
 }

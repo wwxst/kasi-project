@@ -18,6 +18,4 @@ public class DramaDownloadTask {
     private Integer completedCount;
     private String errorMessage;
     private LocalDateTime expiresAt;
-    private LocalDateTime createdAt;
-    private LocalDateTime updatedAt;
 }

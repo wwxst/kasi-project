@@ -10,8 +10,6 @@ import java.time.LocalDateTime;
 
 @Data
 public class PromotionOrder {
-    @Deprecated private LocalDateTime firstSyncedAt;
-    @Deprecated private Long mediaAccountId;
     private Long id;
     private Long connectionId;
     private Long providerId;

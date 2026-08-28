@@ -1,15 +1,15 @@
 # 数据库逻辑关联与字段精简设计
 
 - 日期：2026-08-28
-- 状态：设计已确认，实施计划已完成，待实施
-- 范围：`src/main/resources/db/kasi_promotion.sql`、H2 测试 schema、推广任务模块、数据库映射和相关文档
+- 状态：已实施
+- 范围：`src/main/resources/db/kasi_promotion.sql`、H2 测试 schema、推广链接/订单模块、数据库映射和相关文档
 - 前置决策：开发数据库可删除重建；本次不提供迁移脚本，也不操作现有数据库
 
 ## 背景
 
-当前唯一初始化 SQL 和测试 schema 都声明了物理外键及删除级联。业务代码同时存在关联存在性和归属校验，形成数据库约束与应用约束并存的混合模型。
+当前唯一初始化 SQL 和测试 schema 均不声明物理外键或数据库级联；业务代码通过 Service 完成关联存在性和归属校验，形成统一的应用层逻辑关联模型。
 
-`promotion_task` 只有创建和查询记录的接口，任务始终停留在 `PENDING`，没有真实链接生成、统计同步或任务执行器。当前可用推广链路由 `promotion_link`、`promotion_order` 和佣金快照完成。
+`promotion_task` 及其创建、查询接口已删除；该任务壳没有真实链接生成、统计同步或任务执行器。当前可用推广链路由 `promotion_link`、`promotion_order` 和佣金快照完成。
 
 ## 已确认目标
 
@@ -26,11 +26,11 @@
 
 ### 删除整套未闭环模块
 
-删除 `promotion_task` 表及其 Controller、DTO、Entity、Mapper、Service、VO、枚举、XML 和测试。删除用户端 `/api/user/promotion/tasks` 创建与查询接口。
+已删除 `promotion_task` 表及其 Controller、DTO、Entity、Mapper、Service、VO、枚举、XML 和测试，并删除用户端 `/api/user/promotion/tasks` 创建与查询接口。
 
 ### 删除已确认无消费者或兼容意义的字段
 
-以下字段从生产 SQL、测试 schema、Entity、Mapper 和直接响应模型中同步删除：
+以下字段已从生产 SQL、测试 schema、Entity、Mapper 和直接响应模型中同步删除：
 
 ```text
 system_scheduled_task
@@ -42,6 +42,8 @@ system_scheduled_task
 
 promotion_link
   provider_code        与 provider_id 重复且无读取消费者
+  media_account_name   当前 schema 无此列，且没有读取消费者
+  landing_type         当前 schema 无此列，且没有读取消费者
   custom_params        链接表对 GoodShort 回传值的重复存储；本地归因键是 tracking_no
 
 promotion_order
@@ -102,6 +104,8 @@ drama_download_task
 
 保留主键、唯一键、非空约束、状态值校验和实际查询索引。删除字段后同步删除只服务于这些字段的索引；不新增面向假设查询的索引。应用层逻辑关联字段仍使用现有命名和类型，避免无意义的兼容列。
 
+生产初始化 SQL 与 H2 测试 schema 保持相同的 `idx_*` 查询索引名称和列顺序；测试契约按索引名及列清单逐项比较。
+
 ## API 与映射
 
 - 定时任务标题从 `ScheduledTaskCode` 枚举生成；周期使用 `cycle_type`、`interval_value` 及余数字段。
@@ -111,7 +115,7 @@ drama_download_task
 
 ## 验证
 
-- 初始化结构测试读取生产 SQL，断言两个 schema 中禁止关键字和删除级联数量均为零。
+- 初始化结构测试读取生产 SQL，断言两个 schema 中禁止关键字和删除级联数量均为零，并比较生产与测试 schema 的查询索引集合。
 - 优先调整并运行现有账号、平台接入、短剧目录、推广链接、订单、下载任务和定时任务测试；只有删除后历史事实仍可查询这一关键行为没有现有覆盖时，才增加最小必要测试。
 - 使用 Java 25 执行聚焦测试、完整 Maven 测试和 `git diff --check`。
 - 不连接、删除或重建用户当前开发数据库；交付说明只给出用户手动重建步骤。

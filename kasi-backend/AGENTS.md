@@ -48,7 +48,7 @@
   - `promotion/` — 推广用户媒体账号绑定、GoodShort 账号报备、推广链接、订单归因、CPS 佣金快照、订单共享同步服务、管理员手动补拉及管理员/用户查询导出 API
   - `drama/` — GoodShort 短剧目录与剧集持久层、全量/增量同步、检查点与租约、平台级分佣规则、剧集资源缓存、HLS/直链下载任务、ZIP 与过期清理
   - `auth/` — 可复用的验证码服务和密码重置 Token 机制（Redis 存储，Lua 原子消费/预占，TTL 自动过期）
-- 数据库使用唯一初始化文件 `src/main/resources/db/kasi_promotion.sql`，一次创建当前全部业务表、索引、外键和固定初始数据；不保留 Flyway 或版本迁移，也不植入平台接入密钥。
+- 数据库使用唯一初始化文件 `src/main/resources/db/kasi_promotion.sql`，一次创建当前全部业务表、索引和固定初始数据；所有 `*_id` 仅作为逻辑关联，由 Service 校验存在性与归属，不使用物理外键或数据库级联；不保留 Flyway 或版本迁移，也不植入平台接入密钥。
 - `scripts/dev/seed_goodshort_drama_catalog.sql` 是初始化之外的手动开发 seed，仅创建禁用且无凭据的 GoodShort 本地 fixture 连接；仅限本地使用，并必须通过遇错即停的 fail-fast 客户端执行。
 - 项目当前仍处于开发阶段，数据库可以删除重建。应用启动不自动建表或升级；schema 变化后应删除开发数据库，对空库重新执行唯一初始化 SQL。
 - 会话状态由 Redis（`auth:version:{type}:{userId}`、`auth:session:{jti}`）管理。JWT 携带 `jti`、`sessionVersion`，受保护请求必须同时校验签名、账号状态和 Redis 会话；Redis 不可用时安全失败返回 503，不能降级放行。
@@ -120,7 +120,7 @@ java -version
 - 应用不包含 Flyway，也不自动创建、升级或修补数据库；禁止为已有数据库增加历史兼容 SQL。开发阶段 schema 变化后直接删除并重建数据库。
 - 初始化 SQL 不包含针对固定本地数据库的 `CREATE DATABASE` 或 `USE` 语句。
 - 初始化中若修改会话设置（包括 `FOREIGN_KEY_CHECKS`），必须在脚本完成前恢复。
-- 慎重添加外键和约束。`department_id`、`created_by` 和 `updated_by` 目前没有对应的引用表或约束。
+- 数据库统一不使用物理外键及数据库级联；`department_id`、`created_by` 和 `updated_by` 等关联字段由应用层按业务需要校验，不依赖数据库外键异常维护完整性。
 - 在实现账号复用或恢复流程之前，请协调好软删除行为与唯一账号字段之间的关系。
 - 保持 schema 注释、状态值、密码存储假设以及服务层校验的一致性。
 - **字符集统一为 UTF-8**：JDBC URL 中 `characterEncoding` 必须使用 `UTF-8`（Java 标准名称），禁止使用 `utf8mb4`（MySQL 内部名称，MySQL Connector/J 9.x 不识别）。SQL 脚本中建表统一使用 `utf8mb4`。

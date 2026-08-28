@@ -28,6 +28,4 @@ public class ProviderMediaFiling {
     private String lastErrorMessage;
     private String leaseOwner;
     private LocalDateTime leaseUntil;
-    private LocalDateTime createdAt;
-    private LocalDateTime updatedAt;
 }

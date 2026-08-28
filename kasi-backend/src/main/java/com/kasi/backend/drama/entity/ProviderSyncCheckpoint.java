@@ -7,8 +7,6 @@ import java.time.LocalDateTime;
 
 @Data
 public class ProviderSyncCheckpoint {
-    @Deprecated private Integer totalUpserted;
-    @Deprecated private Integer skippedCount;
     private Long id;
     private Long connectionId;
     private DramaSyncType syncType;

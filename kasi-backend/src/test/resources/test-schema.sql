@@ -62,7 +62,8 @@ CREATE TABLE IF NOT EXISTS sys_admin_user (
     updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     UNIQUE (username),
     UNIQUE (mobile),
-    UNIQUE (email)
+    UNIQUE (email),
+    INDEX idx_admin_status (status)
 );
 
 CREATE TABLE IF NOT EXISTS promotion_user (
@@ -83,7 +84,9 @@ CREATE TABLE IF NOT EXISTS promotion_user (
     updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     UNIQUE (user_no),
     UNIQUE (mobile),
-    UNIQUE (email)
+    UNIQUE (email),
+    INDEX idx_status (status),
+    INDEX idx_created_at (created_at)
 );
 
 CREATE TABLE IF NOT EXISTS promotion_media_account (
@@ -97,7 +100,8 @@ CREATE TABLE IF NOT EXISTS promotion_media_account (
     data_version INT NOT NULL DEFAULT 1,
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    UNIQUE (media_type, external_account_id));
+    UNIQUE (media_type, external_account_id),
+    INDEX idx_media_account_user_status (user_id, status));
 
 CREATE TABLE IF NOT EXISTS provider_media_filing (
     id BIGINT AUTO_INCREMENT PRIMARY KEY,
@@ -120,7 +124,9 @@ CREATE TABLE IF NOT EXISTS provider_media_filing (
     last_error_message VARCHAR(512) DEFAULT NULL,
     lease_owner VARCHAR(64) DEFAULT NULL,
     lease_until TIMESTAMP DEFAULT NULL,
-    UNIQUE (connection_id, media_account_id));
+    UNIQUE (connection_id, media_account_id),
+    INDEX idx_filing_due_task (next_action, next_action_at),
+    INDEX idx_filing_media_account (media_account_id));
 
 CREATE TABLE IF NOT EXISTS provider_drama (
     id BIGINT AUTO_INCREMENT PRIMARY KEY,
@@ -147,7 +153,8 @@ CREATE TABLE IF NOT EXISTS provider_drama (
     last_seen_at TIMESTAMP,
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    UNIQUE (connection_id, external_drama_id));
+    UNIQUE (connection_id, external_drama_id),
+    INDEX idx_provider_drama_query (connection_id, language, local_status));
 
 CREATE TABLE IF NOT EXISTS provider_drama_content (
     id BIGINT AUTO_INCREMENT PRIMARY KEY,
@@ -181,7 +188,8 @@ CREATE TABLE IF NOT EXISTS promotion_link (
     updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     UNIQUE (tracking_no),
     UNIQUE (user_id, request_key, media_type, link_variant),
-    INDEX idx_test_promotion_link_batch (user_id, batch_no));
+    INDEX idx_promotion_link_user_created (user_id, created_at),
+    INDEX idx_promotion_link_batch (user_id, batch_no));
 
 
 
@@ -195,7 +203,8 @@ CREATE TABLE IF NOT EXISTS provider_commission_rule_history (
     downstream_fee_rate DECIMAL(12, 10) NOT NULL,
     downstream_commission_rate DECIMAL(12, 10) NOT NULL,
     created_by BIGINT NOT NULL,
-    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP);
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    INDEX idx_commission_rule_history_provider (provider_id, id));
 
 CREATE TABLE IF NOT EXISTS promotion_order (
     id BIGINT AUTO_INCREMENT PRIMARY KEY,
@@ -235,7 +244,9 @@ CREATE TABLE IF NOT EXISTS promotion_order (
     last_error_message VARCHAR(512),
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    UNIQUE (connection_id, external_order_id));
+    UNIQUE (connection_id, external_order_id),
+    INDEX idx_promotion_order_user_paid (user_id, paid_at),
+    INDEX idx_promotion_order_attribution (attribution_status, paid_at));
 
 CREATE TABLE IF NOT EXISTS provider_sync_checkpoint (
     id BIGINT AUTO_INCREMENT PRIMARY KEY,
@@ -258,7 +269,8 @@ CREATE TABLE IF NOT EXISTS provider_sync_checkpoint (
     lease_until TIMESTAMP,
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    UNIQUE (connection_id, sync_type, language));
+    UNIQUE (connection_id, sync_type, language),
+    INDEX idx_provider_sync_due (status, requested_at, lease_until));
 
 CREATE TABLE IF NOT EXISTS system_scheduled_task (
     task_code VARCHAR(64) NOT NULL PRIMARY KEY,

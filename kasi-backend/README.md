@@ -167,7 +167,9 @@ SOURCE E:/JavaProjects/kasi-project/kasi-backend/src/main/resources/db/kasi_prom
 .\mvnw.cmd spring-boot:run
 ```
 
-应用启动时不会自动创建或升级数据库。`kasi_promotion.sql` 只面向空库，直接创建当前全部表、索引、外键和固定初始数据。
+应用启动时不会自动创建或升级数据库。`kasi_promotion.sql` 只面向空库，直接创建当前全部表、索引和固定初始数据；所有 `*_id` 仅作为逻辑关联，由 Service 校验存在性与归属，不使用物理外键或数据库级联。
+
+生产初始化 SQL 与 `src/test/resources/test-schema.sql` 使用相同的 `idx_*` 查询索引名称和列顺序；实体仅保留当前 schema 和业务响应实际使用的字段。
 
 - 管理员账号：`admin`
 - 管理员初始密码：`12345678`
@@ -491,7 +493,7 @@ Java 21 下编译会因 `release 25` 失败，必须使用 Java 25。
 1. ✅ 使用 BCrypt 密码哈希和可测试的认证流程。
 2. ✅ 定义了角色权限（ROLE_ADMIN / ROLE_USER）、状态规则和 401/403 契约。
 3. ✅ 管理员和推广用户管理均采用物理删除，删除后的唯一账号或联系方式可以复用。
-4. ⬜ 补齐 `department_id`、`created_by`、`updated_by` 的外键或明确不加外键的理由。
+4. ✅ 已明确 `department_id`、`created_by`、`updated_by` 等关联字段由应用层校验，不使用物理外键或数据库级联。
 5. ⬜ 补充审计字段的自动填充（`created_by`、`updated_by`）。
 
 ### P2：后续规划
