@@ -20,11 +20,15 @@ export interface DramaCatalogListItem {
   externalDramaId: string
   title: string | null
   originalTitle: string | null
+  titleZh: string | null
   coverUrl: string | null
+  labelNames: string[] | null
   language: string | null
   dramaType: string | null
+  categoryName: string | null
   remoteShowStatus: string | null
   localStatus: DramaLocalStatus
+  remoteCreatedAt: string | null
   remoteUpdatedAt: string | null
   lastSeenAt: string | null
   updatedAt: string | null

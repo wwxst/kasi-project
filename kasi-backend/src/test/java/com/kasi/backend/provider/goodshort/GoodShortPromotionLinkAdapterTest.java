@@ -60,11 +60,30 @@ class GoodShortPromotionLinkAdapterTest {
 
         var result = adapter.generatePromotionLink(CONNECTION,
                 new PromotionLinkRequest("book-1", "tracking-1",
-                        com.kasi.backend.promotion.enums.MediaType.TIKTOK, "DEFAULT"));
+                        com.kasi.backend.promotion.enums.MediaType.TIKTOK, "LANDING"));
 
         assertThat(result.externalCode()).isEqualTo("54788");
         assertThat(result.customParams()).isEqualTo("tracking-1");
         assertThat(result.shareUrl()).contains("54788");
+        server.verify();
+    }
+
+    @Test
+    @DisplayName("OneLink变体发送shareUrlType=2")
+    void generatesOneLinkVariant() {
+        var parameters = new java.util.LinkedHashMap<String, Object>();
+        parameters.put("pid", "partner-1"); parameters.put("bookId", "book-1");
+        parameters.put("customParams", "tracking-2"); parameters.put("shareUrlType", 2);
+        parameters.put("codeMedia", "YOUTUBE"); parameters.put("timestamp", 1681810530092L);
+        server.expect(requestTo("https://goodshort.test/open/inviteCode/generate/partner/code"))
+                .andExpect(header("sign", signer.sign(parameters, KEY)))
+                .andExpect(content().json("{\"pid\":\"partner-1\",\"bookId\":\"book-1\",\"customParams\":\"tracking-2\",\"shareUrlType\":2,\"codeMedia\":\"YOUTUBE\",\"timestamp\":1681810530092}", JsonCompareMode.STRICT))
+                .andRespond(withSuccess("{\"status\":0,\"success\":true,\"data\":{\"code\":\"54786\",\"customParams\":\"tracking-2\",\"shareUrl\":\"https://demo.com/one\"}}", MediaType.APPLICATION_JSON));
+
+        var result = adapter.generatePromotionLink(CONNECTION,
+                new PromotionLinkRequest("book-1", "tracking-2",
+                        com.kasi.backend.promotion.enums.MediaType.YOUTUBE, "ONELINK"));
+        assertThat(result.externalCode()).isEqualTo("54786");
         server.verify();
     }
 }

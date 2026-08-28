@@ -61,7 +61,7 @@ public class PromotionOrderAdminServiceImpl implements PromotionOrderAdminServic
                 .searchCode(order.getSearchCode()).channelCode(order.getChannelCode())
                 .orderAmount(order.getOrderAmount()).currency(order.getCurrency()).status(order.getStatus())
                 .paidAt(order.getPaidAt()).customParams(order.getCustomParams()).trackingNo(order.getTrackingNo())
-                .userId(order.getUserId()).mediaAccountId(order.getMediaAccountId()).dramaId(order.getDramaId())
+                .userId(order.getUserId()).dramaId(order.getDramaId())
                 .attributionStatus(order.getAttributionStatus()).channelFeeRate(order.getChannelFeeRate())
                 .principalFeeRate(order.getPrincipalFeeRate())
                 .principalCommissionRate(order.getPrincipalCommissionRate())

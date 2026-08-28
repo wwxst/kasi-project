@@ -25,12 +25,13 @@ class SystemScheduledTaskPersistenceTest extends BaseAuthTest {
         LocalDateTime nextRunAt = LocalDateTime.now().plusMinutes(30).withNano(0);
 
         assertThat(task).isNotNull();
-        assertThat(mapper.updateConfig(task.getTaskCode(), "更新后的说明", 30, true, nextRunAt))
+        assertThat(mapper.updateConfig(task.getTaskCode(), "更新后的说明", "INTERVAL_MINUTES", 30,
+                null, null, null, null, null, null, true, nextRunAt))
                 .isEqualTo(1);
 
         SystemScheduledTask stored = mapper.findByTaskCode(task.getTaskCode());
         assertThat(stored.getDescription()).isEqualTo("更新后的说明");
-        assertThat(stored.getIntervalMinutes()).isEqualTo(30);
+        assertThat(stored.getIntervalValue()).isEqualTo(30);
         assertThat(stored.getEnabled()).isTrue();
         assertThat(stored.getNextRunAt()).isEqualToIgnoringNanos(nextRunAt);
     }
@@ -48,7 +49,7 @@ class SystemScheduledTaskPersistenceTest extends BaseAuthTest {
         SystemScheduledTask stored = mapper.findByTaskCode(task.getTaskCode());
         assertThat(stored.getCycleType().name()).isEqualTo("INTERVAL_DAYS");
         assertThat(stored.getIntervalValue()).isEqualTo(3);
-        assertThat(stored.getIntervalMinutes()).isEqualTo(1440);
+        assertThat(stored.getIntervalValue()).isEqualTo(3);
     }
 
     @Test
@@ -57,16 +58,16 @@ class SystemScheduledTaskPersistenceTest extends BaseAuthTest {
         SystemScheduledTask task = mapper.findByTaskCode(
                 ScheduledTaskCode.GOODSHORT_DRAMA_INCREMENTAL_SYNC);
         LocalDateTime now = LocalDateTime.now().withNano(0);
-        jdbcTemplate.update("UPDATE system_scheduled_task SET next_run_at = ? WHERE id = ?",
-                now.minusMinutes(1), task.getId());
+        jdbcTemplate.update("UPDATE system_scheduled_task SET next_run_at = ? WHERE task_code = ?",
+                now.minusMinutes(1), task.getTaskCode().name());
 
-        assertThat(mapper.findDue(now, 10)).extracting(SystemScheduledTask::getId)
-                .containsExactly(task.getId());
-        assertThat(mapper.claimLease(task.getId(), "worker-a", now, now.plusMinutes(2)))
+        assertThat(mapper.findDue(now, 10)).extracting(SystemScheduledTask::getTaskCode)
+                .containsExactly(task.getTaskCode());
+        assertThat(mapper.claimLease(task.getTaskCode().name(), "worker-a", now, now.plusMinutes(2)))
                 .isEqualTo(1);
-        assertThat(mapper.claimLease(task.getId(), "worker-b", now, now.plusMinutes(2)))
+        assertThat(mapper.claimLease(task.getTaskCode().name(), "worker-b", now, now.plusMinutes(2)))
                 .isZero();
-        assertThat(mapper.completeRun(task.getId(), "worker-a", now.plusMinutes(60)))
+        assertThat(mapper.completeRun(task.getTaskCode().name(), "worker-a", now.plusMinutes(60)))
                 .isEqualTo(1);
 
         SystemScheduledTask completed = mapper.findByTaskCode(task.getTaskCode());

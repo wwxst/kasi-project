@@ -15,10 +15,6 @@ public class UpdateScheduledTaskDTO {
     private ScheduledTaskCycleType cycleType;
 
     /** 兼容旧客户端；新客户端应提交 intervalValue。 */
-    @Min(5)
-    @Max(1440)
-    private Integer intervalMinutes;
-
     @Min(1)
     @Max(1440)
     private Integer intervalValue;
@@ -55,7 +51,7 @@ public class UpdateScheduledTaskDTO {
     @AssertTrue(message = "周期类型和周期值不匹配")
     public boolean isScheduleValid() {
         if (cycleType == null) {
-            return intervalMinutes != null;
+            return false;
         }
         if (cycleType.name().startsWith("INTERVAL_")) {
             return intervalValue != null;

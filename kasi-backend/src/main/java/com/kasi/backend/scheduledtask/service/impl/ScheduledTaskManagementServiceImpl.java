@@ -37,10 +37,9 @@ public class ScheduledTaskManagementServiceImpl implements ScheduledTaskManageme
         if (existing == null) {
             throw new BusinessException(ErrorCode.SCHEDULED_TASK_NOT_FOUND);
         }
-        ScheduledTaskCycleType cycleType = request.getCycleType() == null
-                ? ScheduledTaskCycleType.INTERVAL_MINUTES : request.getCycleType();
-        Integer intervalValue = request.getIntervalValue() == null
-                ? request.getIntervalMinutes() : request.getIntervalValue();
+        ScheduledTaskCycleType cycleType = request.getCycleType();
+        Integer intervalValue = request.getIntervalValue();
+        if (cycleType == null) throw new BusinessException(ErrorCode.VALIDATION_ERROR);
         if (cycleType.name().startsWith("INTERVAL_")
                 && (intervalValue == null || intervalValue < 1 || intervalValue > 1440)) {
             throw new BusinessException(ErrorCode.VALIDATION_ERROR);

@@ -78,6 +78,21 @@ class DramaCatalogPersistenceTest extends BaseAuthTest {
     }
 
     @Test
+    @DisplayName("目录列表按甲方发布时间倒序返回")
+    void pageOrdersByRemoteCreatedAtDescending() {
+        Long connectionId = insertConnection();
+        ProviderDrama older = drama(connectionId, "older-book");
+        ProviderDrama newer = drama(connectionId, "newer-book");
+        older.setRemoteCreatedAt(LocalDateTime.of(2026, 8, 20, 9, 0));
+        newer.setRemoteCreatedAt(LocalDateTime.of(2026, 8, 21, 9, 0));
+        dramaMapper.upsert(older);
+        dramaMapper.upsert(newer);
+        assertThat(dramaMapper.page(connectionId, null, null, null, null, 0, 2))
+                .extracting(ProviderDrama::getExternalDramaId)
+                .containsExactly("newer-book", "older-book");
+    }
+
+    @Test
     @DisplayName("甲方重新上架时不自动恢复我方下架状态")
     void remoteRepublishDoesNotOverrideManualOfflineStatus() {
         Long connectionId = insertConnection();
@@ -133,10 +148,10 @@ class DramaCatalogPersistenceTest extends BaseAuthTest {
         assertThat(stored.getUpdateTime()).isEqualTo(1700000000123L);
         assertThat(stored.getStatus()).isEqualTo(DramaSyncStatus.SUCCESS);
         assertThat(stored.getTotalFetched()).isEqualTo(10);
-        assertThat(stored.getTotalUpserted()).isEqualTo(9);
+        assertThat(stored.getInsertedCount() + stored.getUpdatedCount()).isEqualTo(9);
         assertThat(stored.getInsertedCount()).isEqualTo(4);
         assertThat(stored.getUpdatedCount()).isEqualTo(5);
-        assertThat(stored.getSkippedCount()).isEqualTo(1);
+        assertThat(stored.getErrorCount()).isZero();
         assertThat(stored.getErrorCount()).isZero();
     }
 

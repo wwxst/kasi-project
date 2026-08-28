@@ -156,8 +156,8 @@ class AdminManagementServiceTest {
     }
 
     @Test
-    @DisplayName("数据库写失败后不恢复Redis会话版本")
-    void databaseFailureDoesNotCompleteSessionMutation() {
+    @DisplayName("数据库写失败前已注册Redis会话恢复回调")
+    void databaseFailureRegistersSessionRecoveryBeforeWrite() {
         SysAdminUserMapper mapper = mock(SysAdminUserMapper.class);
         PasswordEncoder passwordEncoder = mock(PasswordEncoder.class);
         SessionService sessionService = mock(SessionService.class);
@@ -175,7 +175,10 @@ class AdminManagementServiceTest {
 
         assertThrows(IllegalStateException.class, () -> service.updateStatus(1L, 2L, request));
 
-        verify(sessionService, never()).completeMutation(any(SessionMutation.class));
+        var order = inOrder(sessionService, mapper);
+        order.verify(sessionService).beginMutation(SubjectType.ADMIN, 2L);
+        order.verify(sessionService).registerMutationCompletion(mutation);
+        order.verify(mapper).updateStatus(2L, 0);
     }
 
     @Test

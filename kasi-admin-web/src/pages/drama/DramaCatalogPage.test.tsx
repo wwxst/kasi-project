@@ -113,12 +113,16 @@ const publishedDrama = {
   id: 8,
   externalDramaId: 'book-1001',
   title: 'Reborn to Love',
-  originalTitle: 'Reborn to Love',
+  originalTitle: 'Hippocratic Romance',
+  titleZh: '重生之恋',
   coverUrl: 'https://example.com/cover.jpg',
+  labelNames: ['甜宠', '先婚后爱', '逆袭', '都市'],
   language: 'ENGLISH',
   dramaType: 'ROMANCE',
+  categoryName: '爱情',
   remoteShowStatus: '1',
   localStatus: 'PUBLISHED',
+  remoteCreatedAt: '2026-08-19T09:15:00',
   remoteUpdatedAt: '2026-08-20T10:30:00',
   lastSeenAt: '2026-08-21T09:00:00',
   updatedAt: '2026-08-21T09:00:00',
@@ -129,6 +133,7 @@ const draftDrama = {
   id: 9,
   externalDramaId: 'book-1002',
   title: 'Hidden Heiress',
+  titleZh: null,
   originalTitle: null,
   remoteShowStatus: '0',
   localStatus: 'DRAFT',
@@ -171,6 +176,33 @@ function useCatalogHandlers() {
 }
 
 describe('DramaCatalogPage', () => {
+  it('renders compact drama information with title fallback and limited tags', async () => {
+    useCatalogHandlers()
+
+    renderPage()
+
+    const publishedInfo = within(
+      await screen.findByTestId('drama-info-8'),
+    )
+    const titleRow = publishedInfo.getByTestId('drama-info-title-row')
+    expect(within(titleRow).getByText('重生之恋')).toBeInTheDocument()
+    expect(within(titleRow).queryByText('爱情')).not.toBeInTheDocument()
+    expect(
+      within(publishedInfo.getByTestId('drama-info-subtitle-row')).getByText(
+        'Hippocratic Romance',
+      ),
+    ).toBeInTheDocument()
+    const tagsRow = publishedInfo.getByTestId('drama-info-tags-row')
+    expect(within(tagsRow).getByText('甜宠')).toBeInTheDocument()
+    expect(within(tagsRow).getByText('先婚后爱')).toBeInTheDocument()
+    expect(within(tagsRow).getByText('逆袭')).toBeInTheDocument()
+    expect(within(tagsRow).getByText('都市')).toBeInTheDocument()
+    expect(within(tagsRow).queryByText('+2')).not.toBeInTheDocument()
+
+    const fallbackInfo = within(screen.getByTestId('drama-info-9'))
+    expect(fallbackInfo.getByText('Hidden Heiress')).toBeInTheDocument()
+  })
+
   it('shows readable remote availability labels instead of raw values', async () => {
     useCatalogHandlers()
 
@@ -180,6 +212,29 @@ describe('DramaCatalogPage', () => {
       .toBeInTheDocument()
     expect(within(await screen.findByTestId('mock-row-9')).getByText('已下架'))
       .toBeInTheDocument()
+  })
+
+  it('shows the remote publish time in the catalog row', async () => {
+    useCatalogHandlers()
+
+    renderPage()
+
+    expect(
+      within(await screen.findByTestId('mock-row-8')).getByText(
+        '2026-08-19 09:15',
+      ),
+    ).toBeInTheDocument()
+  })
+
+  it('shows Chinese title and category as separate catalog fields', async () => {
+    useCatalogHandlers()
+
+    renderPage()
+
+    const row = await screen.findByTestId('mock-row-8')
+    expect(within(row).getByText('重生之恋')).toBeInTheDocument()
+    expect(within(row).getByTestId('drama-category-8')).toHaveTextContent('爱情')
+    expect(within(row).queryByText('book-1001')).not.toBeInTheDocument()
   })
 
   it('loads the catalog and opens a detail drawer with episodes', async () => {
@@ -222,8 +277,9 @@ describe('DramaCatalogPage', () => {
     renderPage()
 
     const row = await screen.findByTestId('mock-row-8')
-    expect(within(row).getByText('Reborn to Love')).toBeInTheDocument()
+    expect(within(row).getByText('Hippocratic Romance')).toBeInTheDocument()
     expect(within(row).getByText('GoodShort')).toBeInTheDocument()
+    expect(within(row).getByText('英语')).toBeInTheDocument()
     expect(requests.getListRequestUrl()?.searchParams.get('page')).toBe('1')
     expect(requests.getListRequestUrl()?.searchParams.get('size')).toBe('20')
 
@@ -235,11 +291,13 @@ describe('DramaCatalogPage', () => {
     expect(
       within(drawer).getByText('A second chance changes everything.'),
     ).toBeInTheDocument()
+    expect(within(drawer).getByText(publishedDrama.labelNames[0])).toBeInTheDocument()
     expect(within(drawer).getByText('The Return')).toBeInTheDocument()
     expect(within(drawer).getByText('The Choice')).toBeInTheDocument()
     expect(within(drawer).getByText('免费')).toBeInTheDocument()
     expect(within(drawer).getByText('本地创建时间')).toBeInTheDocument()
     expect(within(drawer).getByText('2026-08-20 10:35')).toBeInTheDocument()
+    expect(within(drawer).getByText('2026-08-19 09:15')).toBeInTheDocument()
   })
 
   it('confirms publish and offline status changes then reloads the table', async () => {
@@ -269,7 +327,7 @@ describe('DramaCatalogPage', () => {
     const user = userEvent.setup()
 
     renderPage()
-    await screen.findByText('Reborn to Love')
+    await screen.findByText('Hippocratic Romance')
 
     await user.click(screen.getByTestId('drama-status-8'))
     await user.click(await screen.findByTestId('drama-status-confirm-8'))
@@ -330,7 +388,7 @@ describe('DramaCatalogPage', () => {
     const modal = await screen.findByTestId('drama-sync-modal')
     expect(within(modal).getByText('GoodShort')).toBeInTheDocument()
     expect(within(modal).getByText('增量同步')).toBeInTheDocument()
-    expect(within(modal).getByText('ENGLISH')).toBeInTheDocument()
+    expect(within(modal).getByText('英语')).toBeInTheDocument()
 
     await user.click(within(modal).getByTestId('drama-sync-submit'))
 
@@ -501,7 +559,9 @@ describe('DramaCatalogPage', () => {
     renderPage()
 
     const row = await screen.findByTestId('mock-row-8')
-    fireEvent.error(within(row).getByRole('img', { name: 'Reborn to Love' }))
+    fireEvent.error(
+      within(row).getByRole('img', { name: publishedDrama.titleZh }),
+    )
 
     expect(
       within(row).getByTestId('drama-cover-fallback-8'),

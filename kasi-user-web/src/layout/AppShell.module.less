@@ -1,0 +1,18 @@
+.sidePanel {
+  height: 100vh;
+  display: flex;
+  flex-direction: row !important;
+  overflow: hidden;
+}
+.sideContainer {
+  flex: 1;
+  min-width: 0;
+  overflow: auto;
+}
+.content {
+  min-width: 0;
+  flex: 1;
+}
+.collapsed :global(.t-menu) {
+  flex-basis: 64px;
+}

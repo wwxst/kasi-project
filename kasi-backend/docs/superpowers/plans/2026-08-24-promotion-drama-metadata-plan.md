@@ -1,4 +1,5 @@
 # 创建推广短剧元数据 Implementation Plan
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** 为“创建推广”短剧资源列表增加真实可维护的分佣范围、上线时间、推广说明、语言和类型字段，并保持推广任务页面不变。
@@ -202,3 +203,4 @@ From `E:/JavaProjects/kasi-project/kasi-user-web`, run `pnpm test`, `pnpm typech
 - [ ] **Step 4: Check the final diff**
 
 Run `git diff --check` and `git status --short`; verify no unrelated worktree files were staged or changed. Report any pre-existing dirty files separately.
+

@@ -21,13 +21,12 @@ public class ScheduledTaskVO {
     private Integer dayOfWeek;
     private Integer dayOfMonth;
     private Integer monthOfYear;
-    private Integer intervalMinutes;
     private Boolean enabled;
 
     public static ScheduledTaskVO from(SystemScheduledTask task) {
         return ScheduledTaskVO.builder()
                 .taskCode(task.getTaskCode())
-                .title(task.getTitle())
+                .title(task.getTaskCode().title())
                 .description(task.getDescription())
                 .cycleType(task.getCycleType())
                 .intervalValue(task.getIntervalValue())
@@ -37,7 +36,6 @@ public class ScheduledTaskVO {
                 .dayOfWeek(task.getDayOfWeek())
                 .dayOfMonth(task.getDayOfMonth())
                 .monthOfYear(task.getMonthOfYear())
-                .intervalMinutes(task.getIntervalMinutes())
                 .enabled(task.getEnabled())
                 .build();
     }

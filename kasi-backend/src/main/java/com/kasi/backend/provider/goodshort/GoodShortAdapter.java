@@ -18,6 +18,8 @@ import com.kasi.backend.provider.spi.ProviderConnectionSecret;
 import com.kasi.backend.provider.spi.PromotionLinkProviderAdapter;
 import com.kasi.backend.provider.spi.PromotionLinkRequest;
 import com.kasi.backend.provider.spi.PromotionLinkResult;
+import com.kasi.backend.provider.spi.FreeContentProviderAdapter;
+import com.kasi.backend.provider.spi.FreeContentResult;
 import com.kasi.backend.provider.spi.DramaCatalogFetchRequest;
 import com.kasi.backend.provider.spi.DramaCatalogPage;
 import com.kasi.backend.provider.spi.DramaCatalogProviderAdapter;
@@ -27,6 +29,7 @@ import com.kasi.backend.provider.goodshort.dto.GoodShortBookData;
 import com.kasi.backend.provider.goodshort.dto.GoodShortCatalogResponse;
 import com.kasi.backend.provider.goodshort.dto.GoodShortEpisodeData;
 import com.kasi.backend.provider.goodshort.dto.GoodShortPromotionLinkResponse;
+import com.kasi.backend.provider.goodshort.dto.GoodShortFreeContentResponse;
 import com.kasi.backend.provider.goodshort.dto.GoodShortOrderResponse;
 import com.kasi.backend.provider.vo.ProviderConnectionTestVO;
 import com.kasi.backend.provider.spi.OrderSyncProviderAdapter;
@@ -56,7 +59,7 @@ import java.util.Set;
 
 @Component
 public class GoodShortAdapter implements AccountFilingProviderAdapter, DramaCatalogProviderAdapter,
-        PromotionLinkProviderAdapter, OrderSyncProviderAdapter {
+        PromotionLinkProviderAdapter, OrderSyncProviderAdapter, FreeContentProviderAdapter {
 
     private static final String PROVIDER_CODE = "GOODSHORT";
     private static final String CONNECTION_PROBE_PATH = "/open/book/initBooks";
@@ -65,6 +68,7 @@ public class GoodShortAdapter implements AccountFilingProviderAdapter, DramaCata
     private static final String FULL_CATALOG_PATH = "/open/book/initBooks";
     private static final String INCREMENTAL_CATALOG_PATH = "/open/book/incrementBooks";
     private static final String ORDER_PATH = "/open/partner/orders";
+    private static final String FREE_CONTENT_PATH = "/open/book/freeContent";
     private static final Set<ProviderCapability> CAPABILITIES = Set.of(
             ProviderCapability.FULL_DRAMA_SYNC,
             ProviderCapability.INCREMENTAL_DRAMA_SYNC,
@@ -188,7 +192,7 @@ public class GoodShortAdapter implements AccountFilingProviderAdapter, DramaCata
         parameters.put("pid", connection.getPartnerId());
         parameters.put("bookId", request.externalDramaId());
         parameters.put("customParams", request.trackingNo());
-        parameters.put("shareUrlType", "ONELINK".equalsIgnoreCase(request.landingType()) ? 2 : 1);
+        parameters.put("shareUrlType", "ONELINK".equalsIgnoreCase(request.linkVariant()) ? 2 : 1);
         parameters.put("codeMedia", mapCodeMedia(request.mediaType()));
         parameters.put("timestamp", clock.millis());
         GoodShortPromotionLinkResponse response = postPromotionLink(connection,
@@ -199,6 +203,38 @@ public class GoodShortAdapter implements AccountFilingProviderAdapter, DramaCata
         }
         return new PromotionLinkResult(response.getData().getCode(), response.getData().getShareUrl(),
                 response.getData().getCustomParams());
+    }
+
+    @Override
+    public List<FreeContentResult> fetchFreeContent(ProviderConnectionSecret connection, String externalDramaId) {
+        Map<String, Object> parameters = new LinkedHashMap<>();
+        parameters.put("pid", connection.getPartnerId());
+        parameters.put("timestamp", clock.millis());
+        parameters.put("bookId", externalDramaId);
+        String signature = signer.sign(parameters, connection.getApiKey());
+        GoodShortFreeContentResponse response;
+        try {
+            response = restClient.mutate().baseUrl(connection.getBaseUrl()).build().post()
+                    .uri(FREE_CONTENT_PATH).contentType(org.springframework.http.MediaType.APPLICATION_JSON)
+                    .header("sign", signature).body(parameters).retrieve().body(GoodShortFreeContentResponse.class);
+        } catch (ResourceAccessException exception) {
+            throw new ProviderTransientException("GoodShort网络暂时不可用");
+        } catch (RestClientResponseException exception) {
+            if (exception.getStatusCode().is5xxServerError() || exception.getStatusCode().value() == 429) {
+                throw new ProviderTransientException("GoodShort服务暂时不可用");
+            }
+            throw new ProviderRemoteRejectedException("GoodShort免费内容请求被拒绝");
+        } catch (RestClientException exception) {
+            throw new ProviderRemoteRejectedException("GoodShort免费内容响应格式错误");
+        }
+        if (response == null || !Integer.valueOf(0).equals(response.getStatus())
+                || !Boolean.TRUE.equals(response.getSuccess()) || response.getData() == null) {
+            throw new ProviderRemoteRejectedException("GoodShort免费内容请求被拒绝");
+        }
+        return response.getData().stream()
+                .filter(item -> item != null && item.getContent() != null && !item.getContent().isBlank())
+                .map(item -> new FreeContentResult(item.getChapterName(), item.getContent()))
+                .toList();
     }
 
     @Override

@@ -1,4 +1,5 @@
 # Repository Development Governance Implementation Plan
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task.
 
 **Goal:** 将问题修复、阶段拆解、最小变更和架构决策沉淀为仓库级强制开发流程，并记录当前尚未规范的工程事项。
@@ -56,3 +57,4 @@
 
 - [ ] **Step 2: Run documentation checks**
   Run `git diff --check` and verify all new relative links resolve.
+

@@ -12,6 +12,7 @@ import com.kasi.backend.promotion.service.PromotionLinkPreparation;
 import com.kasi.backend.promotion.service.PromotionLinkService;
 import com.kasi.backend.promotion.vo.PromotionLinkPageVO;
 import com.kasi.backend.promotion.vo.PromotionLinkVO;
+import com.kasi.backend.promotion.vo.PromotionLinkBatchVO;
 import com.kasi.backend.provider.exception.ProviderRemoteRejectedException;
 import com.kasi.backend.provider.exception.ProviderTransientException;
 import com.kasi.backend.provider.spi.PromotionLinkProviderAdapter;
@@ -38,33 +39,40 @@ public class PromotionLinkServiceImpl implements PromotionLinkService {
     }
 
     @Override
-    public PromotionLinkVO createOrRetry(Long userId, CreatePromotionLinkDTO request) {
-        PromotionLinkPreparation preparation = persistenceService.preparePending(userId, request);
-        PromotionLink link = preparation.link();
-        if (link.getStatus() == PromotionLinkStatus.SUCCESS) {
-            return toVO(link);
+    public PromotionLinkBatchVO createOrRetry(Long userId, CreatePromotionLinkDTO request) {
+        List<PromotionLinkVO> links = new java.util.ArrayList<>();
+        for (PromotionLinkPreparation preparation : persistenceService.prepareBatchPending(userId, request)) {
+            PromotionLink link = preparation.link();
+            if (preparation.runtime() == null || link.getStatus() == PromotionLinkStatus.SUCCESS) {
+                links.add(toVO(link));
+                continue;
+            }
+            try {
+                PromotionLinkProviderAdapter adapter = (PromotionLinkProviderAdapter) preparation.runtime().adapter();
+                var result = adapter.generatePromotionLink(preparation.runtime().secret(), preparation.providerRequest());
+                links.add(toVO(persistenceService.markSuccess(link.getId(), result.externalCode(), result.shareUrl(),
+                        result.customParams(), userId, request.getRequestKey(), link.getMediaType(), link.getLinkVariant())));
+            } catch (ProviderTransientException exception) {
+                persistenceService.markFailed(link.getId(), "PROVIDER_REMOTE_UNAVAILABLE", exception.getMessage());
+                link.setStatus(PromotionLinkStatus.FAILED); link.setLastErrorCode("PROVIDER_REMOTE_UNAVAILABLE"); link.setLastErrorMessage(exception.getMessage());
+                links.add(toVO(link));
+            } catch (ProviderRemoteRejectedException exception) {
+                persistenceService.markFailed(link.getId(), "PROVIDER_REMOTE_REJECTED", exception.getMessage());
+                link.setStatus(PromotionLinkStatus.FAILED); link.setLastErrorCode("PROVIDER_REMOTE_REJECTED"); link.setLastErrorMessage(exception.getMessage());
+                links.add(toVO(link));
+            }
         }
-
-        try {
-            PromotionLinkProviderAdapter adapter = (PromotionLinkProviderAdapter) preparation.runtime().adapter();
-            var result = adapter.generatePromotionLink(preparation.runtime().secret(), preparation.providerRequest());
-            return toVO(persistenceService.markSuccess(link.getId(), result.externalCode(), result.shareUrl(),
-                    result.customParams(), userId, request.getRequestKey()));
-        } catch (ProviderTransientException exception) {
-            persistenceService.markFailed(link.getId(), "PROVIDER_REMOTE_UNAVAILABLE", exception.getMessage());
-            throw new BusinessException(ErrorCode.PROVIDER_REMOTE_UNAVAILABLE);
-        } catch (ProviderRemoteRejectedException exception) {
-            persistenceService.markFailed(link.getId(), "PROVIDER_REMOTE_REJECTED", exception.getMessage());
-            throw new BusinessException(ErrorCode.PROVIDER_REMOTE_REJECTED);
-        }
+        String batchNo = links.stream().map(PromotionLinkVO::getBatchNo).filter(java.util.Objects::nonNull).findFirst().orElse(null);
+        return PromotionLinkBatchVO.builder().batchNo(batchNo).requestKey(request.getRequestKey()).links(links)
+                .complete(links.stream().allMatch(link -> link.getStatus() == PromotionLinkStatus.SUCCESS)).build();
     }
 
     private PromotionLinkVO toVO(PromotionLink link) {
         return PromotionLinkVO.builder().id(link.getId()).providerId(link.getProviderId()).providerName(link.getProviderName())
-                .dramaId(link.getDramaId()).dramaTitle(link.getDramaTitle()).mediaAccountId(link.getMediaAccountId())
-                .mediaType(link.getMediaType()).mediaAccountName(link.getMediaAccountName()).campaignName(link.getCampaignName())
+                .dramaId(link.getDramaId()).dramaTitle(link.getDramaTitle()).batchNo(link.getBatchNo()).requestKey(link.getRequestKey())
+                .mediaType(link.getMediaType()).linkVariant(link.getLinkVariant()).campaignName(link.getCampaignName())
                 .trackingNo(link.getTrackingNo()).externalCode(link.getExternalCode()).shareUrl(link.getShareUrl())
-                .customParams(link.getCustomParams()).landingType(link.getLandingType()).status(link.getStatus())
+                .status(link.getStatus())
                 .lastErrorCode(link.getLastErrorCode()).lastErrorMessage(link.getLastErrorMessage())
                 .createdAt(link.getCreatedAt()).updatedAt(link.getUpdatedAt()).build();
     }

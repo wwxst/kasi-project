@@ -117,11 +117,11 @@ public class AdminManagementServiceImpl implements AdminManagementService {
                 || !java.util.Objects.equals(email, admin.getEmail());
         SessionMutation mutation = identifierChanged
                 ? sessionService.beginMutation(SubjectType.ADMIN, targetId) : null;
+        registerCompletion(mutation);
 
         applyProfile(admin, request.getUsername(), request.getRealName(), mobile, email,
                 request.getDepartmentId(), request.getRemark(), operatorId);
         updateProfile(admin);
-        registerCompletion(mutation);
         return toDetailVO(sysAdminUserMapper.findById(targetId));
     }
 
@@ -130,10 +130,10 @@ public class AdminManagementServiceImpl implements AdminManagementService {
     public void updateStatus(Long operatorId, Long targetId, UpdateAdminStatusDTO request) {
         SysAdminUser admin = getMutableOrdinaryAdmin(targetId);
         SessionMutation mutation = sessionService.beginMutation(SubjectType.ADMIN, targetId);
+        registerCompletion(mutation);
         if (sysAdminUserMapper.updateStatus(admin.getId(), request.getStatus()) != 1) {
             throw new IllegalStateException("管理员状态更新未生效");
         }
-        registerCompletion(mutation);
     }
 
     @Override
@@ -144,11 +144,11 @@ public class AdminManagementServiceImpl implements AdminManagementService {
         }
         SysAdminUser admin = getMutableOrdinaryAdmin(targetId);
         SessionMutation mutation = sessionService.beginMutation(SubjectType.ADMIN, targetId);
+        registerCompletion(mutation);
         if (sysAdminUserMapper.updatePassword(admin.getId(), passwordEncoder.encode(request.getNewPassword()),
                 LocalDateTime.now()) != 1) {
             throw new IllegalStateException("管理员密码重置未生效");
         }
-        registerCompletion(mutation);
     }
 
     @Override
@@ -174,10 +174,10 @@ public class AdminManagementServiceImpl implements AdminManagementService {
     public void delete(Long operatorId, Long targetId) {
         SysAdminUser admin = getMutableOrdinaryAdmin(targetId);
         SessionMutation mutation = sessionService.beginMutation(SubjectType.ADMIN, targetId);
+        registerCompletion(mutation);
         if (sysAdminUserMapper.deleteOrdinaryById(admin.getId()) != 1) {
             throw new IllegalStateException("管理员删除未生效");
         }
-        registerCompletion(mutation);
     }
 
     private SysAdminUser getMutableOrdinaryAdmin(Long targetId) {

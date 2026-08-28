@@ -51,6 +51,61 @@
   font-size: 12px;
 }
 
+.drama-catalog-page__information {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 12px;
+}
+
+.drama-catalog-page__information-content {
+  display: grid;
+  min-width: 0;
+  flex: 1;
+  gap: 4px;
+}
+
+.drama-catalog-page__information-title-row {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.drama-catalog-page__information-title {
+  display: -webkit-box;
+  min-width: 0;
+  flex: 1;
+  overflow: hidden;
+  line-height: 1.45;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
+.drama-catalog-page__information-subtitle-row,
+.drama-catalog-page__information-tags-row {
+  display: flex;
+  min-height: 22px;
+  overflow: hidden;
+  align-items: center;
+  gap: 4px;
+}
+
+.drama-catalog-page__information-secondary-title {
+  min-width: 0;
+  flex: 0 1 auto;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.drama-catalog-page__information-tags-row .ant-tag {
+  flex: 0 0 auto;
+  margin-inline-end: 0;
+  white-space: nowrap;
+}
+
 .drama-catalog-page__detail {
   display: flex;
   flex-direction: column;

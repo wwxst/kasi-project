@@ -27,6 +27,7 @@ import type {
   DramaContent,
   DramaLocalStatus,
 } from '../../features/drama/dramaCatalogTypes'
+import { formatDramaLanguage } from '../../features/drama/dramaCatalogLocale'
 import { listProviders } from '../../features/provider/providerApi'
 import type { DramaProvider } from '../../features/provider/providerTypes'
 import { DramaSyncModal } from './DramaSyncModal'
@@ -123,39 +124,18 @@ export function DramaCatalogPage() {
 
   const columns: ProColumns<DramaCatalogListItem>[] = [
     {
-      title: '封面',
-      dataIndex: 'coverUrl',
-      search: false,
-      width: 76,
-      render: (_, record) => (
-        <DramaCover
-          coverUrl={record.coverUrl}
-          title={record.title}
-          fallbackTestId={`drama-cover-fallback-${record.id}`}
-        />
-      ),
-    },
-    {
       title: '短剧名称',
       dataIndex: 'title',
       fieldProps: { placeholder: '请输入短剧名称' },
-      width: 220,
-      ellipsis: true,
-      render: (_, record) => (
-        <div className="drama-catalog-page__title-cell">
-          <strong>{record.title || '-'}</strong>
-          {record.originalTitle && record.originalTitle !== record.title ? (
-            <span>{record.originalTitle}</span>
-          ) : null}
-        </div>
-      ),
+      search: false,
+      hideInTable: true,
     },
     {
-      title: '外部短剧 ID',
-      dataIndex: 'externalDramaId',
+      title: '短剧信息',
+      dataIndex: 'id',
       search: false,
-      width: 170,
-      ellipsis: true,
+      width: 360,
+      render: (_, record) => <DramaInformation drama={record} />,
     },
     {
       title: '短剧平台',
@@ -170,14 +150,18 @@ export function DramaCatalogPage() {
       dataIndex: 'language',
       width: 110,
       fieldProps: { placeholder: '如 ENGLISH' },
-      renderText: (value) => value || '-',
+      renderText: (value) => formatDramaLanguage(value),
     },
     {
-      title: '类型',
-      dataIndex: 'dramaType',
+      title: '分类',
+      dataIndex: 'categoryName',
       search: false,
-      width: 110,
-      renderText: (value) => value || '-',
+      width: 120,
+      render: (_, record) => (
+        <span data-testid={`drama-category-${record.id}`}>
+          {record.categoryName || '-'}
+        </span>
+      ),
     },
     {
       title: '远端状态',
@@ -203,6 +187,13 @@ export function DramaCatalogPage() {
     {
       title: '远端更新时间',
       dataIndex: 'remoteUpdatedAt',
+      search: false,
+      width: 160,
+      renderText: formatDate,
+    },
+    {
+      title: '发布时间',
+      dataIndex: 'remoteCreatedAt',
       search: false,
       width: 160,
       renderText: formatDate,
@@ -319,7 +310,7 @@ export function DramaCatalogPage() {
           setting: true,
         }}
         pagination={{ defaultPageSize: 20, showSizeChanger: true }}
-        scroll={{ x: 1430 }}
+        scroll={{ x: 1300 }}
       />
 
       <Drawer
@@ -413,10 +404,21 @@ function DramaDetail({ detail }: { detail: DramaCatalogDetail }) {
             <LocalStatusTag status={detail.localStatus} />
           </Descriptions.Item>
           <Descriptions.Item label="语言">
-            {detail.language || '-'}
+            {formatDramaLanguage(detail.language)}
           </Descriptions.Item>
           <Descriptions.Item label="类型">
             {detail.dramaType || '-'}
+          </Descriptions.Item>
+          <Descriptions.Item label="标签">
+            {detail.labelNames?.length ? (
+              <Space wrap size={[4, 4]}>
+                {detail.labelNames.map((label) => (
+                  <Tag key={label}>{label}</Tag>
+                ))}
+              </Space>
+            ) : (
+              '-'
+            )}
           </Descriptions.Item>
           <Descriptions.Item label="远端状态">
             <Space size={6}>
@@ -428,6 +430,9 @@ function DramaDetail({ detail }: { detail: DramaCatalogDetail }) {
           </Descriptions.Item>
           <Descriptions.Item label="远端更新时间">
             {formatDate(detail.remoteUpdatedAt)}
+          </Descriptions.Item>
+          <Descriptions.Item label="发布时间">
+            {formatDate(detail.remoteCreatedAt)}
           </Descriptions.Item>
           <Descriptions.Item label="最近同步可见" span={2}>
             {formatDate(detail.lastSeenAt)}
@@ -460,6 +465,57 @@ function DramaDetail({ detail }: { detail: DramaCatalogDetail }) {
           scroll={{ x: 760 }}
         />
       </section>
+    </div>
+  )
+}
+
+function DramaInformation({ drama }: { drama: DramaCatalogListItem }) {
+  const primaryTitle = drama.titleZh || drama.title || '-'
+  const secondaryTitle =
+    drama.originalTitle && drama.originalTitle !== primaryTitle
+      ? drama.originalTitle
+      : drama.title && drama.title !== primaryTitle
+        ? drama.title
+        : null
+
+  return (
+    <div
+      className="drama-catalog-page__information"
+      data-testid={`drama-info-${drama.id}`}
+    >
+      <DramaCover
+        coverUrl={drama.coverUrl}
+        title={primaryTitle}
+        fallbackTestId={`drama-cover-fallback-${drama.id}`}
+      />
+      <div className="drama-catalog-page__information-content">
+        <div
+          className="drama-catalog-page__information-title-row"
+          data-testid="drama-info-title-row"
+        >
+          <strong className="drama-catalog-page__information-title">
+            {primaryTitle}
+          </strong>
+        </div>
+        {secondaryTitle ? (
+          <div
+            className="drama-catalog-page__information-subtitle-row"
+            data-testid="drama-info-subtitle-row"
+          >
+            <span className="drama-catalog-page__information-secondary-title">
+              {secondaryTitle}
+            </span>
+          </div>
+        ) : null}
+        <div
+          className="drama-catalog-page__information-tags-row"
+          data-testid="drama-info-tags-row"
+        >
+          {(drama.labelNames ?? []).map((label) => (
+            <Tag key={label}>{label}</Tag>
+          ))}
+        </div>
+      </div>
     </div>
   )
 }

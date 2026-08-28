@@ -1,0 +1,176 @@
+.page {
+  min-width: 0;
+  padding: 30px 32px;
+  background: var(--td-bg-color-container);
+  box-shadow: 0 2px 3px rgb(0 0 0 / 10%);
+  border-radius: 3px;
+}
+
+.dramaInfo {
+  display: flex;
+  min-width: 0;
+  align-items: flex-start;
+  gap: 14px;
+}
+
+.cover {
+  display: block;
+  width: 52px;
+  height: 78px;
+  flex: 0 0 52px;
+  object-fit: cover;
+  border-radius: 3px;
+  background: var(--td-bg-color-secondarycontainer);
+}
+
+.coverPlaceholder {
+  display: flex;
+  width: 52px;
+  height: 78px;
+  flex: 0 0 52px;
+  align-items: center;
+  justify-content: center;
+  border-radius: 3px;
+  background: var(--td-bg-color-secondarycontainer);
+  color: var(--td-text-color-placeholder);
+  font-size: 12px;
+}
+
+.dramaMeta {
+  min-width: 0;
+  padding-top: 1px;
+}
+
+.dramaTitle,
+.originalTitle {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.dramaTitle {
+  color: var(--td-text-color-primary);
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 22px;
+}
+
+.originalTitle {
+  margin-top: 2px;
+  color: var(--td-text-color-primary);
+  font-size: 14px;
+  line-height: 22px;
+}
+
+.labels {
+  display: flex;
+  overflow: hidden;
+  margin-top: 4px;
+  gap: 8px;
+  white-space: nowrap;
+}
+
+.label {
+  flex: 0 0 auto;
+  padding: 0 8px;
+  border-radius: 3px;
+  background: var(--td-bg-color-secondarycontainer);
+  color: var(--td-text-color-primary);
+  font-size: 12px;
+  line-height: 22px;
+}
+
+.description {
+  display: -webkit-box;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
+.operationCell {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 12px;
+}
+
+.viewer {
+  min-width: 0;
+}
+
+.viewerTitle {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 16px;
+  color: var(--td-text-color-primary);
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.downloadTask {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  min-height: 44px;
+  margin-bottom: 16px;
+  padding: 0 12px;
+  background: var(--td-bg-color-secondarycontainer);
+  color: var(--td-text-color-secondary);
+  border-radius: 3px;
+}
+
+.videoPanel {
+  margin-bottom: 18px;
+}
+
+.video {
+  display: block;
+  width: 100%;
+  max-height: 420px;
+  background: #111;
+  border-radius: 3px;
+}
+
+.playbackError,
+.viewerState {
+  padding: 16px 0;
+  color: var(--td-text-color-secondary);
+  text-align: center;
+}
+
+.playbackError {
+  color: var(--td-error-color-6);
+}
+
+.episodeList {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.episodeRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  min-height: 44px;
+  padding: 0 12px;
+  border: 1px solid var(--td-border-level-1-color);
+  border-radius: 3px;
+}
+
+.episodeTitle {
+  color: var(--td-text-color-primary);
+  font-weight: 600;
+}
+
+.episodeName {
+  margin-left: 10px;
+  color: var(--td-text-color-secondary);
+}
+
+.episodeActions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}

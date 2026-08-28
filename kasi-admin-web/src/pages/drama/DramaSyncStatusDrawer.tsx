@@ -12,6 +12,7 @@ import { RefreshCw } from 'lucide-react'
 import { useCallback, useEffect, useState } from 'react'
 import { isUnauthorizedError } from '../../api/http'
 import { listDramaSyncStatuses } from '../../features/drama/dramaCatalogApi'
+import { formatDramaLanguage } from '../../features/drama/dramaCatalogLocale'
 import type {
   DramaSyncStatus,
   DramaSyncTask,
@@ -79,7 +80,7 @@ export function DramaSyncStatusDrawer({
       render: (_, task) => (
         <div className="drama-catalog-page__sync-task">
           <strong>{syncTypeLabels[task.syncType]}</strong>
-          <span>{task.language}</span>
+          <span>{formatDramaLanguage(task.language)}</span>
         </div>
       ),
     },

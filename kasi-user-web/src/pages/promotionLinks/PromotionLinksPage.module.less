@@ -1,0 +1,113 @@
+.page {
+  min-width: 0;
+  padding: 30px 32px;
+  background: var(--td-bg-color-container);
+  box-shadow: 0 2px 3px rgb(0 0 0 / 10%);
+  border-radius: 3px;
+}
+.linkCell {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+}
+.linkCell > div {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+.linkCell span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.emptyCell {
+  color: var(--td-text-color-placeholder);
+}
+
+.detailLoading,
+.detailEmpty {
+  min-height: 180px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--td-text-color-placeholder);
+}
+
+.detailContent {
+  min-width: 0;
+}
+.detailIntro {
+  display: flex;
+  align-items: flex-start;
+  gap: 20px;
+  padding: 4px 0 26px;
+  border-bottom: 1px solid var(--td-component-stroke);
+}
+.detailCover,
+.detailCoverPlaceholder {
+  display: block;
+  width: 106px;
+  height: 150px;
+  flex: 0 0 106px;
+  object-fit: cover;
+  border-radius: 4px;
+  background: var(--td-bg-color-secondarycontainer);
+}
+.detailCoverPlaceholder {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--td-text-color-placeholder);
+}
+.detailMeta {
+  min-width: 0;
+}
+.detailMeta h2 {
+  margin: 0 0 12px;
+  color: var(--td-text-color-primary);
+  font-size: 18px;
+  font-weight: 600;
+  line-height: 28px;
+}
+.detailMeta p {
+  margin: 0;
+  color: var(--td-text-color-secondary);
+  font-size: 14px;
+  line-height: 22px;
+  white-space: pre-line;
+}
+.materialSection {
+  padding: 24px 0 18px;
+}
+.sectionHeading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  color: var(--td-text-color-primary);
+  font-size: 16px;
+  line-height: 24px;
+}
+.sectionActions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.dialogForm {
+  padding: 8px 8px 0;
+}
+.createForm {
+  max-width: 520px;
+  margin-top: 18px;
+  padding: 16px;
+  background: var(--td-bg-color-secondarycontainer);
+  border-radius: 4px;
+}
+.videoPlayer {
+  display: block;
+  width: 100%;
+  max-height: 70vh;
+  background: #000;
+}

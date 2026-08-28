@@ -1,9 +1,9 @@
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
+import './shared/ui/tdesignReact19Adapter'
 import 'tdesign-react/es/style/index.css'
-import './pages/auth/auth-pages.css'
+import App from './App'
 import './styles/global.css'
-import App from './app/App'
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>

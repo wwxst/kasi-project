@@ -3,6 +3,7 @@ package com.kasi.backend.provider.goodshort;
 import com.kasi.backend.common.exception.BusinessException;
 import com.kasi.backend.provider.enums.ProviderCapability;
 import com.kasi.backend.provider.spi.ProviderConnectionSecret;
+import com.kasi.backend.provider.spi.FreeContentResult;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -113,8 +114,43 @@ class GoodShortAdapterTest {
     void capabilitiesExcludeTikTokAnchor() {
         assertThat(adapter.providerCode()).isEqualTo("GOODSHORT");
         assertThat(adapter.capabilities())
-                .contains(ProviderCapability.ACCOUNT_FILING, ProviderCapability.ORDER_SYNC)
+                .contains(ProviderCapability.ACCOUNT_FILING, ProviderCapability.ORDER_SYNC,
+                        ProviderCapability.FREE_CONTENT_PREVIEW)
                 .doesNotContain(ProviderCapability.TIKTOK_ANCHOR);
+    }
+
+    @Test
+    @DisplayName("免费内容请求发送正确参数并返回剧集视频地址")
+    void fetchFreeContentSendsSignedRequestAndMapsVideos() {
+        Map<String, Object> parameters = new LinkedHashMap<>();
+        parameters.put("pid", "partner-1");
+        parameters.put("timestamp", TIMESTAMP);
+        parameters.put("bookId", "book-1");
+        server.expect(once(), requestTo("https://goodshort.test/open/book/freeContent"))
+                .andExpect(method(HttpMethod.POST))
+                .andExpect(header("sign", signer.sign(parameters, API_KEY)))
+                .andExpect(content().json("""
+                        {
+                          "pid": "partner-1",
+                          "timestamp": 1681810530092,
+                          "bookId": "book-1"
+                        }
+                        """, JsonCompareMode.STRICT))
+                .andRespond(withSuccess("""
+                        {
+                          "status": 0,
+                          "success": true,
+                          "data": [
+                            {"chapterName": "Chapter 1", "content": "https://cdn.test/1.m3u8"}
+                          ]
+                        }
+                        """, MediaType.APPLICATION_JSON));
+
+        var result = ((com.kasi.backend.provider.spi.FreeContentProviderAdapter) adapter)
+                .fetchFreeContent(CONNECTION, "book-1");
+
+        assertThat(result).containsExactly(new FreeContentResult("Chapter 1", "https://cdn.test/1.m3u8"));
+        server.verify();
     }
 
     private void assertRemoteFailure(int code) {

@@ -1,13 +1,11 @@
 package com.kasi.backend.drama;
 
-import org.flywaydb.core.Flyway;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.core.io.FileSystemResource;
 import org.springframework.core.io.support.EncodedResource;
 import org.springframework.dao.DataAccessException;
 import org.springframework.jdbc.core.JdbcTemplate;
-import org.springframework.jdbc.datasource.DriverManagerDataSource;
 import org.springframework.jdbc.datasource.init.ScriptUtils;
 
 import java.nio.charset.StandardCharsets;
@@ -21,11 +19,11 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
-import java.util.UUID;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
+import static com.kasi.backend.support.DatabaseInitializationTestSupport.initializeDatabase;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
@@ -89,7 +87,7 @@ class GoodShortDramaCatalogSeedTest {
     @Test
     @DisplayName("本地 GoodShort 种子可重复执行且保持目录 ID 稳定")
     void seedIsIdempotentAndProducesExpectedCatalog() {
-        JdbcTemplate jdbc = migrateAllMigrations();
+        JdbcTemplate jdbc = initializeDatabase("goodshort_seed");
 
         executeSeed(jdbc);
         Map<String, Long> dramaIdsBefore = jdbc.queryForList(
@@ -126,7 +124,7 @@ class GoodShortDramaCatalogSeedTest {
         Map<String, Object> connection = jdbc.queryForMap(
                 "SELECT connection_name, currency, status, filing_mode, partner_id, api_key_ciphertext, base_url "
                         + "FROM short_drama_connection");
-        assertThat(connection.get("CONNECTION_NAME")).isEqualTo("GoodShort 本地假数据");
+        assertThat(connection.get("CONNECTION_NAME")).isEqualTo("GoodShort local fixture");
         assertThat(connection.get("CURRENCY")).isEqualTo("USD");
         assertThat(((Number) connection.get("STATUS")).intValue()).isZero();
         assertThat(connection.get("FILING_MODE")).isEqualTo("MANUAL");
@@ -179,17 +177,17 @@ class GoodShortDramaCatalogSeedTest {
                 "SELECT COUNT(*) FROM provider_drama_content c JOIN provider_drama d ON d.id = c.drama_id "
                         + "WHERE d.external_drama_id LIKE '990000%'", Long.class)).isEqualTo(204L);
         List<Map<String, Object>> checkpoints = jdbc.queryForList(
-                "SELECT sync_type, language, total_fetched, total_upserted, inserted_count, updated_count, skipped_count "
+                "SELECT sync_type, language, total_fetched, inserted_count, updated_count, error_count "
                         + "FROM provider_sync_checkpoint ORDER BY sync_type, language");
         assertThat(checkpoints).containsExactlyInAnyOrder(
-                Map.of("SYNC_TYPE", "FULL", "LANGUAGE", "ENGLISH", "TOTAL_FETCHED", 12, "TOTAL_UPSERTED", 12,
-                        "INSERTED_COUNT", 12, "UPDATED_COUNT", 0, "SKIPPED_COUNT", 0),
-                Map.of("SYNC_TYPE", "FULL", "LANGUAGE", "SPANISH", "TOTAL_FETCHED", 12, "TOTAL_UPSERTED", 12,
-                        "INSERTED_COUNT", 12, "UPDATED_COUNT", 0, "SKIPPED_COUNT", 0),
-                Map.of("SYNC_TYPE", "INCREMENTAL", "LANGUAGE", "ENGLISH", "TOTAL_FETCHED", 12, "TOTAL_UPSERTED", 11,
-                        "INSERTED_COUNT", 2, "UPDATED_COUNT", 9, "SKIPPED_COUNT", 1),
-                Map.of("SYNC_TYPE", "INCREMENTAL", "LANGUAGE", "SPANISH", "TOTAL_FETCHED", 12, "TOTAL_UPSERTED", 11,
-                        "INSERTED_COUNT", 1, "UPDATED_COUNT", 10, "SKIPPED_COUNT", 1));
+                Map.of("SYNC_TYPE", "FULL", "LANGUAGE", "ENGLISH", "TOTAL_FETCHED", 12,
+                        "INSERTED_COUNT", 12, "UPDATED_COUNT", 0, "ERROR_COUNT", 0),
+                Map.of("SYNC_TYPE", "FULL", "LANGUAGE", "SPANISH", "TOTAL_FETCHED", 12,
+                        "INSERTED_COUNT", 12, "UPDATED_COUNT", 0, "ERROR_COUNT", 0),
+                Map.of("SYNC_TYPE", "INCREMENTAL", "LANGUAGE", "ENGLISH", "TOTAL_FETCHED", 12,
+                        "INSERTED_COUNT", 2, "UPDATED_COUNT", 9, "ERROR_COUNT", 0),
+                Map.of("SYNC_TYPE", "INCREMENTAL", "LANGUAGE", "SPANISH", "TOTAL_FETCHED", 12,
+                        "INSERTED_COUNT", 1, "UPDATED_COUNT", 10, "ERROR_COUNT", 0));
         List<Integer> episodeCounts = jdbc.queryForList(
                 "SELECT COUNT(*) FROM provider_drama_content GROUP BY drama_id ORDER BY drama_id", Integer.class);
         assertThat(episodeCounts).hasSize(24);
@@ -224,7 +222,7 @@ class GoodShortDramaCatalogSeedTest {
     @Test
     @DisplayName("存在真实 GoodShort 接入时本地种子拒绝写入")
     void seedRejectsExistingRealConnectionWithoutWritingFixtures() {
-        JdbcTemplate jdbc = migrateAllMigrations();
+        JdbcTemplate jdbc = initializeDatabase("goodshort_seed");
         Long providerId = jdbc.queryForObject(
                 "SELECT id FROM short_drama_provider WHERE provider_code = 'GOODSHORT'", Long.class);
         jdbc.update("INSERT INTO short_drama_connection "
@@ -281,22 +279,6 @@ class GoodShortDramaCatalogSeedTest {
         } catch (SQLException | java.io.IOException ex) {
             throw new IllegalStateException("Failed to clean H2 seed temporary tables", ex);
         }
-    }
-
-    private static JdbcTemplate migrateAllMigrations() {
-        DriverManagerDataSource dataSource = new DriverManagerDataSource();
-        dataSource.setDriverClassName("org.h2.Driver");
-        dataSource.setUrl("jdbc:h2:mem:goodshort_seed_" + UUID.randomUUID()
-                + ";MODE=MySQL;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE");
-        dataSource.setUsername("sa");
-        dataSource.setPassword("");
-
-        Flyway.configure()
-                .dataSource(dataSource)
-                .locations("classpath:db/migration")
-                .load()
-                .migrate();
-        return new JdbcTemplate(dataSource);
     }
 
     private static Set<String> parseTemporaryTableNames(String script) {

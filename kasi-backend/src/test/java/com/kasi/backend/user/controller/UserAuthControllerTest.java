@@ -51,7 +51,7 @@ class UserAuthControllerTest extends BaseAuthTest {
         assertThat(userNo).matches("[1-9][0-9]{11}");
         assertThat(userNo).doesNotStartWith("TMP-");
         org.junit.jupiter.api.Assertions.assertEquals("MOBILE", source);
-        org.junit.jupiter.api.Assertions.assertEquals("用户" + userNo, nickname);
+        assertThat(nickname).matches("卡司用户[0-9]{5}");
     }
 
     @Test

@@ -5,7 +5,7 @@ import com.kasi.backend.promotion.dto.CreatePromotionLinkDTO;
 import com.kasi.backend.promotion.dto.PromotionLinkPageQueryDTO;
 import com.kasi.backend.promotion.service.PromotionLinkService;
 import com.kasi.backend.promotion.vo.PromotionLinkPageVO;
-import com.kasi.backend.promotion.vo.PromotionLinkVO;
+import com.kasi.backend.promotion.vo.PromotionLinkBatchVO;
 import com.kasi.backend.security.context.AuthContextHolder;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -28,7 +28,7 @@ public class UserPromotionLinkController {
     }
 
     @PostMapping
-    public ApiResponse<PromotionLinkVO> create(@Valid @RequestBody CreatePromotionLinkDTO request) {
+    public ApiResponse<PromotionLinkBatchVO> create(@Valid @RequestBody CreatePromotionLinkDTO request) {
         return ApiResponse.success(promotionLinkService.createOrRetry(AuthContextHolder.getUserId(), request));
     }
 }

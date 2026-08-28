@@ -26,9 +26,9 @@ public record DramaSyncTaskVO(
     public static DramaSyncTaskVO from(ProviderSyncCheckpoint checkpoint) {
         return new DramaSyncTaskVO(checkpoint.getId(), checkpoint.getSyncType(), checkpoint.getLanguage(),
                 checkpoint.getStatus(), value(checkpoint.getPageNo()), checkpoint.getUpdateTime(),
-                value(checkpoint.getTotalFetched()), value(checkpoint.getTotalUpserted()),
+                value(checkpoint.getTotalFetched()), value(checkpoint.getInsertedCount()) + value(checkpoint.getUpdatedCount()),
                 value(checkpoint.getInsertedCount()), value(checkpoint.getUpdatedCount()),
-                value(checkpoint.getSkippedCount()), value(checkpoint.getErrorCount()),
+                0, value(checkpoint.getErrorCount()),
                 checkpoint.getLastSuccessAt(), checkpoint.getLastErrorCode(), checkpoint.getLastErrorMessage());
     }
 

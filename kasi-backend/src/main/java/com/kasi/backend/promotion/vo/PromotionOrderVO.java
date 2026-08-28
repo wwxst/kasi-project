@@ -25,7 +25,6 @@ public class PromotionOrderVO {
     private String customParams;
     private String trackingNo;
     private Long userId;
-    private Long mediaAccountId;
     private Long dramaId;
     private PromotionAttributionStatus attributionStatus;
     private BigDecimal channelFeeRate;

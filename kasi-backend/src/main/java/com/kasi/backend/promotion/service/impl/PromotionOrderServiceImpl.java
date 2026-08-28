@@ -77,7 +77,6 @@ public class PromotionOrderServiceImpl implements PromotionOrderService {
         PromotionOrder order = new PromotionOrder();
         order.setConnectionId(runtime.connectionId());
         order.setProviderId(runtime.providerId());
-        order.setFirstSyncedAt(LocalDateTime.now(clock));
         order.setAttributionStatus(PromotionAttributionStatus.UNATTRIBUTED);
         copySourceFields(order, record, syncStartDate, syncEndDate);
         return order;
@@ -119,7 +118,6 @@ public class PromotionOrderServiceImpl implements PromotionOrderService {
         order.setTrackingNo(link.getTrackingNo());
         order.setPromotionLinkId(link.getId());
         order.setUserId(link.getUserId());
-        order.setMediaAccountId(link.getMediaAccountId());
         order.setDramaId(link.getDramaId());
         order.setAttributionStatus(PromotionAttributionStatus.ATTRIBUTED);
         if (order.getStatus() != PromotionOrderStatus.PAID) {

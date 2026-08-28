@@ -211,12 +211,12 @@ public class UserAuthServiceImpl implements UserAuthService {
 
         // 加密并更新
         SessionMutation mutation = sessionService.beginMutation(SubjectType.USER, userId);
+        sessionService.registerMutationCompletion(mutation);
         String encodedPassword = passwordEncoder.encode(request.getNewPassword());
         int updated = promotionUserMapper.updatePassword(userId, encodedPassword);
         if (updated != 1) {
             throw new IllegalStateException("用户密码更新未生效");
         }
-        sessionService.registerMutationCompletion(mutation);
 
         log.info("用户 [ID={}] 修改密码成功", userId);
     }
@@ -274,30 +274,34 @@ public class UserAuthServiceImpl implements UserAuthService {
 
         String encodedPassword = passwordEncoder.encode(request.getNewPassword());
         PasswordResetTokenReservation reservation = passwordResetTokenService.reserveToken(request.getResetToken());
+        TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+            @Override
+            public void afterCommit() {
+                passwordResetTokenService.completeToken(reservation);
+            }
+
+            @Override
+            public void afterCompletion(int status) {
+                if (status != STATUS_COMMITTED) {
+                    passwordResetTokenService.restoreReady(reservation);
+                }
+            }
+        });
         if (reservation.subjectType() != SubjectType.USER) {
             throw new BusinessException(ErrorCode.RESET_TOKEN_INVALID);
         }
 
         PromotionUser user = promotionUserMapper.findByIdForUpdate(reservation.userId());
         if (user == null) {
-            passwordResetTokenService.restoreReady(reservation);
             throw new BusinessException(ErrorCode.RESET_TOKEN_INVALID);
         }
 
         SessionMutation mutation = sessionService.beginMutation(SubjectType.USER, reservation.userId());
+        sessionService.registerMutationCompletion(mutation);
         int updated = promotionUserMapper.updatePassword(reservation.userId(), encodedPassword);
         if (updated != 1) {
-            passwordResetTokenService.restoreReady(reservation);
             throw new BusinessException(ErrorCode.RESET_TOKEN_INVALID);
         }
-
-        sessionService.registerMutationCompletion(mutation);
-        TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
-            @Override
-            public void afterCommit() {
-                passwordResetTokenService.completeToken(reservation);
-            }
-        });
 
         log.info("用户 [ID={}] 通过重置Token重置密码成功", reservation.userId());
     }

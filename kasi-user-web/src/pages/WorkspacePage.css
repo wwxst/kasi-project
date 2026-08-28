@@ -1,0 +1,14 @@
+.workspace-page h1 {
+  margin: 0 0 16px;
+  font-size: 24px;
+  font-weight: 600;
+  color: var(--td-text-color-primary);
+}
+.workspace-page__surface {
+  min-height: 220px;
+  padding: 24px;
+  background: var(--td-bg-color-container);
+  border: 1px solid var(--td-component-stroke);
+  border-radius: 4px;
+  color: var(--td-text-color-secondary);
+}

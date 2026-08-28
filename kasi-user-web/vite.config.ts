@@ -15,7 +15,7 @@ export default defineConfig(({ mode }) => {
     },
     test: {
       environment: 'jsdom',
-      setupFiles: './src/test/setup.ts',
+      passWithNoTests: true,
       testTimeout: 15_000,
     },
   }

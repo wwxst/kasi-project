@@ -59,7 +59,7 @@ class ScheduledTaskDispatchServiceTest {
     void dueGoodShortTaskIsDispatchedAndAdvanced() {
         SystemScheduledTask task = scheduledTask();
         when(taskMapper.findDue(NOW, 10)).thenReturn(List.of(task));
-        when(taskMapper.claimLease(1L, "scheduled-worker-test", NOW,
+        when(taskMapper.claimLease(ScheduledTaskCode.GOODSHORT_DRAMA_INCREMENTAL_SYNC, "scheduled-worker-test", NOW,
                 NOW.plusMinutes(2))).thenReturn(1);
         ShortDramaProvider provider = new ShortDramaProvider();
         provider.setId(7L);
@@ -70,7 +70,7 @@ class ScheduledTaskDispatchServiceTest {
         service.processDueBatch();
 
         verify(syncService).requestScheduledIncremental(7L, List.of("ENGLISH"));
-        verify(taskMapper).completeRun(1L, "scheduled-worker-test", NOW.plusMinutes(60));
+        verify(taskMapper).completeRun(ScheduledTaskCode.GOODSHORT_DRAMA_INCREMENTAL_SYNC, "scheduled-worker-test", NOW.plusMinutes(60));
     }
 
     @Test
@@ -78,14 +78,14 @@ class ScheduledTaskDispatchServiceTest {
     void lostLeaseSkipsDispatch() {
         SystemScheduledTask task = scheduledTask();
         when(taskMapper.findDue(NOW, 10)).thenReturn(List.of(task));
-        when(taskMapper.claimLease(1L, "scheduled-worker-test", NOW,
+        when(taskMapper.claimLease(ScheduledTaskCode.GOODSHORT_DRAMA_INCREMENTAL_SYNC, "scheduled-worker-test", NOW,
                 NOW.plusMinutes(2))).thenReturn(0);
 
         service.processDueBatch();
 
         verify(providerMapper, never()).findByCode(any());
         verify(syncService, never()).requestScheduledIncremental(any(), any());
-        verify(taskMapper, never()).completeRun(any(), any(), any());
+        verify(taskMapper, never()).completeRun(any(ScheduledTaskCode.class), any(), any());
     }
 
     @Test
@@ -93,14 +93,14 @@ class ScheduledTaskDispatchServiceTest {
     void missingProviderStillAdvancesSchedule() {
         SystemScheduledTask task = scheduledTask();
         when(taskMapper.findDue(NOW, 10)).thenReturn(List.of(task));
-        when(taskMapper.claimLease(1L, "scheduled-worker-test", NOW,
+        when(taskMapper.claimLease(ScheduledTaskCode.GOODSHORT_DRAMA_INCREMENTAL_SYNC, "scheduled-worker-test", NOW,
                 NOW.plusMinutes(2))).thenReturn(1);
         when(providerMapper.findByCode("GOODSHORT")).thenReturn(null);
 
         service.processDueBatch();
 
         verify(syncService, never()).requestScheduledIncremental(any(), any());
-        verify(taskMapper).completeRun(1L, "scheduled-worker-test", NOW.plusMinutes(60));
+        verify(taskMapper).completeRun(ScheduledTaskCode.GOODSHORT_DRAMA_INCREMENTAL_SYNC, "scheduled-worker-test", NOW.plusMinutes(60));
     }
 
     @Test
@@ -108,7 +108,7 @@ class ScheduledTaskDispatchServiceTest {
     void dueGoodShortOrderTaskIsDispatchedAndAdvanced() {
         SystemScheduledTask task = scheduledOrderTask();
         when(taskMapper.findDue(NOW, 10)).thenReturn(List.of(task));
-        when(taskMapper.claimLease(1L, "scheduled-worker-test", NOW,
+        when(taskMapper.claimLease(ScheduledTaskCode.GOODSHORT_ORDER_SYNC, "scheduled-worker-test", NOW,
                 NOW.plusMinutes(2))).thenReturn(1);
         ShortDramaProvider provider = new ShortDramaProvider();
         provider.setId(7L);
@@ -119,7 +119,7 @@ class ScheduledTaskDispatchServiceTest {
         service.processDueBatch();
 
         verify(orderSyncService).sync(7L, NOW.minusDays(3), NOW);
-        verify(taskMapper).completeRun(1L, "scheduled-worker-test", NOW.plusMinutes(1));
+        verify(taskMapper).completeRun(ScheduledTaskCode.GOODSHORT_ORDER_SYNC, "scheduled-worker-test", NOW.plusMinutes(1));
     }
 
     @Test
@@ -127,14 +127,14 @@ class ScheduledTaskDispatchServiceTest {
     void lostLeaseSkipsGoodShortOrderDispatch() {
         SystemScheduledTask task = scheduledOrderTask();
         when(taskMapper.findDue(NOW, 10)).thenReturn(List.of(task));
-        when(taskMapper.claimLease(1L, "scheduled-worker-test", NOW,
+        when(taskMapper.claimLease(ScheduledTaskCode.GOODSHORT_DRAMA_INCREMENTAL_SYNC, "scheduled-worker-test", NOW,
                 NOW.plusMinutes(2))).thenReturn(0);
 
         service.processDueBatch();
 
         verify(providerMapper, never()).findByCode(any());
         verify(orderSyncService, never()).sync(any(), any(), any());
-        verify(taskMapper, never()).completeRun(any(), any(), any());
+        verify(taskMapper, never()).completeRun(any(ScheduledTaskCode.class), any(), any());
     }
 
     @Test
@@ -142,21 +142,20 @@ class ScheduledTaskDispatchServiceTest {
     void missingProviderStillAdvancesGoodShortOrderSchedule() {
         SystemScheduledTask task = scheduledOrderTask();
         when(taskMapper.findDue(NOW, 10)).thenReturn(List.of(task));
-        when(taskMapper.claimLease(1L, "scheduled-worker-test", NOW,
+        when(taskMapper.claimLease(ScheduledTaskCode.GOODSHORT_ORDER_SYNC, "scheduled-worker-test", NOW,
                 NOW.plusMinutes(2))).thenReturn(1);
         when(providerMapper.findByCode("GOODSHORT")).thenReturn(null);
 
         service.processDueBatch();
 
         verify(orderSyncService, never()).sync(any(), any(), any());
-        verify(taskMapper).completeRun(1L, "scheduled-worker-test", NOW.plusMinutes(1));
+        verify(taskMapper).completeRun(ScheduledTaskCode.GOODSHORT_ORDER_SYNC, "scheduled-worker-test", NOW.plusMinutes(1));
     }
 
     private SystemScheduledTask scheduledTask() {
         SystemScheduledTask task = new SystemScheduledTask();
-        task.setId(1L);
         task.setTaskCode(ScheduledTaskCode.GOODSHORT_DRAMA_INCREMENTAL_SYNC);
-        task.setIntervalMinutes(60);
+        task.setIntervalValue(60);
         task.setEnabled(true);
         task.setNextRunAt(NOW.minusMinutes(1));
         return task;
@@ -165,7 +164,7 @@ class ScheduledTaskDispatchServiceTest {
     private SystemScheduledTask scheduledOrderTask() {
         SystemScheduledTask task = scheduledTask();
         task.setTaskCode(ScheduledTaskCode.GOODSHORT_ORDER_SYNC);
-        task.setIntervalMinutes(1);
+        
         task.setIntervalValue(1);
         task.setCycleType(com.kasi.backend.scheduledtask.enums.ScheduledTaskCycleType.INTERVAL_MINUTES);
         return task;

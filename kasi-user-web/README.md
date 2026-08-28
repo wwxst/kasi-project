@@ -1,110 +1,30 @@
-# Kasi 用户中心
+# Kasi User Web
 
-Kasi 推广平台的独立用户端前端，后端项目位于同级目录
-`../kasi-backend`。应用面向电脑浏览器设计，并保留移动端基本可用性。
+This is the clean React + Vite + TypeScript starting point for the Kasi user frontend.
 
-## 技术栈
+The previous business pages, API integrations, tests, and product documentation were intentionally removed so the next UI direction can be implemented from a clean baseline.
 
-- React 19 + TypeScript strict + Vite
-- TDesign React + TDesign Icons React
-- React Router
-- TanStack Query
-- Zustand
-- Axios
-- Vitest + React Testing Library + MSW
-- Oxlint + Prettier
-- pnpm
+## Current Layout
 
-登录后的后台壳层、内容区面板、表格工具栏和业务表单参考腾讯 TDesign React Starter 的 Side Layout 与基础页面风格，保留本项目现有的认证、路由和业务页面：
-<https://github.com/Tencent/tdesign-react-starter>
+The login route is rendered as a full-page Starter-style surface at `/login`. The authenticated workspace shell is available under `/workspace` and uses the migrated TDesign Starter SideLayout structure: a 232px sidebar, sticky header, breadcrumb-aware page container, footer, responsive menu collapse, theme switch, and settings drawer.
 
-## 当前功能
+The current user menu contains `首页`、`账号报白`、`短剧推广`、`推广任务`、`订单` and `佣金`. These routes currently render a workspace placeholder and do not fabricate business data or replace the existing API contracts. The migrated layout source lives under `src/layout` and keeps the Starter component and Less-module organization, with Redux-specific state replaced by a layout-only React context.
 
-- 手机号或邮箱登录
-- 登录、注册和忘记密码表单统一使用 TDesign 字段级校验，必填、格式、验证码和密码错误显示在对应输入框下方，不使用整页错误框；接口业务错误使用 TDesign Alert 提示
-- 注册验证码和用户注册
-- 忘记密码验证码、身份验证和密码重置
-- 刷新页面后的登录状态恢复
-- 只读账户资料和最近登录信息
-- 本人修改密码
-- 当前会话退出
-- 登录后的用户中心采用 TDesign 后台布局：顶部用户栏、左侧平铺导航和响应式移动端菜单；顶部工具栏保留消息和用户菜单，头像下拉提供个人资料、安全设置和退出登录入口
-- `/account` 首页采用 TDesign React Starter Dashboard Base 结构，展示账号指标卡、推广数据区域、账号状态、最近绑定账号和个人资料
-- `/promotion/links` 查询已上架短剧和本人已报白媒体账号，调用真实后端接口生成/查询 GoodShort 推广口令、链接和 trackingNo
-- `/promotion/income` 按月份展示本人已归因订单、订单金额、计算佣金、退款冲销和净佣金，并支持 CSV 导出
+Password login now calls `/api/user/auth/login` and stores the returned access token in the auth-only Zustand store. The workspace Header calls `/api/user/auth/me` with that token and renders the persisted `avatarUrl` and `nickname`; without an avatar it uses a 32px gray circle containing the nickname initial, while a missing profile or failed request keeps the neutral `用户` placeholder.
 
-当前后端未提供用户本人资料编辑接口，因此昵称、真实姓名、手机号、
-邮箱和头像只展示，不提供编辑。快速上线版以 `PromotionLink` 为唯一推广归因来源，旧 `/promotion/tasks` 自动跳转到 `/promotion/links`，不再展示尚未接入的 0 值统计。订单由管理员手动同步；用户端不提供账单锁定/付款状态、钱包、提现、自动订单同步、转化分析、视频下载、TikTok 锚点和 Token 刷新。
+Workspace routes require an access token and redirect unauthenticated visits to `/login`. The shared Axios client clears the session only for HTTP 401 responses; media-account 401 responses therefore return to the login page without rendering the raw Axios error. Other HTTP and network failures use one shared TDesign `MessagePlugin.error` prompt with user-facing Chinese copy, while page-level handlers remain silent for those already handled Axios errors.
 
-## 环境要求
-
-- Node.js 24
-- pnpm 11
-- 已启动的 `kasi-backend`
-
-安装并启动：
+## Commands
 
 ```powershell
-pnpm install
 pnpm dev
-```
-
-默认地址为 `http://localhost:5173`。开发服务器将 `/api` 请求代理到
-`http://localhost:8080`。需要修改后端地址时，复制 `.env.example` 为
-`.env.local` 并设置：
-
-```text
-VITE_PROXY_TARGET=http://localhost:8080
-```
-
-生产环境默认使用同源 `/api`。如使用独立 API 域名，可在构建环境设置
-`VITE_API_BASE_URL`，同时确保后端正确配置 CORS。
-
-## 路由
-
-| 路径                | 说明                              |
-| ------------------- | --------------------------------- |
-| `/login`            | 用户登录                          |
-| `/register`         | 用户注册                          |
-| `/forgot-password`  | 忘记密码三步流程                  |
-| `/account`          | Dashboard Base 风格账户工作台     |
-| `/account/security` | 修改密码                          |
-| `/account/filing`   | 媒体账号报白                      |
-| `/promotion/links`  | 创建并查询真实 GoodShort 推广链接 |
-| `/promotion/income` | 本人月度订单与佣金明细            |
-| `/promotion/tasks`  | 兼容地址，跳转到推广链接          |
-
-Token 和绝对过期时间保存在 `sessionStorage`。刷新页面保留登录，关闭
-当前页面后通常需要重新登录。应用启动时会调用
-`GET /api/user/auth/me` 验证服务端会话。
-
-## 校验
-
-```powershell
-pnpm test
 pnpm typecheck
-pnpm lint
-pnpm format:check
 pnpm build
 ```
 
-## 账号报白
+## 已实现页面
 
-新增媒体账号时无需选择报白平台；后端会按当前已配置且支持报白的全部短剧平台分别建立报备记录，页面按平台汇总状态，失败时仍可针对具体平台重试。
+`/workspace/media-accounts` 已作为“账号报白”页面接入用户媒体账号接口，并迁移 TDesign Starter 筛选列表结构：账号报白 Dialog、新增账号、GoodShort 报白状态表格、客户端筛选和分页、加载/空数据/错误状态。
 
-登录后访问 `/account/filing`。页面使用腾讯后台风格的 TDesign 数据表格和右侧抽屉，支持搜索、选择、分页、导出、详情、新增、编辑媒体账号，以及在详情中对报白失败的账号重新提交。列表字段为复选框、媒体平台、账号名称、GoodShort 报白状态和详情操作；状态只展示“审核中”“已加白”“已失败”，账号 ID、主页链接和错误信息保留在详情抽屉中，不提供启用或禁用账号操作。
-
-## 目录
-
-```text
-src/
-  app/          Provider 和路由门禁
-  features/     auth 与 account 业务领域
-  layouts/      登录后的账户壳层
-  pages/        路由页面
-  shared/       HTTP 响应、错误和通用设施
-  styles/       全局样式
-  test/         Vitest 与 MSW 基础设施
-```
-
-设计和实施记录位于 `docs/superpowers/`。
+`/workspace/drama` 已接入 `/api/user/promotion/dramas`，沿用账号报白页面的 Starter 筛选列表结构：短剧标题和语言筛选、合并展示海报/中英文名称/标签的短剧信息列、平台/分类/语言/推广说明/发布时间表格以及服务端分页。接口只返回已上架且甲方在线的短剧，并按甲方 `remoteCreatedAt` 发布时间倒序排列。“创建推广任务”操作会携带当前 `dramaId` 和 `providerId` 进入 `/workspace/promotion-links`，由任务流程继续展示剧集并创建口令和链接。
+`/workspace/promotion-links` 菜单显示为“推广任务”，默认只读展示已创建的口令、落地页和 OneLink；从短剧推广页携带短剧参数进入时，会打开对应剧集详情和创建推广任务流程。主列表不展示链接状态或重试操作。

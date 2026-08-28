@@ -22,8 +22,6 @@
         <result column="last_error_message" property="lastErrorMessage"/>
         <result column="lease_owner" property="leaseOwner"/>
         <result column="lease_until" property="leaseUntil"/>
-        <result column="created_at" property="createdAt"/>
-        <result column="updated_at" property="updatedAt"/>
     </resultMap>
 
     <select id="findById" resultMap="BaseResultMap">SELECT * FROM provider_media_filing WHERE id = #{id}</select>
@@ -50,16 +48,14 @@
         UPDATE provider_media_filing
         SET status = #{status}, next_action = #{action}, task_data_version = #{taskDataVersion},
             next_action_at = #{nextActionAt}, lease_owner = NULL, lease_until = NULL,
-            retry_count = 0, last_error_code = NULL, last_error_message = NULL,
-            updated_at = CURRENT_TIMESTAMP
+            retry_count = 0, last_error_code = NULL, last_error_message = NULL
         WHERE id = #{id} AND task_data_version = #{taskDataVersion}
     </update>
     <update id="reschedule">
         UPDATE provider_media_filing
         SET status = #{status}, next_action = #{action}, task_data_version = #{taskDataVersion},
             next_action_at = #{nextActionAt}, lease_owner = NULL, lease_until = NULL,
-            retry_count = 0, last_error_code = NULL, last_error_message = NULL,
-            updated_at = CURRENT_TIMESTAMP
+            retry_count = 0, last_error_code = NULL, last_error_message = NULL
         WHERE id = #{id} AND task_data_version = #{expectedVersion}
     </update>
     <select id="findDueIds" resultType="long">
@@ -70,7 +66,7 @@
     </select>
     <update id="claimLease">
         UPDATE provider_media_filing
-        SET lease_owner = #{owner}, lease_until = #{leaseUntil}, updated_at = CURRENT_TIMESTAMP
+        SET lease_owner = #{owner}, lease_until = #{leaseUntil}
         WHERE id = #{id} AND next_action &lt;&gt; 'NONE'
           AND (lease_until IS NULL OR lease_until &lt;= #{now})
     </update>
@@ -78,8 +74,7 @@
         UPDATE provider_media_filing
         SET submitted_data_version = #{taskDataVersion}, last_submitted_at = #{submittedAt},
             next_action = 'QUERY', next_action_at = #{nextQueryAt}, retry_count = 0,
-            last_error_code = NULL, last_error_message = NULL, lease_owner = NULL, lease_until = NULL,
-            updated_at = CURRENT_TIMESTAMP
+            last_error_code = NULL, last_error_message = NULL, lease_owner = NULL, lease_until = NULL
         WHERE id = #{id} AND lease_owner = #{owner} AND task_data_version = #{taskDataVersion}
     </update>
     <update id="completeQuery">
@@ -87,31 +82,27 @@
         SET status = #{status}, remote_status = #{remoteStatus}, external_filing_id = #{externalFilingId},
             filing_time = #{filingTime}, operate_time = #{operateTime}, last_queried_at = #{queriedAt},
             next_action = #{nextAction}, next_action_at = #{nextActionAt}, retry_count = 0,
-            last_error_code = NULL, last_error_message = NULL, lease_owner = NULL, lease_until = NULL,
-            updated_at = CURRENT_TIMESTAMP
+            last_error_code = NULL, last_error_message = NULL, lease_owner = NULL, lease_until = NULL
         WHERE id = #{id} AND lease_owner = #{owner} AND task_data_version = #{taskDataVersion}
     </update>
     <update id="recordRetry">
         UPDATE provider_media_filing
         SET status = #{status}, next_action = #{nextAction}, next_action_at = #{nextActionAt},
             retry_count = #{retryCount}, last_error_code = #{errorCode},
-            last_error_message = #{errorMessage}, lease_owner = NULL, lease_until = NULL,
-            updated_at = CURRENT_TIMESTAMP
+            last_error_message = #{errorMessage}, lease_owner = NULL, lease_until = NULL
         WHERE id = #{id} AND lease_owner = #{owner} AND task_data_version = #{taskDataVersion}
     </update>
     <update id="updateManualStatus">
         UPDATE provider_media_filing
         SET status = #{status}, next_action = 'NONE', next_action_at = NULL,
             operate_by = #{operateBy}, operate_time = #{operateTime},
-            lease_owner = NULL, lease_until = NULL,
-            updated_at = CURRENT_TIMESTAMP
+            lease_owner = NULL, lease_until = NULL
         WHERE id = #{id} AND status = 'PENDING'
     </update>
     <update id="stopPendingTasksByConnectionId">
         UPDATE provider_media_filing
         SET next_action = 'NONE', next_action_at = NULL,
-            lease_owner = NULL, lease_until = NULL,
-            updated_at = CURRENT_TIMESTAMP
+            lease_owner = NULL, lease_until = NULL
         WHERE connection_id = #{connectionId}
           AND status = 'PENDING'
           AND next_action &lt;&gt; 'NONE'

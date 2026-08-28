@@ -2,6 +2,7 @@ import { App as AntdApp, Button, Form, Modal, Segmented, Select } from 'antd'
 import { useEffect, useState } from 'react'
 import { isUnauthorizedError } from '../../api/http'
 import { requestDramaCatalogSync } from '../../features/drama/dramaCatalogApi'
+import { dramaLanguageLabels } from '../../features/drama/dramaCatalogLocale'
 import type {
   DramaSyncType,
   RequestDramaSync,
@@ -16,7 +17,9 @@ interface DramaSyncModalProps {
   onSubmitted: (providerId: number) => void
 }
 
-const languageOptions = [{ value: 'ENGLISH', label: 'ENGLISH' }]
+const languageOptions = Object.entries(dramaLanguageLabels).map(
+  ([value, label]) => ({ value, label }),
+)
 
 export function DramaSyncModal({
   open,

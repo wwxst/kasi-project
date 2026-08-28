@@ -25,10 +25,10 @@ class SysAdminUserStructureTest extends BaseAuthTest {
     @Test
     @DisplayName("管理员数据库和Mapper不再声明软删除字段")
     void sysAdminUserSchemaAndMapperDoNotDeclareSoftDeleteField() throws Exception {
-        String migration = Files.readString(
-                Path.of("src/main/resources/db/migration/V1__kasi_promotion.sql"), StandardCharsets.UTF_8);
-        String adminBlock = migration.substring(
-                migration.indexOf("CREATE TABLE `sys_admin_user`"), migration.indexOf("-- 推广用户表"));
+        String initialization = Files.readString(
+                Path.of("src/main/resources/db/kasi_promotion.sql"), StandardCharsets.UTF_8);
+        String adminBlock = initialization.substring(
+                initialization.indexOf("CREATE TABLE `sys_admin_user`"), initialization.indexOf("-- 推广用户表"));
         String testSchema = Files.readString(
                 Path.of("src/test/resources/test-schema.sql"), StandardCharsets.UTF_8);
         String testAdminBlock = testSchema.substring(
