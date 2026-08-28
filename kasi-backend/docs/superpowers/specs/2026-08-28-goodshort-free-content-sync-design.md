@@ -18,7 +18,9 @@ POST /open/book/freeContent
 返回：chapterName、content
 ```
 
-因此本阶段只实现免费剧集同步。收费剧集没有可用的剧集列表接口，不同步、不伪造收费剧集记录。
+GoodShort 文档将 `content` 定义为视频链接，没有说明 URL 的有效期。本设计按当前业务决定将该 URL 作为可长期使用的地址持久化；后续自动同步或手动补同步拿到新值时直接覆盖旧值。
+
+因此本阶段只实现免费剧集和对应视频 URL 同步。收费剧集没有可用的剧集列表接口，不同步、不伪造收费剧集记录。
 
 ## 2. 目标与非目标
 
@@ -27,13 +29,13 @@ POST /open/book/freeContent
 - 目录全量同步后，自动为新增短剧排队同步免费剧集。
 - 目录增量同步后，自动为新增或发生变化的短剧排队同步免费剧集。
 - 提供管理员按单部短剧手动触发或重试的接口。
+- 将 GoodShort 免费内容 URL 持久化，用户播放和下载直接读取本地最新地址。
 - 复用统一的任务租约、状态、错误和重试语义。
 - 同步过程不阻塞目录分页请求，且遵守 GoodShort 的调用限流。
 
 ### 2.2 非目标
 
 - 不同步收费剧集。
-- 不保存视频 URL 或永久播放地址。
 - 不在用户请求中隐式写入剧集数据。
 - 不新增批量手动同步接口。
 - 不改变现有短剧上下架、推广元数据和目录检查点语义。
@@ -51,7 +53,7 @@ POST /open/book/freeContent
 剧集同步任务
   -> 领取任务租约
   -> 调用 GoodShort /open/book/freeContent
-  -> 短事务 upsert 免费剧集
+  -> 校验并短事务 upsert 免费剧集和视频 URL
   -> 更新任务成功、失败或下次重试时间
 ```
 
@@ -108,10 +110,11 @@ updated_at             更新时间
 
 ## 6. 免费剧集字段映射
 
-GoodShort `freeContent` 只返回章节名和视频 URL，不能填充完整的远端剧集元数据。映射规则固定为：
+GoodShort `freeContent` 只返回章节名和视频 URL，不能填充完整的远端剧集元数据。`provider_drama_content` 增加可空的 `content_url` 字段，映射规则固定为：
 
 ```text
 GoodShort chapterName    -> provider_drama_content.title
+GoodShort content        -> provider_drama_content.content_url
 返回顺序或章节号        -> provider_drama_content.sequence_no
 固定 true                -> provider_drama_content.is_free
 无对应字段              -> external_content_id 为空
@@ -121,7 +124,9 @@ GoodShort chapterName    -> provider_drama_content.title
 
 如果 `chapterName` 能解析出末尾章节数字，优先使用该数字作为 `sequence_no`；无法解析时使用本次响应顺序。现有唯一键 `(drama_id, sequence_no)` 继续使用，重复同步执行 upsert。
 
-视频 URL 只进入现有 Redis 免费内容缓存，并继续通过用户端 `GET /api/user/promotion/dramas/{id}/free-content` 返回；不写入 MySQL，避免保存会过期的地址。
+每个视频 URL 在写库前必须通过现有 `DramaMediaUrlValidator` 校验，只允许 `GOODSHORT_MEDIA_HOSTS` 配置的域名及其子域名，并拒绝内网地址、用户信息和非标准端口。任一 URL 无效时，本次任务失败且不覆盖已有剧集数据。
+
+视频 URL 持久化到 MySQL，不设置业务 TTL。后续自动同步或手动补同步返回新 URL 时执行 upsert 覆盖旧值。现有 Redis 免费内容缓存不再作为用户播放和下载的数据源，避免数据库与缓存返回不同地址。
 
 GoodShort 本次未返回的历史剧集不物理删除。收费剧集由于没有来源数据，不创建占位记录。
 
@@ -153,14 +158,15 @@ GET /api/user/promotion/dramas/{id}
 GET /api/user/promotion/dramas/{id}/free-content
 ```
 
-管理员和用户详情继续读取本地 `provider_drama_content`。用户端免费资源接口仍负责获取和缓存播放地址，不负责创建剧集记录。
+管理员和用户详情继续读取本地 `provider_drama_content`。用户端免费资源接口改为读取已持久化的 `content_url`，并将同一地址作为 `playUrl` 和 `downloadUrl` 返回；该接口不再实时调用 GoodShort，也不负责创建剧集记录。
 
 ## 8. 数据库与实现边界
 
 - `src/main/resources/db/kasi_promotion.sql` 增加任务表和固定定时任务初始记录。
 - `src/test/resources/test-schema.sql` 同步增加 H2 结构。
+- `provider_drama_content` 增加可空的 `content_url TEXT`，用于保存 GoodShort 免费内容视频地址。
 - 新增 `DramaContentSyncService` 接口及实现、任务 entity/mapper、管理员 DTO/VO/controller。
-- GoodShort 适配器复用现有签名、连接解密和异常转换，只增加以 `bookId` 调用 `freeContent` 的任务入口。
+- 剧集任务服务复用现有 `FreeContentProviderAdapter.fetchFreeContent(...)`、签名、连接解密和异常转换，不复制 GoodShort 请求代码。
 - 目录同步服务只负责创建任务，不直接调用免费内容适配器。
 - 不修改 `provider_drama_content` 的现有唯一键和本地推广元数据字段。
 
@@ -172,18 +178,19 @@ GET /api/user/promotion/dramas/{id}/free-content
 
 ```text
 GoodShort 免费内容适配器：成功、空 data、业务失败、5xx、429、网络异常
-剧集任务服务：新增任务、合并重复任务、成功 upsert、失败重试、租约互斥
+剧集任务服务：新增任务、合并重复任务、URL 校验和持久化、成功 upsert、失败重试、租约互斥
 目录同步联动：新短剧、远端更新时间变化、本地无剧集时自动入队
 管理员接口：正常触发、查询状态、任务运行中、匿名 401、普通用户 403
+用户免费资源接口：只读取数据库 URL，不调用 GoodShort，非法或缺失 URL 不返回
 数据库结构：任务表唯一约束、状态默认值、索引和初始化脚本
 ```
 
-验收标准是：完成一次目录同步后，新增或本地没有剧集的短剧最终能在 `provider_drama_content` 中出现免费剧集；重复执行不产生重复记录；收费剧集不出现在本地数据中。
+验收标准是：完成一次目录同步后，新增或本地没有剧集的短剧最终能在 `provider_drama_content` 中出现免费剧集和视频 URL；用户播放和下载不再实时调用 GoodShort；重复执行不产生重复记录；收费剧集不出现在本地数据中。
 
 ## 10. 当前与规划分离
 
 当前已实现：GoodShort 短剧目录全量/增量同步、用户端免费内容实时获取与 Redis 缓存、短剧详情读取本地剧集记录。
 
-本设计批准但尚未实施：免费剧集自动排队、剧集任务表、自动重试和管理员单部剧补偿接口。
+本设计批准但尚未实施：免费剧集自动排队、视频 URL 持久化、剧集任务表、自动重试、用户端读取本地 URL 和管理员单部剧补偿接口。
 
 明确缺口：GoodShort 收费剧集列表和收费资源接口尚未提供，当前不纳入实现范围。
