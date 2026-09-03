@@ -1,0 +1,46 @@
+name: Real Smoke
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  goodshort-free-content:
+    name: GoodShort Free Content
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: kasi-backend
+    steps:
+      - uses: actions/checkout@v4
+      - name: Read Java version from Maven
+        id: java-version
+        shell: bash
+        run: |
+          python - <<'PY'
+          import os
+          import xml.etree.ElementTree as ET
+
+          root = ET.parse("pom.xml").getroot()
+          namespace = root.tag.partition("}")[0].removeprefix("{")
+          prefix = f"{{{namespace}}}" if namespace else ""
+          version = root.findtext(f"{prefix}properties/{prefix}java.version")
+          if not version:
+              raise SystemExit("pom.xml does not define java.version")
+          with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as output:
+              output.write(f"version={version.strip()}\n")
+          PY
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: ${{ steps.java-version.outputs.version }}
+      - name: Run required GoodShort smoke
+        shell: pwsh
+        env:
+          GOODSHORT_BASE_URL: ${{ secrets.GOODSHORT_BASE_URL }}
+          GOODSHORT_PARTNER_ID: ${{ secrets.GOODSHORT_PARTNER_ID }}
+          GOODSHORT_API_KEY: ${{ secrets.GOODSHORT_API_KEY }}
+          DRAMA_EXTERNAL_ID: ${{ secrets.DRAMA_EXTERNAL_ID }}
+        run: ./scripts/dev/smoke-goodshort-free-content.ps1 -Required

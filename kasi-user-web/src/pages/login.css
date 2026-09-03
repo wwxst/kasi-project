@@ -1,0 +1,256 @@
+.starter-login-page {
+  position: relative;
+  display: flex;
+  min-height: 100vh;
+  flex-direction: column;
+  overflow: hidden;
+  background-position: 100%;
+  background-size: cover;
+}
+
+.starter-login-page.light {
+  background-color: #fff;
+  background-image: url('../assets/image/assets-login-bg-white.png');
+}
+
+.starter-login-page.dark {
+  background-color: var(--td-bg-color-page);
+  background-image: url('../assets/image/assets-login-bg-black.png');
+}
+
+.starter-login-header {
+  display: flex;
+  height: 64px;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 24px;
+  backdrop-filter: blur(5px);
+  color: var(--td-text-color-primary);
+}
+
+.starter-login-brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: #2f3690;
+  font-size: 18px;
+}
+
+.starter-login-logo {
+  width: 44px;
+  height: 44px;
+  object-fit: contain;
+}
+
+.starter-login-operations {
+  display: flex;
+  align-items: center;
+}
+
+.starter-login-operation {
+  margin-left: 16px;
+}
+
+.starter-login-icon {
+  width: 20px;
+  height: 20px;
+  padding: 6px;
+  box-sizing: content-box;
+}
+
+.starter-login-container {
+  position: absolute;
+  top: 22%;
+  left: 5%;
+  min-height: 500px;
+  line-height: 22px;
+}
+
+.starter-login-title-container h1 {
+  margin-top: 4px;
+  margin-bottom: 0;
+  color: var(--td-text-color-primary);
+  font-size: 36px;
+  line-height: 44px;
+}
+
+.starter-login-subtitle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 16px;
+}
+
+.starter-login-subtitle p {
+  margin: 0;
+  color: var(--td-text-color-secondary);
+  font-size: 14px;
+}
+
+.starter-login-link {
+  padding: 0;
+  border: 0;
+  color: var(--td-brand-color);
+  background: transparent;
+  font-size: 14px;
+  cursor: pointer;
+}
+
+.starter-login-form {
+  width: 400px;
+  margin-top: 48px;
+}
+
+.starter-login-check {
+  display: flex;
+  align-items: center;
+  color: var(--td-text-color-secondary);
+  font-size: 14px;
+}
+
+.starter-login-remember {
+  justify-content: space-between;
+  margin-top: 20px;
+  margin-bottom: 20px;
+}
+
+.starter-login-remember .t-checkbox__label {
+  color: var(--td-text-color-secondary);
+}
+
+.starter-login-submit {
+  margin-top: 0;
+}
+
+.starter-login-error {
+  margin: 8px 0 12px;
+  color: #d54941;
+  font-size: 13px;
+  line-height: 20px;
+  text-align: center;
+}
+
+.starter-login-form-phone .starter-login-submit {
+  margin-top: 20px;
+}
+
+.starter-login-switches {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0 14px;
+  margin-top: 24px;
+}
+
+.starter-login-switches .starter-login-link:not(:last-child)::after {
+  display: inline-block;
+  width: 1px;
+  height: 12px;
+  margin-left: 14px;
+  vertical-align: -1px;
+  background: var(--td-gray-color-3);
+  content: '';
+}
+
+.starter-login-verification {
+  flex-shrink: 0;
+  width: 102px;
+  height: 40px;
+  margin-left: 11px;
+}
+
+.starter-login-qr-tip {
+  display: flex;
+  width: 192px;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 16px;
+  color: var(--td-text-color-primary);
+  font-size: 14px;
+}
+
+.starter-login-refresh {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.starter-login-refresh .t-icon {
+  font-size: 14px;
+}
+
+.starter-register-agreement {
+  margin-bottom: var(--td-comp-margin-xxl);
+  color: var(--td-text-color-secondary);
+  font-size: 14px;
+}
+
+.starter-login-page .starter-register-agreement.t-form__item--last {
+  margin-bottom: var(--td-comp-margin-xxl);
+}
+
+.starter-login-copyright {
+  position: absolute;
+  bottom: 64px;
+  left: 5%;
+  color: var(--td-text-color-secondary);
+  font-size: 14px;
+}
+
+@media screen and (max-height: 762px) {
+  .starter-login-copyright {
+    display: none;
+  }
+}
+
+@media screen and (max-width: 760px) {
+  .starter-login-header {
+    padding: 0 16px;
+  }
+
+  .starter-login-logo {
+    width: 40px;
+    height: 40px;
+  }
+
+  .starter-login-brand {
+    font-size: 16px;
+  }
+
+  .starter-login-container {
+    position: relative;
+    top: auto;
+    left: auto;
+    min-height: 0;
+    padding: 72px 24px 120px;
+  }
+
+  .starter-login-form {
+    width: min(400px, 100%);
+  }
+
+  .starter-login-title-container h1 {
+    font-size: 32px;
+    line-height: 40px;
+  }
+
+  .starter-login-copyright {
+    right: 24px;
+    bottom: 24px;
+    left: 24px;
+  }
+}
+
+@media screen and (max-width: 480px) {
+  .starter-login-logo {
+    display: none;
+  }
+
+  .starter-login-brand {
+    gap: 0;
+  }
+
+  .starter-login-container {
+    padding-right: 16px;
+    padding-left: 16px;
+  }
+}

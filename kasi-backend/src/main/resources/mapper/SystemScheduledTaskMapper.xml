@@ -1,0 +1,80 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.kasi.backend.scheduledtask.mapper.SystemScheduledTaskMapper">
+
+    <resultMap id="ScheduledTaskMap" type="com.kasi.backend.scheduledtask.entity.SystemScheduledTask">
+        <result column="task_code" property="taskCode"/>
+        <result column="description" property="description"/>
+        <result column="cycle_type" property="cycleType"/>
+        <result column="interval_value" property="intervalValue"/>
+        <result column="interval_hours_part" property="intervalHoursPart"/>
+        <result column="interval_minutes_part" property="intervalMinutesPart"/>
+        <result column="time_of_day" property="timeOfDay"/>
+        <result column="day_of_week" property="dayOfWeek"/>
+        <result column="day_of_month" property="dayOfMonth"/>
+        <result column="month_of_year" property="monthOfYear"/>
+        <result column="enabled" property="enabled"/>
+        <result column="next_run_at" property="nextRunAt"/>
+        <result column="lease_owner" property="leaseOwner"/>
+        <result column="lease_until" property="leaseUntil"/>
+    </resultMap>
+
+    <select id="findAll" resultMap="ScheduledTaskMap">
+        SELECT * FROM system_scheduled_task ORDER BY task_code ASC
+    </select>
+
+    <select id="findByTaskCode" resultMap="ScheduledTaskMap">
+        SELECT * FROM system_scheduled_task WHERE task_code = #{taskCode}
+    </select>
+
+    <select id="findDue" resultMap="ScheduledTaskMap">
+        SELECT *
+        FROM system_scheduled_task
+        WHERE enabled = 1
+          AND next_run_at IS NOT NULL
+          AND next_run_at &lt;= #{now}
+          AND (lease_until IS NULL OR lease_until &lt;= #{now})
+        ORDER BY next_run_at ASC, task_code ASC
+        LIMIT #{limit}
+    </select>
+
+    <update id="updateConfig">
+        UPDATE system_scheduled_task
+        SET description = #{description},
+            cycle_type = #{cycleType},
+            interval_value = #{intervalValue},
+            interval_hours_part = #{intervalHoursPart},
+            interval_minutes_part = #{intervalMinutesPart},
+            time_of_day = #{timeOfDay},
+            day_of_week = #{dayOfWeek},
+            day_of_month = #{dayOfMonth},
+            month_of_year = #{monthOfYear},
+            enabled = #{enabled},
+            next_run_at = #{nextRunAt},
+            lease_owner = NULL,
+            lease_until = NULL
+        WHERE task_code = #{taskCode}
+    </update>
+
+    <update id="claimLease">
+        UPDATE system_scheduled_task
+        SET lease_owner = #{owner},
+            lease_until = #{leaseUntil}
+        WHERE task_code = #{taskCode}
+          AND enabled = 1
+          AND next_run_at IS NOT NULL
+          AND next_run_at &lt;= #{now}
+          AND (lease_until IS NULL OR lease_until &lt;= #{now})
+    </update>
+
+    <update id="completeRun">
+        UPDATE system_scheduled_task
+        SET next_run_at = #{nextRunAt},
+            lease_owner = NULL,
+            lease_until = NULL WHERE task_code = #{taskCode}
+          AND lease_owner = #{owner}
+    </update>
+
+</mapper>

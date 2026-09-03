@@ -1,0 +1,51 @@
+:root {
+  font-family: Inter, 'PingFang SC', 'Microsoft YaHei', system-ui, sans-serif;
+  color: #1d2129;
+  background: #f3f3f3;
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  min-width: 320px;
+  min-height: 100vh;
+  margin: 0;
+  overflow: hidden;
+}
+
+button,
+input {
+  font: inherit;
+}
+
+#root {
+  min-height: 100vh;
+}
+
+.t-layout {
+  min-height: 100vh;
+}
+
+@media (max-width: 899px) {
+  body {
+    overflow-x: hidden;
+  }
+}
+
+.clean-app {
+  display: grid;
+  min-height: 100vh;
+  padding: 32px;
+  place-items: center;
+}
+
+.clean-app h1 {
+  margin: 0;
+  color: #4e5969;
+  font-size: 20px;
+  font-weight: 500;
+}

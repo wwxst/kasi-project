@@ -1,0 +1,51 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.kasi.backend.sms.mapper.SmsConfigMapper">
+
+    <resultMap id="BaseResultMap" type="com.kasi.backend.sms.entity.SmsConfig">
+        <id column="id" property="id"/>
+        <result column="access_key_id_ciphertext" property="accessKeyIdCiphertext"/>
+        <result column="access_key_secret_ciphertext" property="accessKeySecretCiphertext"/>
+        <result column="sign_name" property="signName"/>
+        <result column="register_template_code" property="registerTemplateCode"/>
+        <result column="login_template_code" property="loginTemplateCode"/>
+        <result column="reset_password_template_code" property="resetPasswordTemplateCode"/>
+        <result column="smtp_host" property="smtpHost"/><result column="smtp_port" property="smtpPort"/><result column="smtp_username" property="smtpUsername"/><result column="smtp_password_ciphertext" property="smtpPasswordCiphertext"/><result column="smtp_from_address" property="smtpFromAddress"/><result column="email_enabled" property="emailEnabled"/>
+        <result column="enabled" property="enabled"/>
+        <result column="created_by" property="createdBy"/>
+        <result column="updated_by" property="updatedBy"/>
+        <result column="created_at" property="createdAt"/>
+        <result column="updated_at" property="updatedAt"/>
+    </resultMap>
+
+    <select id="findSingleton" resultMap="BaseResultMap">
+        SELECT * FROM system_sms_config WHERE id = 1
+    </select>
+
+    <insert id="insert" parameterType="com.kasi.backend.sms.entity.SmsConfig">
+        INSERT INTO system_sms_config
+            (id, access_key_id_ciphertext, access_key_secret_ciphertext,
+             sign_name, register_template_code, login_template_code,
+             reset_password_template_code, smtp_host,smtp_port,smtp_username,smtp_password_ciphertext,smtp_from_address,email_enabled, enabled, created_by, updated_by)
+        VALUES
+            (#{id}, #{accessKeyIdCiphertext}, #{accessKeySecretCiphertext},
+             #{signName}, #{registerTemplateCode}, #{loginTemplateCode},
+             #{resetPasswordTemplateCode}, #{smtpHost},#{smtpPort},#{smtpUsername},#{smtpPasswordCiphertext},#{smtpFromAddress},#{emailEnabled}, #{enabled}, #{createdBy}, #{updatedBy})
+    </insert>
+
+    <update id="update" parameterType="com.kasi.backend.sms.entity.SmsConfig">
+        UPDATE system_sms_config
+        SET access_key_id_ciphertext = #{accessKeyIdCiphertext},
+            access_key_secret_ciphertext = #{accessKeySecretCiphertext},
+            sign_name = #{signName},
+            register_template_code = #{registerTemplateCode},
+            login_template_code = #{loginTemplateCode},
+            reset_password_template_code = #{resetPasswordTemplateCode},
+            smtp_host=#{smtpHost}, smtp_port=#{smtpPort}, smtp_username=#{smtpUsername}, smtp_password_ciphertext=#{smtpPasswordCiphertext}, smtp_from_address=#{smtpFromAddress}, email_enabled=#{emailEnabled},
+            enabled = #{enabled},
+            updated_by = #{updatedBy},
+            updated_at = CURRENT_TIMESTAMP
+        WHERE id = 1
+    </update>
+
+</mapper>

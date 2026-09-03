@@ -1,0 +1,213 @@
+.management-page {
+  width: auto;
+  margin: -18px -28px -28px;
+}
+
+.management-page .ant-pro-page-container-children-container {
+  min-width: 0;
+}
+
+.management-page .ant-pro-table .ant-table-cell {
+  white-space: nowrap;
+}
+
+.management-detail-drawer .ant-drawer-body {
+  padding: 24px;
+  background: var(--ant-color-bg-layout, #f5f5f5);
+}
+
+.management-detail {
+  display: grid;
+  gap: 20px;
+}
+
+.management-detail__section {
+  padding: 20px;
+  border: 1px solid var(--ant-color-border-secondary, #f0f0f0);
+  background: var(--ant-color-bg-container, #ffffff);
+  box-shadow: 0 1px 4px rgb(0 0 0 / 6%);
+}
+
+.management-detail__section-title {
+  display: flex;
+  min-height: 24px;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 18px;
+  color: var(--ant-color-text, rgb(0 0 0 / 88%));
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.management-detail__section-title .ant-btn {
+  height: 24px;
+  padding: 0;
+  font-weight: 400;
+}
+
+.management-detail__section-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.management-detail__identity {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 16px;
+  margin-bottom: 24px;
+}
+
+.management-detail__identity .ant-avatar {
+  flex: 0 0 64px;
+}
+
+.management-detail__avatar-upload {
+  position: relative;
+  width: 64px;
+  height: 64px;
+  flex: 0 0 64px;
+  overflow: hidden;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  cursor: pointer;
+}
+
+.management-detail__avatar-upload:focus-visible {
+  outline: 2px solid var(--ant-color-primary, #1677ff);
+  outline-offset: 3px;
+}
+
+.management-detail__avatar-upload:disabled {
+  cursor: wait;
+}
+
+.management-detail__avatar-mask {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  background: rgb(0 0 0 / 48%);
+  color: #ffffff;
+  font-size: 20px;
+  opacity: 0;
+  transition: opacity 160ms ease;
+}
+
+.management-detail__avatar-upload:hover .management-detail__avatar-mask,
+.management-detail__avatar-upload:focus-visible
+  .management-detail__avatar-mask {
+  opacity: 1;
+}
+
+.management-detail__identity-copy {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.management-detail__identity-copy strong {
+  color: var(--ant-color-text, rgb(0 0 0 / 88%));
+  font-size: 16px;
+  overflow-wrap: anywhere;
+}
+
+.management-detail__identity-copy span {
+  color: var(--ant-color-text-secondary, rgb(0 0 0 / 65%));
+  overflow-wrap: anywhere;
+}
+
+.management-detail__section-marker {
+  width: 4px;
+  height: 16px;
+  flex: 0 0 4px;
+  background: var(--ant-color-primary, #1677ff);
+}
+
+.management-detail__grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  column-gap: 36px;
+  row-gap: 16px;
+}
+
+.management-detail__field {
+  display: grid;
+  min-width: 0;
+  grid-template-columns: max-content minmax(0, 1fr);
+  gap: 8px;
+  align-items: start;
+  line-height: 22px;
+}
+
+.management-detail__label {
+  color: var(--ant-color-text-secondary, rgb(0 0 0 / 65%));
+  white-space: nowrap;
+}
+
+.management-detail__label::after {
+  content: ':';
+}
+
+.management-detail__value {
+  min-width: 0;
+  color: var(--ant-color-text, rgb(0 0 0 / 88%));
+  overflow-wrap: anywhere;
+}
+
+.management-edit-drawer .ant-drawer-body {
+  padding: 26px 24px;
+}
+
+.management-password-drawer .ant-drawer-body {
+  padding: 26px 24px;
+}
+
+.management-edit-drawer__form .ant-form-item {
+  margin-bottom: 24px;
+}
+
+.management-edit-drawer__footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+}
+
+@media (max-width: 760px) {
+  .management-page {
+    margin: -14px -16px -20px;
+  }
+
+  .management-detail-drawer .ant-drawer-body {
+    padding: 16px;
+  }
+
+  .management-detail {
+    gap: 16px;
+  }
+
+  .management-detail__section {
+    padding: 16px;
+  }
+
+  .management-detail__grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .management-detail__field {
+    grid-column: span 1 !important;
+  }
+
+  .management-edit-drawer .ant-drawer-body {
+    padding: 20px 16px;
+  }
+
+  .management-password-drawer .ant-drawer-body {
+    padding: 20px 16px;
+  }
+}

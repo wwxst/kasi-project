@@ -1,0 +1,39 @@
+:root {
+  font-family: Inter, 'PingFang SC', 'Microsoft YaHei', system-ui, sans-serif;
+  color: #18202c;
+  background: #f3f5f8;
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  min-width: 320px;
+  min-height: 100%;
+  margin: 0;
+}
+
+button,
+input {
+  font: inherit;
+}
+
+.route-loading {
+  display: grid;
+  place-items: center;
+  min-height: 100vh;
+  background: #f3f5f8;
+}
+
+.ant-message .ant-message-notice-content {
+  border: 1px solid #e1e5ea;
+  background: #ffffff;
+  box-shadow: 0 2px 8px rgb(24 32 44 / 10%);
+  filter: none;
+  backdrop-filter: none;
+}

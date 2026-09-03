@@ -1,0 +1,91 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.kasi.backend.drama.mapper.DramaContentSyncTaskMapper">
+    <resultMap id="TaskMap" type="com.kasi.backend.drama.entity.DramaContentSyncTask">
+        <id column="id" property="id"/>
+        <result column="drama_id" property="dramaId"/>
+        <result column="status" property="status"/>
+        <result column="requested_at" property="requestedAt"/>
+        <result column="next_run_at" property="nextRunAt"/>
+        <result column="retry_count" property="retryCount"/>
+        <result column="total_fetched" property="totalFetched"/>
+        <result column="inserted_count" property="insertedCount"/>
+        <result column="updated_count" property="updatedCount"/>
+        <result column="last_error_code" property="lastErrorCode"/>
+        <result column="last_error_message" property="lastErrorMessage"/>
+        <result column="lease_owner" property="leaseOwner"/>
+        <result column="lease_until" property="leaseUntil"/>
+        <result column="created_at" property="createdAt"/>
+        <result column="updated_at" property="updatedAt"/>
+    </resultMap>
+
+    <select id="findById" resultMap="TaskMap">
+        SELECT * FROM provider_drama_content_sync_task WHERE id = #{id}
+    </select>
+    <select id="findByDramaId" resultMap="TaskMap">
+        SELECT * FROM provider_drama_content_sync_task WHERE drama_id = #{dramaId}
+    </select>
+    <insert id="insert" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO provider_drama_content_sync_task
+            (drama_id, status, requested_at, next_run_at, retry_count,
+             total_fetched, inserted_count, updated_count)
+        VALUES (#{dramaId}, #{status}, #{requestedAt}, #{nextRunAt}, #{retryCount},
+                #{totalFetched}, #{insertedCount}, #{updatedCount})
+    </insert>
+    <insert id="request">
+        INSERT INTO provider_drama_content_sync_task
+            (drama_id, status, requested_at, next_run_at)
+        VALUES (#{dramaId}, 'REQUESTED', #{requestedAt}, #{requestedAt})
+        ON DUPLICATE KEY UPDATE
+            requested_at = CASE WHEN status = 'RUNNING' THEN requested_at ELSE VALUES(requested_at) END,
+            next_run_at = CASE WHEN status = 'RUNNING' THEN next_run_at ELSE VALUES(next_run_at) END,
+            retry_count = CASE WHEN status = 'RUNNING' THEN retry_count ELSE 0 END,
+            total_fetched = CASE WHEN status = 'RUNNING' THEN total_fetched ELSE 0 END,
+            inserted_count = CASE WHEN status = 'RUNNING' THEN inserted_count ELSE 0 END,
+            updated_count = CASE WHEN status = 'RUNNING' THEN updated_count ELSE 0 END,
+            last_error_code = CASE WHEN status = 'RUNNING' THEN last_error_code ELSE NULL END,
+            last_error_message = CASE WHEN status = 'RUNNING' THEN last_error_message ELSE NULL END,
+            lease_owner = CASE WHEN status = 'RUNNING' THEN lease_owner ELSE NULL END,
+            lease_until = CASE WHEN status = 'RUNNING' THEN lease_until ELSE NULL END,
+            status = CASE WHEN status = 'RUNNING' THEN status ELSE 'REQUESTED' END,
+            updated_at = CURRENT_TIMESTAMP
+    </insert>
+    <select id="findDueIds" resultType="long">
+        SELECT id FROM provider_drama_content_sync_task
+        WHERE (status = 'REQUESTED' OR (status = 'RUNNING' AND lease_until &lt;= #{now}))
+          AND next_run_at &lt;= #{now}
+          AND (lease_until IS NULL OR lease_until &lt;= #{now})
+        ORDER BY next_run_at ASC, id ASC LIMIT #{limit}
+    </select>
+    <update id="claimLease">
+        UPDATE provider_drama_content_sync_task
+        SET status = 'RUNNING', lease_owner = #{owner}, lease_until = #{leaseUntil},
+            updated_at = CURRENT_TIMESTAMP
+        WHERE id = #{id}
+          AND (status = 'REQUESTED' OR (status = 'RUNNING' AND lease_until &lt;= #{now}))
+          AND next_run_at &lt;= #{now}
+          AND (lease_until IS NULL OR lease_until &lt;= #{now})
+    </update>
+    <update id="markSuccess">
+        UPDATE provider_drama_content_sync_task
+        SET status = 'SUCCESS', retry_count = 0, total_fetched = #{totalFetched},
+            inserted_count = #{insertedCount}, updated_count = #{updatedCount},
+            last_error_code = NULL, last_error_message = NULL,
+            lease_owner = NULL, lease_until = NULL, updated_at = CURRENT_TIMESTAMP
+        WHERE id = #{id} AND status = 'RUNNING' AND lease_owner = #{owner}
+    </update>
+    <update id="recordRetry">
+        UPDATE provider_drama_content_sync_task
+        SET status = 'REQUESTED', next_run_at = #{nextRunAt}, retry_count = #{retryCount},
+            last_error_code = #{errorCode}, last_error_message = #{errorMessage},
+            lease_owner = NULL, lease_until = NULL, updated_at = CURRENT_TIMESTAMP
+        WHERE id = #{id} AND status = 'RUNNING' AND lease_owner = #{owner}
+    </update>
+    <update id="markFailed">
+        UPDATE provider_drama_content_sync_task
+        SET status = 'FAILED', retry_count = #{retryCount},
+            last_error_code = #{errorCode}, last_error_message = #{errorMessage},
+            lease_owner = NULL, lease_until = NULL, updated_at = CURRENT_TIMESTAMP
+        WHERE id = #{id} AND status = 'RUNNING' AND lease_owner = #{owner}
+    </update>
+</mapper>

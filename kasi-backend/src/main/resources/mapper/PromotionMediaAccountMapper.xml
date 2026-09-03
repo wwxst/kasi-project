@@ -1,0 +1,52 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.kasi.backend.promotion.mapper.PromotionMediaAccountMapper">
+    <resultMap id="BaseResultMap" type="com.kasi.backend.promotion.entity.PromotionMediaAccount">
+        <id column="id" property="id"/>
+        <result column="user_id" property="userId"/>
+        <result column="media_type" property="mediaType"/>
+        <result column="external_account_id" property="externalAccountId"/>
+        <result column="account_name" property="accountName"/>
+        <result column="account_link" property="accountLink"/>
+        <result column="status" property="status"/>
+        <result column="data_version" property="dataVersion"/>
+        <result column="created_at" property="createdAt"/>
+        <result column="updated_at" property="updatedAt"/>
+    </resultMap>
+
+    <select id="findById" resultMap="BaseResultMap">SELECT * FROM promotion_media_account WHERE id = #{id}</select>
+    <select id="findAll" resultMap="BaseResultMap">
+        SELECT * FROM promotion_media_account ORDER BY id DESC
+    </select>
+    <select id="findOwnedById" resultMap="BaseResultMap">
+        SELECT * FROM promotion_media_account WHERE id = #{id} AND user_id = #{userId}
+    </select>
+    <select id="findByIdForUpdate" resultMap="BaseResultMap">
+        SELECT * FROM promotion_media_account WHERE id = #{id} FOR UPDATE
+    </select>
+    <select id="findByIdentity" resultMap="BaseResultMap">
+        SELECT * FROM promotion_media_account
+        WHERE media_type = #{mediaType} AND external_account_id = #{externalAccountId}
+    </select>
+    <select id="findByUserId" resultMap="BaseResultMap">
+        SELECT * FROM promotion_media_account WHERE user_id = #{userId} ORDER BY id DESC
+    </select>
+    <select id="countByUserId" resultType="long">
+        SELECT COUNT(*) FROM promotion_media_account WHERE user_id = #{userId}
+    </select>
+    <insert id="insert" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO promotion_media_account
+            (user_id, media_type, external_account_id, account_name, account_link, status, data_version)
+        VALUES (#{userId}, #{mediaType}, #{externalAccountId}, #{accountName}, #{accountLink}, #{status}, #{dataVersion})
+    </insert>
+    <update id="updateDetails">
+        UPDATE promotion_media_account
+        SET media_type = #{mediaType}, external_account_id = #{externalAccountId},
+            account_name = #{accountName}, account_link = #{accountLink},
+            data_version = #{dataVersion}, updated_at = CURRENT_TIMESTAMP
+        WHERE id = #{id}
+    </update>
+    <update id="updateStatus">
+        UPDATE promotion_media_account SET status = #{status}, updated_at = CURRENT_TIMESTAMP WHERE id = #{id}
+    </update>
+</mapper>

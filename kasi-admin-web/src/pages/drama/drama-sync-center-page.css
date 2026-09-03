@@ -1,0 +1,102 @@
+.drama-sync-center-page__panel {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+.drama-sync-center-page__heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 8px;
+}
+.drama-sync-center-page__heading h1 {
+  margin: 0;
+  color: var(--ant-color-text);
+  font-size: 24px;
+  line-height: 1.25;
+}
+.drama-sync-center-page__heading p {
+  margin: 6px 0 0;
+  color: var(--ant-color-text-secondary);
+  font-size: 13px;
+}
+.drama-sync-center-page__heading .ant-space {
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+.drama-sync-center-page__toolbar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.drama-sync-center-page__toolbar .ant-select {
+  width: 240px;
+}
+.drama-sync-center-page__toolbar .ant-btn-primary {
+  margin-left: auto;
+}
+.drama-sync-center-page__summary,
+.drama-sync-center-page__content-summary {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 18px;
+  color: var(--ant-color-text-secondary);
+  font-size: 13px;
+}
+.drama-sync-center-page__summary .is-success,
+.drama-sync-center-page__content-summary .is-success {
+  color: var(--ant-color-success);
+}
+.drama-sync-center-page__summary .is-processing {
+  color: var(--ant-color-primary);
+}
+.drama-sync-center-page__summary .is-error,
+.drama-sync-center-page__content-summary .is-error {
+  color: var(--ant-color-error);
+}
+.drama-sync-center-page__task,
+.drama-sync-center-page__result {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.drama-sync-center-page__task span,
+.drama-sync-center-page__result span {
+  color: var(--ant-color-text-tertiary);
+  font-size: 12px;
+}
+.drama-sync-center-page__statistics {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(64px, 1fr));
+  gap: 4px 8px;
+  font-size: 12px;
+}
+.drama-sync-center-page__result strong {
+  color: var(--ant-color-error-text);
+  font-size: 12px;
+  font-weight: 400;
+  line-height: 1.5;
+  white-space: normal;
+  word-break: break-word;
+}
+@media (max-width: 720px) {
+  .drama-sync-center-page__heading {
+    flex-direction: column;
+  }
+  .drama-sync-center-page__heading .ant-space {
+    width: 100%;
+    justify-content: flex-start;
+  }
+  .drama-sync-center-page__toolbar {
+    align-items: stretch;
+    flex-wrap: wrap;
+  }
+  .drama-sync-center-page__toolbar .ant-select {
+    width: calc(100% - 40px);
+  }
+  .drama-sync-center-page__toolbar .ant-btn-primary {
+    width: 100%;
+    margin-left: 0;
+  }
+}

@@ -1,0 +1,33 @@
+.sms-config-page {
+  max-width: 760px;
+}
+
+.sms-config-tabs .ant-tabs-nav {
+  margin-bottom: 24px;
+}
+
+.sms-config-tabs .ant-tabs-tab {
+  padding: 12px 4px;
+  margin-right: 28px;
+  font-size: 15px;
+}
+
+.sms-config-panel {
+  max-width: 620px;
+}
+
+.sms-config-actions {
+  display: flex;
+  justify-content: flex-start;
+  padding-top: 8px;
+}
+
+@media (max-width: 480px) {
+  .sms-config-page {
+    padding-inline: 0;
+  }
+
+  .sms-config-tabs .ant-tabs-tab {
+    margin-right: 20px;
+  }
+}

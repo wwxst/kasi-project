@@ -1,0 +1,88 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.kasi.backend.drama.mapper.DramaSyncDisplayRunMapper">
+    <resultMap id="RunMap" type="com.kasi.backend.drama.entity.DramaSyncDisplayRun">
+        <id column="id" property="id"/>
+        <result column="provider_id" property="providerId"/>
+        <result column="parent_run_id" property="parentRunId"/>
+        <result column="sync_domain" property="domain"/>
+        <result column="task_type" property="taskType"/>
+        <result column="trigger_source" property="triggerSource"/>
+        <result column="requested_at" property="requestedAt"/>
+        <result column="created_at" property="createdAt"/>
+    </resultMap>
+    <resultMap id="ItemMap" type="com.kasi.backend.drama.entity.DramaSyncDisplayRunItem">
+        <id column="run_id" property="runId"/>
+        <result column="task_domain" property="taskDomain"/>
+        <result column="task_id" property="taskId"/>
+    </resultMap>
+
+    <insert id="insertRun">
+        INSERT INTO drama_sync_display_run
+            (id, provider_id, parent_run_id, sync_domain, task_type, trigger_source, requested_at)
+        VALUES
+            (#{id}, #{providerId}, #{parentRunId}, #{domain}, #{taskType}, #{triggerSource}, #{requestedAt})
+    </insert>
+    <insert id="insertItem">
+        <selectKey keyProperty="runId" resultType="string" order="BEFORE">
+            SELECT #{runId}
+        </selectKey>
+        INSERT INTO drama_sync_display_run_item (run_id, task_domain, task_id)
+        VALUES (#{runId}, #{taskDomain}, #{taskId})
+    </insert>
+    <update id="updateTaskType">
+        UPDATE drama_sync_display_run SET task_type = #{taskType} WHERE id = #{runId}
+    </update>
+    <select id="findById" resultMap="RunMap">
+        SELECT *
+        FROM drama_sync_display_run
+        WHERE id = #{runId}
+          AND provider_id = #{providerId}
+          AND sync_domain = #{domain}
+          AND EXISTS (
+              SELECT 1
+              FROM drama_sync_display_run_item item
+              WHERE item.run_id = drama_sync_display_run.id
+                AND item.task_domain = #{domain}
+          )
+    </select>
+    <select id="findRuns" resultMap="RunMap">
+        SELECT r.*
+        FROM drama_sync_display_run r
+        WHERE r.provider_id = #{providerId}
+          AND r.sync_domain = #{domain}
+          AND EXISTS (
+              SELECT 1
+              FROM drama_sync_display_run_item item
+              WHERE item.run_id = r.id
+                AND item.task_domain = #{domain}
+          )
+        ORDER BY r.requested_at DESC, r.id DESC
+    </select>
+    <select id="findChildRun" resultMap="RunMap">
+        SELECT *
+        FROM drama_sync_display_run
+        WHERE parent_run_id = #{parentRunId}
+          AND sync_domain = #{domain}
+          AND task_type = #{taskType}
+        ORDER BY requested_at DESC, id DESC
+        LIMIT 1
+    </select>
+    <select id="findItems" resultMap="ItemMap">
+        SELECT run_id, task_domain, task_id
+        FROM drama_sync_display_run_item
+        WHERE run_id = #{runId}
+          AND task_domain = #{domain}
+        ORDER BY task_id ASC
+    </select>
+    <delete id="deleteItemByTask">
+        DELETE FROM drama_sync_display_run_item
+        WHERE task_domain = #{taskDomain} AND task_id = #{taskId}
+    </delete>
+    <select id="findRunIdByTask" resultType="string">
+        SELECT run_id
+        FROM drama_sync_display_run_item
+        WHERE task_domain = #{taskDomain} AND task_id = #{taskId}
+        LIMIT 1
+    </select>
+</mapper>

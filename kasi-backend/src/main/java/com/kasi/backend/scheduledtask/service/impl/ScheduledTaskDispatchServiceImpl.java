@@ -1,0 +1,144 @@
+package com.kasi.backend.scheduledtask.service.impl;
+
+import com.kasi.backend.common.exception.BusinessException;
+import com.kasi.backend.drama.config.DramaSyncProperties;
+import com.kasi.backend.drama.service.DramaCatalogSyncService;
+import com.kasi.backend.drama.service.DramaContentSyncService;
+import com.kasi.backend.provider.entity.ShortDramaProvider;
+import com.kasi.backend.provider.mapper.ShortDramaProviderMapper;
+import com.kasi.backend.promotion.service.PromotionOrderSyncService;
+import com.kasi.backend.provider.exception.ProviderRemoteRejectedException;
+import com.kasi.backend.provider.exception.ProviderTransientException;
+import com.kasi.backend.scheduledtask.config.ScheduledTaskProperties;
+import com.kasi.backend.scheduledtask.entity.SystemScheduledTask;
+import com.kasi.backend.scheduledtask.mapper.SystemScheduledTaskMapper;
+import com.kasi.backend.scheduledtask.service.ScheduledTaskDispatchService;
+import com.kasi.backend.scheduledtask.service.ScheduledTaskScheduleCalculator;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.support.TransactionTemplate;
+
+import java.time.Clock;
+import java.time.LocalDateTime;
+import java.util.List;
+
+@Slf4j
+@Service
+public class ScheduledTaskDispatchServiceImpl implements ScheduledTaskDispatchService {
+    private final SystemScheduledTaskMapper taskMapper;
+    private final ShortDramaProviderMapper providerMapper;
+    private final DramaCatalogSyncService syncService;
+    private final DramaContentSyncService contentSyncService;
+    private final PromotionOrderSyncService orderSyncService;
+    private final TransactionTemplate transactionTemplate;
+    private final ScheduledTaskProperties properties;
+    private final DramaSyncProperties dramaProperties;
+    private final Clock clock;
+    private final String workerId;
+    private final ScheduledTaskScheduleCalculator scheduleCalculator;
+
+    @Autowired
+    public ScheduledTaskDispatchServiceImpl(SystemScheduledTaskMapper taskMapper,
+                                            ShortDramaProviderMapper providerMapper,
+                                            DramaCatalogSyncService syncService,
+                                            DramaContentSyncService contentSyncService,
+                                            PlatformTransactionManager transactionManager,
+                                            ScheduledTaskProperties properties,
+                                            DramaSyncProperties dramaProperties,
+                                            Clock clock,
+                                            @Value("${app.scheduled-task.worker-id:${random.uuid}}")
+                                            String workerId,
+                                            PromotionOrderSyncService orderSyncService,
+                                            ScheduledTaskScheduleCalculator scheduleCalculator) {
+        this.taskMapper = taskMapper;
+        this.providerMapper = providerMapper;
+        this.syncService = syncService;
+        this.contentSyncService = contentSyncService;
+        this.orderSyncService = orderSyncService;
+        this.transactionTemplate = new TransactionTemplate(transactionManager);
+        this.properties = properties;
+        this.dramaProperties = dramaProperties;
+        this.clock = clock;
+        this.workerId = workerId;
+        this.scheduleCalculator = scheduleCalculator;
+    }
+
+    public ScheduledTaskDispatchServiceImpl(SystemScheduledTaskMapper taskMapper,
+                                            ShortDramaProviderMapper providerMapper,
+                                            DramaCatalogSyncService syncService,
+                                            DramaContentSyncService contentSyncService,
+                                            PlatformTransactionManager transactionManager,
+                                            ScheduledTaskProperties properties,
+                                            DramaSyncProperties dramaProperties,
+                                            Clock clock,
+                                            String workerId,
+                                            PromotionOrderSyncService orderSyncService) {
+        this(taskMapper, providerMapper, syncService, contentSyncService, transactionManager, properties,
+                dramaProperties, clock, workerId, orderSyncService, new ScheduledTaskScheduleCalculator());
+    }
+
+    @Override
+    public void processDueBatch() {
+        LocalDateTime now = LocalDateTime.now(clock);
+        List<SystemScheduledTask> due = taskMapper.findDue(now, properties.getBatchSize());
+        if (due == null) {
+            return;
+        }
+        for (SystemScheduledTask task : due) {
+            if (!claim(task, now)) {
+                continue;
+            }
+            try {
+                dispatch(task);
+            } catch (BusinessException | ProviderTransientException | ProviderRemoteRejectedException exception) {
+                log.error("系统定时任务执行失败: taskCode={}", task.getTaskCode(), exception);
+            }
+            taskMapper.completeRun(task.getTaskCode(), workerId, nextRun(task, now));
+        }
+    }
+
+    private boolean claim(SystemScheduledTask task, LocalDateTime now) {
+        Boolean claimed = transactionTemplate.execute(status ->
+                taskMapper.claimLease(task.getTaskCode(), workerId, now,
+                        now.plus(properties.getLeaseDuration())) == 1);
+        return Boolean.TRUE.equals(claimed);
+    }
+
+    private LocalDateTime nextRun(SystemScheduledTask task, LocalDateTime now) {
+        if (task.getCycleType() == null) {
+            throw new IllegalStateException("定时任务周期类型缺失: " + task.getTaskCode());
+        }
+        return scheduleCalculator.nextRun(task.getCycleType(), task.getIntervalValue(),
+                task.getIntervalHoursPart(), task.getIntervalMinutesPart(),
+                task.getTimeOfDay(), task.getDayOfWeek(), task.getDayOfMonth(),
+                task.getMonthOfYear(), now);
+    }
+
+    private void dispatch(SystemScheduledTask task) {
+        switch (task.getTaskCode()) {
+            case GOODSHORT_DRAMA_INCREMENTAL_SYNC -> dispatchGoodShortDramaIncremental();
+            case GOODSHORT_DRAMA_CONTENT_SYNC -> contentSyncService.processDueBatch();
+            case GOODSHORT_ORDER_SYNC -> dispatchGoodShortOrderSync();
+        }
+    }
+
+    private void dispatchGoodShortDramaIncremental() {
+        ShortDramaProvider provider = providerMapper.findByCode("GOODSHORT");
+        if (provider == null) {
+            return;
+        }
+        syncService.requestScheduledIncremental(provider.getId(), dramaProperties.getLanguages());
+    }
+
+    private void dispatchGoodShortOrderSync() {
+        ShortDramaProvider provider = providerMapper.findByCode("GOODSHORT");
+        if (provider == null) {
+            return;
+        }
+        LocalDateTime endDate = LocalDateTime.now(clock);
+        orderSyncService.sync(provider.getId(), endDate.minusDays(3), endDate);
+    }
+}

@@ -1,0 +1,40 @@
+# Agent 指南
+
+## 范围
+
+本文件适用于 `E:/JavaProjects/kasi-project/kasi-user-web`。修改前先阅读
+`README.md` 和 `docs/superpowers/specs/` 中的当前设计。
+
+## 当前边界
+
+- 项目是 React 19 + TypeScript strict + Vite 的独立用户端 SPA。
+- UI 组件统一使用 TDesign React；图标统一使用 TDesign Icons React。
+- 用户端只调用 `/api/user/**`：当前包括认证、本人媒体账号/报白、可推广短剧、短剧免费剧集资源、推广链接和本人订单及订单佣金；不得调用管理员接口，也不得查询其他用户数据。
+- 个人中心通过工作区 Header 头像菜单进入，使用 `/api/user/auth/me` 展示本人资料；昵称和真实姓名通过 `/api/user/auth/profile` 修改，头像通过 `/api/user/auth/avatar` 上传，手机号、邮箱、用户编号、状态和登录信息保持只读。密码通过 `/api/user/auth/password` 修改，成功后清除本地会话并返回登录页。
+- Zustand 只管理 Token、过期时间和启动状态；服务端用户资料属于
+  TanStack Query 缓存。
+- HTTP 200 内仍可能通过 `code != 0` 表示业务失败，所有 API 必须经过
+  `shared/api/httpClient.ts`。
+- 401 清除会话；503/1007 保留会话并提供重试。非 401 的 HTTP/网络错误由共享 Axios 层统一使用 TDesign 消息提示，页面不得重复显示 Axios 原始错误文本。
+- 登录成功后前端保存返回的 access token；工作区 Header 只在有 token 时请求 `/api/user/auth/me`，显示持久化的 `avatarUrl` 和 `nickname`，无头像时使用昵称首字灰色圆形头像，用户信息请求失败时保留“用户”占位。
+- 短剧详情页直接使用浏览器原生下载免费剧集 MP4；“下载全部”按集数触发多个文件，不创建后端下载任务、不使用 FFmpeg、不生成 ZIP。工作区 Header 不提供下载中心，下载进度由浏览器自身管理。
+
+## 开发规则
+
+- 使用 pnpm，不提交 `node_modules`、`dist` 或本地 `.env*`。
+- 新行为先写失败测试，再写最小实现。
+- 页面只组合 feature；业务 API、类型和状态放在所属 feature 中。
+- 快速上线版只使用 `PromotionLink.trackingNo` 归因；“短剧推广”在当前页面打开所选短剧详情，用户二选一生成落地页或 OneLink，每个媒体平台只创建一条所选类型的口令/链接，生成成功后才进入推广任务页；推广任务主列表按单条记录展示创建时间、推广名称、短剧、链接类型、口令和分享链接，不显示批次，不读取短剧参数或展示未接入的状态、0 值任务统计。
+- 本人订单页按 `paidAt` 月份分页查询后端已归因订单，支持导出所选月份 CSV；前端只展示甲方订单号、`PAID/REFUNDED` 支付状态、支付时间、跟踪号和本人的佣金快照，不展示完整订单金额或内部佣金状态，不重算分佣、不修改费率。当前不提供独立佣金页入口。
+- 保持表单可访问性：可见标签必须与真实输入控件关联。
+- 桌面端为主，同时确保 320px 以上窄屏不发生内容重叠或裁切。
+- 不提交密钥、真实手机号、真实邮箱或生产环境凭据。
+
+## 完成校验
+
+```powershell
+pnpm install --frozen-lockfile
+pnpm check
+```
+
+涉及页面布局时还需在桌面和移动视口中完成浏览器截图检查。
