@@ -96,6 +96,11 @@
   cursor: pointer;
 }
 
+.starter-login-unavailable {
+  color: var(--td-text-color-placeholder);
+  font-size: 14px;
+}
+
 .starter-login-form {
   width: 400px;
   margin-top: 48px;
@@ -156,26 +161,6 @@
   width: 102px;
   height: 40px;
   margin-left: 11px;
-}
-
-.starter-login-qr-tip {
-  display: flex;
-  width: 192px;
-  align-items: center;
-  justify-content: space-between;
-  margin-bottom: 16px;
-  color: var(--td-text-color-primary);
-  font-size: 14px;
-}
-
-.starter-login-refresh {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-}
-
-.starter-login-refresh .t-icon {
-  font-size: 14px;
 }
 
 .starter-register-agreement {
