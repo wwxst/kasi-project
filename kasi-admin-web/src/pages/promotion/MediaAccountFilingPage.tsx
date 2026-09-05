@@ -43,7 +43,7 @@ const mediaTypeLabels: Record<MediaType, string> = {
 const filingStatusLabels: Record<FilingStatus, string> = {
   PENDING: '审核中',
   APPROVED: '已加白',
-  FAILED: '已失败',
+  FAILED: '已拒绝',
 }
 
 export function MediaAccountFilingPage() {
@@ -185,7 +185,13 @@ export function MediaAccountFilingPage() {
         ]),
       ),
       width: 110,
-      render: (_, record) => <FilingStatusTag status={record.filingStatus} />,
+      render: (_, record) => (
+        <FilingStatusTag
+          status={record.filingStatus}
+          lastSubmittedAt={record.filingLastSubmittedAt}
+          nextActionAt={record.filingNextActionAt}
+        />
+      ),
     },
     {
       title: '短剧平台',
@@ -352,7 +358,11 @@ export function MediaAccountFilingPage() {
                               providerNames.get(filing.providerId ?? 0) ||
                               '-'}
                           </strong>
-                          <FilingStatusTag status={filing.status} />
+                          <FilingStatusTag
+                            status={filing.status}
+                            lastSubmittedAt={filing.lastSubmittedAt}
+                            nextActionAt={filing.nextActionAt}
+                          />
                         </Space>
                         {filing.status === 'FAILED' ? (
                           <Button
@@ -471,7 +481,15 @@ function AccountStatusTag({ status }: { status: number }) {
   return status === 1 ? <Tag color="success">启用</Tag> : <Tag>禁用</Tag>
 }
 
-function FilingStatusTag({ status }: { status: FilingStatus | null }) {
+function FilingStatusTag({
+  status,
+  lastSubmittedAt,
+  nextActionAt,
+}: {
+  status: FilingStatus | null
+  lastSubmittedAt?: string | null
+  nextActionAt?: string | null
+}) {
   if (!status) return <Tag>未报备</Tag>
   const color =
     status === 'APPROVED'
@@ -479,7 +497,15 @@ function FilingStatusTag({ status }: { status: FilingStatus | null }) {
       : status === 'FAILED'
         ? 'error'
         : 'processing'
-  return <Tag color={color}>{filingStatusLabels[status]}</Tag>
+  const label =
+    status === 'FAILED'
+      ? '\u5df2\u62d2\u7edd'
+      : status === 'PENDING' && !lastSubmittedAt
+        ? nextActionAt
+          ? '\u63d0\u4ea4\u4e2d'
+          : '\u5f85\u63d0\u4ea4'
+        : filingStatusLabels[status]
+  return <Tag color={color}>{label}</Tag>
 }
 
 function stringValue(value: unknown) {

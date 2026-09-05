@@ -104,12 +104,15 @@ public class MediaAccountAdminServiceImpl implements MediaAccountAdminService {
             ShortDramaConnection connection = connectionMapper.findById(filings.get(0).getConnectionId());
             providerId = connection == null ? null : connection.getProviderId();
         }
+        ProviderMediaFiling firstFiling = filings == null || filings.isEmpty() ? null : filings.get(0);
         return AdminMediaAccountListItemVO.builder().id(account.getId())
                 .userNo(user == null ? null : user.getUserNo()).nickname(user == null ? null : user.getNickname())
                 .realName(user == null ? null : user.getRealName()).mediaType(account.getMediaType())
                 .externalAccountId(account.getExternalAccountId()).accountName(account.getAccountName())
                 .providerId(providerId).status(account.getStatus())
-                .filingStatus(filings == null || filings.isEmpty() ? null : filings.get(0).getStatus())
+                .filingStatus(firstFiling == null ? null : firstFiling.getStatus())
+                .filingLastSubmittedAt(firstFiling == null ? null : firstFiling.getLastSubmittedAt())
+                .filingNextActionAt(firstFiling == null ? null : firstFiling.getNextActionAt())
                 .updatedAt(account.getUpdatedAt()).build();
     }
 

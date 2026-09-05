@@ -36,6 +36,7 @@ class MediaAccountServiceTest {
     private ProviderMediaFilingMapper filingMapper;
     private ProviderRuntimeConnectionService runtimeService;
     private AccountFilingProviderAdapter adapter;
+    private MediaFilingTaskService filingTaskService;
     private com.kasi.backend.provider.mapper.ShortDramaConnectionMapper connectionMapper;
     private com.kasi.backend.provider.mapper.ShortDramaProviderMapper providerMapper;
     private MediaAccountService service;
@@ -48,9 +49,10 @@ class MediaAccountServiceTest {
         adapter = mock(AccountFilingProviderAdapter.class);
         connectionMapper = mock(com.kasi.backend.provider.mapper.ShortDramaConnectionMapper.class);
         providerMapper = mock(com.kasi.backend.provider.mapper.ShortDramaProviderMapper.class);
+        filingTaskService = mock(MediaFilingTaskService.class);
         when(adapter.supportedMediaTypes()).thenReturn(Set.of(MediaType.TIKTOK));
         service = new com.kasi.backend.promotion.service.impl.MediaAccountServiceImpl(
-                mediaMapper, filingMapper, runtimeService, connectionMapper, providerMapper);
+                mediaMapper, filingMapper, runtimeService, connectionMapper, providerMapper, filingTaskService);
     }
 
     @Test
@@ -86,6 +88,7 @@ class MediaAccountServiceTest {
 
         assertThat(result.getExternalAccountId()).isEqualTo("creator-1");
         verify(filingMapper, times(2)).insert(argThat(f -> f.getStatus() == FilingStatus.PENDING));
+        verify(filingTaskService, times(2)).submitNow(anyLong());
     }
 
     @Test

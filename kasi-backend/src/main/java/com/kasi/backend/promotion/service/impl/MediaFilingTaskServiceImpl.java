@@ -24,7 +24,6 @@ import org.springframework.stereotype.Service;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.LocalDateTime;
-import java.time.ZoneOffset;
 import java.util.List;
 import java.util.UUID;
 
@@ -59,6 +58,18 @@ public class MediaFilingTaskServiceImpl implements MediaFilingTaskService {
             if (filingMapper.claimLease(id, workerId, now, now.plus(properties.getLeaseDuration())) == 1) {
                 processClaimed(id, now);
             }
+        }
+    }
+
+    @Override
+    public void submitNow(Long filingId) {
+        LocalDateTime now = now();
+        ProviderMediaFiling filing = filingMapper.findById(filingId);
+        if (filing == null || filing.getNextAction() != FilingAction.SUBMIT) {
+            return;
+        }
+        if (filingMapper.claimLease(filingId, workerId, now, now.plus(properties.getLeaseDuration())) == 1) {
+            processClaimed(filingId, now);
         }
     }
 
@@ -111,9 +122,12 @@ public class MediaFilingTaskServiceImpl implements MediaFilingTaskService {
             return;
         }
         FilingStatus status = filing.getStatus() == FilingStatus.APPROVED ? FilingStatus.APPROVED : FilingStatus.PENDING;
-        FilingAction action = filing.getNextAction();
+        // Report calls are initiated explicitly after a user action; the scheduled worker only queries.
+        FilingAction action = filing.getNextAction() == FilingAction.SUBMIT
+                ? FilingAction.NONE : filing.getNextAction();
+        LocalDateTime nextActionAt = action == FilingAction.NONE ? null : now.plus(retryDelay(retries));
         filingMapper.recordRetry(filing.getId(), workerId, filing.getTaskDataVersion(), status, action,
-                now.plus(retryDelay(retries)), retries, code, message);
+                nextActionAt, retries, code, message);
     }
 
     private void recordFinalFailure(ProviderMediaFiling filing, LocalDateTime now, String code, String message) {
@@ -139,6 +153,6 @@ public class MediaFilingTaskServiceImpl implements MediaFilingTaskService {
     }
 
     private LocalDateTime now() {
-        return LocalDateTime.ofInstant(clock.instant(), ZoneOffset.UTC);
+        return LocalDateTime.now(clock);
     }
 }

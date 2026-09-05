@@ -11,6 +11,7 @@ import com.kasi.backend.promotion.mapper.ProviderMediaFilingMapper;
 import com.kasi.backend.provider.entity.ShortDramaConnection;
 import com.kasi.backend.provider.service.ProviderRuntimeConnectionService;
 import com.kasi.backend.provider.spi.AccountFilingProviderAdapter;
+import com.kasi.backend.provider.spi.AccountFilingResult;
 import com.kasi.backend.provider.spi.ProviderConnectionSecret;
 import com.kasi.backend.provider.spi.ProviderRuntimeConnection;
 import org.junit.jupiter.api.BeforeEach;
@@ -20,11 +21,12 @@ import org.junit.jupiter.api.Test;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.LocalDateTime;
-import java.time.ZoneOffset;
+import java.time.ZoneId;
 import java.util.List;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.*;
 
 @DisplayName("媒体账号报备后台任务")
@@ -44,19 +46,46 @@ class MediaFilingTaskServiceTest {
         runtimeService = mock(ProviderRuntimeConnectionService.class);
         adapter = mock(AccountFilingProviderAdapter.class);
         MediaFilingProperties properties = new MediaFilingProperties();
-        Clock clock = Clock.fixed(Instant.parse("2026-08-18T00:00:00Z"), ZoneOffset.UTC);
+        Clock clock = Clock.fixed(Instant.parse("2026-08-18T00:00:00Z"), ZoneId.of("Asia/Shanghai"));
         service = new com.kasi.backend.promotion.service.impl.MediaFilingTaskServiceImpl(
                 filingMapper, mediaMapper, connectionMapper, runtimeService, properties, clock);
     }
 
     @Test
     @DisplayName("到期提交任务成功后转为状态查询")
-    void submitSuccessSchedulesQuery() {
-        LocalDateTime now = LocalDateTime.of(2026, 8, 18, 0, 0);
+    void dueTaskQueriesFilingStatus() {
+        LocalDateTime now = LocalDateTime.of(2026, 8, 18, 8, 0);
         ProviderMediaFiling filing = filing();
+        filing.setNextAction(FilingAction.QUERY);
         when(filingMapper.findDueIds(now, 50)).thenReturn(List.of(1L));
         when(filingMapper.claimLease(eq(1L), any(), eq(now), any())).thenReturn(1);
         when(filingMapper.findById(1L)).thenReturn(filing);
+        when(mediaMapper.findById(2L)).thenReturn(account());
+        ShortDramaConnection connection = new ShortDramaConnection();
+        connection.setId(3L);
+        connection.setProviderId(4L);
+        when(connectionMapper.findById(3L)).thenReturn(connection);
+        when(runtimeService.resolve(4L, com.kasi.backend.provider.enums.ProviderCapability.FILING_STATUS_QUERY))
+                .thenReturn(new ProviderRuntimeConnection(3L, 4L, "GOODSHORT", "GoodShort",
+                        new ProviderConnectionSecret("https://test", "pid", "key", "USD"), adapter));
+        when(adapter.queryAccountFiling(any(), any())).thenReturn(
+                new AccountFilingResult(FilingStatus.PENDING, "0", null, null, null));
+
+        service.processDueBatch();
+
+        verify(adapter).queryAccountFiling(any(), any());
+        verify(filingMapper).completeQuery(eq(1L), any(), eq(1), eq(FilingStatus.PENDING), eq("0"),
+                isNull(), isNull(), isNull(), eq(now), eq(FilingAction.QUERY), eq(now.plusMinutes(5)));
+        verify(adapter, never()).submitAccountFiling(any(), any());
+    }
+
+    @Test
+    @DisplayName("浜嬪姟鎻愪氦鍚庣珛鍗虫彁浜ゆ姤澶囦笖鎴愬姛鍚庡畾鏃舵煡璇")
+    void submitNowSubmitsOnlyQueuedFiling() {
+        LocalDateTime now = LocalDateTime.of(2026, 8, 18, 8, 0);
+        ProviderMediaFiling filing = filing();
+        when(filingMapper.findById(1L)).thenReturn(filing);
+        when(filingMapper.claimLease(eq(1L), any(), eq(now), any())).thenReturn(1);
         when(mediaMapper.findById(2L)).thenReturn(account());
         ShortDramaConnection connection = new ShortDramaConnection();
         connection.setId(3L);
@@ -66,7 +95,7 @@ class MediaFilingTaskServiceTest {
                 .thenReturn(new ProviderRuntimeConnection(3L, 4L, "GOODSHORT", "GoodShort",
                         new ProviderConnectionSecret("https://test", "pid", "key", "USD"), adapter));
 
-        service.processDueBatch();
+        service.submitNow(1L);
 
         verify(adapter).submitAccountFiling(any(), any());
         verify(filingMapper).completeSubmit(eq(1L), any(), eq(1), eq(now), eq(now.plusMinutes(1)));

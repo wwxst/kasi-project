@@ -14,6 +14,7 @@ import com.kasi.backend.promotion.enums.MediaType;
 import com.kasi.backend.promotion.mapper.PromotionMediaAccountMapper;
 import com.kasi.backend.promotion.mapper.ProviderMediaFilingMapper;
 import com.kasi.backend.promotion.service.MediaAccountService;
+import com.kasi.backend.promotion.service.MediaFilingTaskService;
 import com.kasi.backend.provider.entity.ShortDramaConnection;
 import com.kasi.backend.provider.entity.ShortDramaProvider;
 import com.kasi.backend.provider.enums.ProviderCapability;
@@ -26,6 +27,10 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.dao.DuplicateKeyException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.time.LocalDateTime;
 import java.util.Collections;
@@ -40,11 +45,21 @@ public class MediaAccountServiceImpl implements MediaAccountService {
     private final com.kasi.backend.provider.service.ProviderRuntimeConnectionService runtimeService;
     private final ShortDramaConnectionMapper connectionMapper;
     private final ShortDramaProviderMapper providerMapper;
+    private final MediaFilingTaskService filingTaskService;
+    private static final Logger log = LoggerFactory.getLogger(MediaAccountServiceImpl.class);
 
     public MediaAccountServiceImpl(PromotionMediaAccountMapper mediaMapper,
                                    ProviderMediaFilingMapper filingMapper,
                                    com.kasi.backend.provider.service.ProviderRuntimeConnectionService runtimeService) {
-        this(mediaMapper, filingMapper, runtimeService, null, null);
+        this(mediaMapper, filingMapper, runtimeService, null, null, null);
+    }
+
+    public MediaAccountServiceImpl(PromotionMediaAccountMapper mediaMapper,
+                                   ProviderMediaFilingMapper filingMapper,
+                                   com.kasi.backend.provider.service.ProviderRuntimeConnectionService runtimeService,
+                                   ShortDramaConnectionMapper connectionMapper,
+                                   ShortDramaProviderMapper providerMapper) {
+        this(mediaMapper, filingMapper, runtimeService, connectionMapper, providerMapper, null);
     }
 
     @org.springframework.beans.factory.annotation.Autowired
@@ -52,12 +67,14 @@ public class MediaAccountServiceImpl implements MediaAccountService {
                                    ProviderMediaFilingMapper filingMapper,
                                    com.kasi.backend.provider.service.ProviderRuntimeConnectionService runtimeService,
                                    ShortDramaConnectionMapper connectionMapper,
-                                   ShortDramaProviderMapper providerMapper) {
+                                   ShortDramaProviderMapper providerMapper,
+                                   MediaFilingTaskService filingTaskService) {
         this.mediaMapper = mediaMapper;
         this.filingMapper = filingMapper;
         this.runtimeService = runtimeService;
         this.connectionMapper = connectionMapper;
         this.providerMapper = providerMapper;
+        this.filingTaskService = filingTaskService;
     }
 
     @Override
@@ -113,6 +130,9 @@ public class MediaAccountServiceImpl implements MediaAccountService {
                 filing.setNextActionAt(LocalDateTime.now());
             }
             filingMapper.insert(filing);
+            if (filing.getNextAction() == FilingAction.SUBMIT) {
+                registerImmediateSubmit(filing.getId());
+            }
         }
         return getMineById(userId, account.getId());
     }
@@ -170,14 +190,16 @@ public class MediaAccountServiceImpl implements MediaAccountService {
             filing.setNextAction(FilingAction.SUBMIT);
             filing.setNextActionAt(LocalDateTime.now());
             filingMapper.insert(filing);
+            registerImmediateSubmit(filing.getId());
         } else if (filing.getStatus() == FilingStatus.APPROVED) {
             throw new BusinessException(ErrorCode.MEDIA_FILING_APPROVED);
         } else if (mode == FilingMode.MANUAL) {
             throw new BusinessException(ErrorCode.MEDIA_FILING_MANUAL_ONLY);
-        } else if (filing.getStatus() == FilingStatus.FAILED) {
+        } else if (filing.getStatus() == FilingStatus.FAILED || filing.getNextAction() == FilingAction.NONE) {
             filingMapper.reschedule(filing.getId(), FilingStatus.PENDING, FilingAction.SUBMIT,
                     filing.getTaskDataVersion(), account.getDataVersion(), LocalDateTime.now());
             filing = filingMapper.findById(filing.getId());
+            registerImmediateSubmit(filing.getId());
         }
         return toFilingVO(filing);
     }
@@ -237,7 +259,33 @@ public class MediaAccountServiceImpl implements MediaAccountService {
                     manual ? FilingAction.NONE : FilingAction.SUBMIT,
                     filing.getTaskDataVersion(), account.getDataVersion(),
                     manual ? null : LocalDateTime.now());
+            if (!manual && nextStatus != FilingStatus.APPROVED) {
+                registerImmediateSubmit(filing.getId());
+            }
         }
+    }
+
+    private void registerImmediateSubmit(Long filingId) {
+        if (filingTaskService == null) {
+            return;
+        }
+        Runnable submit = () -> {
+            try {
+                filingTaskService.submitNow(filingId);
+            } catch (RuntimeException exception) {
+                log.warn("Immediate media filing submission failed for filing {}", filingId, exception);
+            }
+        };
+        if (!TransactionSynchronizationManager.isSynchronizationActive()) {
+            submit.run();
+            return;
+        }
+        TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+            @Override
+            public void afterCommit() {
+                submit.run();
+            }
+        });
     }
 
     private PromotionMediaAccount requireOwned(Long id, Long userId) {

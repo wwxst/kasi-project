@@ -183,7 +183,7 @@ describe('MediaAccountFilingPage', () => {
     expect(
       within(
         screen.getByText('媒体账号详情').closest('.ant-drawer') as HTMLElement,
-      ).getByText('已失败'),
+      ).getByText('已拒绝'),
     ).toBeInTheDocument()
   })
 })

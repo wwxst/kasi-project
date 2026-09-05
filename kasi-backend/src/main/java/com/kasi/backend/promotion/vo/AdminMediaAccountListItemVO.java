@@ -20,5 +20,7 @@ public class AdminMediaAccountListItemVO {
     private Long providerId;
     private Integer status;
     private FilingStatus filingStatus;
+    private LocalDateTime filingLastSubmittedAt;
+    private LocalDateTime filingNextActionAt;
     private LocalDateTime updatedAt;
 }

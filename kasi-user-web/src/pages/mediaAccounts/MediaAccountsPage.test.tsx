@@ -74,6 +74,33 @@ describe('MediaAccountsPage', () => {
     expect(screen.getByText('提交报白')).toBeTruthy()
   })
 
+  it('does not label an unsubmitted filing as under review', async () => {
+    vi.mocked(getMediaAccounts).mockResolvedValueOnce([
+      {
+        id: 2,
+        mediaType: 'TIKTOK',
+        externalAccountId: 'creator-pending',
+        accountName: 'Pending Creator',
+        accountLink: 'https://tiktok.com/@creator-pending',
+        status: 1,
+        filings: [
+          {
+            providerId: 3,
+            providerName: 'GoodShort',
+            status: 'PENDING',
+            lastSubmittedAt: null,
+            nextActionAt: '2026-09-05T11:00:00',
+          } as never,
+        ],
+      },
+    ])
+
+    renderPage()
+
+    expect(await screen.findByText('\u63d0\u4ea4\u4e2d')).toBeTruthy()
+    expect(screen.queryByText('\u5ba1\u6838\u4e2d')).toBeNull()
+  })
+
   it('uses the Starter message for ordinary API errors', async () => {
     const messageError = vi
       .spyOn(MessagePlugin, 'error')

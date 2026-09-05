@@ -86,6 +86,7 @@ class MediaAccountFilingPersistenceTest extends BaseAuthTest {
         filingMapper.insert(filing);
 
         LocalDateTime now = LocalDateTime.now();
+        assertThat(filingMapper.findDueIds(now, 50)).isEmpty();
         assertThat(filingMapper.claimLease(filing.getId(), "worker-a", now, now.plusMinutes(2))).isEqualTo(1);
         assertThat(filingMapper.claimLease(filing.getId(), "worker-b", now, now.plusMinutes(2))).isZero();
         assertThat(filingMapper.enqueue(filing.getId(), FilingStatus.PENDING, FilingAction.SUBMIT, 2,

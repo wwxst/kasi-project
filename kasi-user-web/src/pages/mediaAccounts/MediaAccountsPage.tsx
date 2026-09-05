@@ -33,22 +33,30 @@ const filingStatusLabels: Record<FilingStatus, string> = {
   FAILED: '报白失败',
 }
 
-function filingTag(status: FilingStatus | null) {
-  if (!status)
+function filingTag(filing: MediaAccount['filings'][number] | undefined) {
+  if (!filing)
     return (
       <Tag theme="default" variant="light">
         未报备
       </Tag>
     )
   const theme =
-    status === 'APPROVED'
+    filing.status === 'APPROVED'
       ? 'success'
-      : status === 'FAILED'
+      : filing.status === 'FAILED'
         ? 'danger'
         : 'warning'
+  const label =
+    filing.status === 'FAILED'
+      ? '\u5df2\u62d2\u7edd'
+      : filing.status === 'PENDING' && !filing.lastSubmittedAt
+        ? filing.nextActionAt
+          ? '\u63d0\u4ea4\u4e2d'
+          : '\u5f85\u63d0\u4ea4'
+        : filingStatusLabels[filing.status]
   return (
     <Tag theme={theme} variant="light">
-      {filingStatusLabels[status]}
+      {label}
     </Tag>
   )
 }
@@ -142,7 +150,7 @@ export default function MediaAccountsPage() {
       title: 'GoodShort 报白状态',
       colKey: 'filingStatus',
       width: 160,
-      cell: ({ row }) => filingTag(getGoodShortFiling(row)?.status ?? null),
+      cell: ({ row }) => filingTag(getGoodShortFiling(row)),
     },
   ]
 
