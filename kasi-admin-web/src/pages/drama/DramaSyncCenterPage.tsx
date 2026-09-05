@@ -106,8 +106,13 @@ function SyncRecordsPage({ domain }: { domain: Domain }) {
   useEffect(() => {
     void listDramaLanguageOptions()
       .then(setLanguageOptions)
-      .catch(() => undefined)
-  }, [])
+      .catch((error) => {
+        if (isUnauthorizedError(error)) return
+        message.error(
+          error instanceof Error ? error.message : '语言列表加载失败',
+        )
+      })
+  }, [message])
 
   const availableProviders = useMemo(
     () => providers.filter((provider) => provider.connection),
@@ -365,6 +370,7 @@ function SyncRecordsPage({ domain }: { domain: Domain }) {
         open={catalogModalOpen}
         providers={catalogProviders}
         preferredProviderId={providerId}
+        languageOptions={languageOptions}
         onClose={() => setCatalogModalOpen(false)}
         onSubmitted={() => {
           setCatalogModalOpen(false)
@@ -375,6 +381,7 @@ function SyncRecordsPage({ domain }: { domain: Domain }) {
         open={contentModalOpen}
         providers={contentProviders}
         preferredProviderId={providerId}
+        languageOptions={languageOptions}
         onClose={() => setContentModalOpen(false)}
         onSubmitted={() => {
           setContentModalOpen(false)

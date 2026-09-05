@@ -79,8 +79,13 @@ export function DramaCatalogPage() {
   useEffect(() => {
     void listDramaLanguageOptions()
       .then(setLanguageOptions)
-      .catch(() => undefined)
-  }, [])
+      .catch((error) => {
+        if (isUnauthorizedError(error)) return
+        message.error(
+          error instanceof Error ? error.message : '语言列表加载失败',
+        )
+      })
+  }, [message])
   const languageValueEnum = useMemo(
     () =>
       Object.fromEntries(
@@ -492,6 +497,7 @@ export function DramaCatalogPage() {
         open={syncModalOpen}
         providers={syncProviders}
         preferredProviderId={syncProviderId}
+        languageOptions={languageOptions}
         onClose={() => setSyncModalOpen(false)}
         onSubmitted={handleSyncSubmitted}
       />
@@ -500,6 +506,7 @@ export function DramaCatalogPage() {
         open={contentSyncModalOpen}
         providers={contentSyncProviders}
         preferredProviderId={syncProviderId}
+        languageOptions={languageOptions}
         onClose={() => setContentSyncModalOpen(false)}
         onSubmitted={(providerId) => {
           setSyncProviderId(providerId)
@@ -511,6 +518,7 @@ export function DramaCatalogPage() {
         open={syncStatusOpen}
         providers={providers}
         providerId={syncProviderId}
+        languageOptions={languageOptions}
         onProviderChange={setSyncProviderId}
         onClose={() => setSyncStatusOpen(false)}
       />

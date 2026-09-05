@@ -9,11 +9,11 @@ import {
 } from 'antd'
 import { useEffect, useState } from 'react'
 import { isUnauthorizedError } from '../../api/http'
-import {
-  listDramaLanguageOptions,
-  requestAllDramaContentSync,
-} from '../../features/drama/dramaCatalogApi'
-import type { RequestAllDramaContentSync } from '../../features/drama/dramaCatalogTypes'
+import { requestAllDramaContentSync } from '../../features/drama/dramaCatalogApi'
+import type {
+  DramaLanguageOption,
+  RequestAllDramaContentSync,
+} from '../../features/drama/dramaCatalogTypes'
 import type { DramaProvider } from '../../features/provider/providerTypes'
 
 type ContentSyncRange = 'ALL' | 'MISSING'
@@ -28,6 +28,7 @@ interface DramaContentSyncModalProps {
   open: boolean
   providers: DramaProvider[]
   preferredProviderId: number | null
+  languageOptions: DramaLanguageOption[]
   onClose: () => void
   onSubmitted: (providerId: number) => void
 }
@@ -36,22 +37,13 @@ export function DramaContentSyncModal({
   open,
   providers,
   preferredProviderId,
+  languageOptions,
   onClose,
   onSubmitted,
 }: DramaContentSyncModalProps) {
   const { message } = AntdApp.useApp()
   const [form] = Form.useForm<ContentSyncFormValues>()
   const [submitting, setSubmitting] = useState(false)
-  const [languageOptions, setLanguageOptions] = useState<
-    Awaited<ReturnType<typeof listDramaLanguageOptions>>
-  >([])
-  useEffect(() => {
-    if (open)
-      void listDramaLanguageOptions()
-        .then(setLanguageOptions)
-        .catch(() => undefined)
-  }, [open])
-
   useEffect(() => {
     if (!open) return
     const providerId =

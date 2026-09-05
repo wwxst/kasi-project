@@ -11,11 +11,9 @@ import type { ColumnsType } from 'antd/es/table'
 import { RefreshCw } from 'lucide-react'
 import { useCallback, useEffect, useState } from 'react'
 import { isUnauthorizedError } from '../../api/http'
-import {
-  listDramaLanguageOptions,
-  listDramaSyncStatuses,
-} from '../../features/drama/dramaCatalogApi'
+import { listDramaSyncStatuses } from '../../features/drama/dramaCatalogApi'
 import type {
+  DramaLanguageOption,
   DramaSyncStatus,
   DramaSyncTask,
   DramaSyncType,
@@ -26,6 +24,7 @@ interface DramaSyncStatusDrawerProps {
   open: boolean
   providers: DramaProvider[]
   providerId: number | null
+  languageOptions: DramaLanguageOption[]
   onProviderChange: (providerId: number) => void
   onClose: () => void
 }
@@ -47,15 +46,13 @@ export function DramaSyncStatusDrawer({
   open,
   providers,
   providerId,
+  languageOptions,
   onProviderChange,
   onClose,
 }: DramaSyncStatusDrawerProps) {
   const { message } = AntdApp.useApp()
   const [tasks, setTasks] = useState<DramaSyncTask[]>([])
   const [loading, setLoading] = useState(false)
-  const [languageOptions, setLanguageOptions] = useState<
-    Awaited<ReturnType<typeof listDramaLanguageOptions>>
-  >([])
 
   const loadStatuses = useCallback(async () => {
     if (providerId === null) {
@@ -76,13 +73,6 @@ export function DramaSyncStatusDrawer({
   useEffect(() => {
     if (open) void loadStatuses()
   }, [loadStatuses, open])
-
-  useEffect(() => {
-    if (open)
-      void listDramaLanguageOptions()
-        .then(setLanguageOptions)
-        .catch(() => undefined)
-  }, [open])
 
   const columns: ColumnsType<DramaSyncTask> = [
     {

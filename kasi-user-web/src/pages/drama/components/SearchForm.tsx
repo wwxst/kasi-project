@@ -1,7 +1,16 @@
-import { Button, Col, Form, Input, Row, Select } from 'tdesign-react'
+import {
+  Button,
+  Col,
+  Form,
+  Input,
+  MessagePlugin,
+  Row,
+  Select,
+} from 'tdesign-react'
 import type { SubmitContext } from 'tdesign-react'
 import { useEffect, useState } from 'react'
 import { listDramaLanguageOptions } from '../../../features/dramas/dramasApi'
+import { isHandledRequestError } from '../../../shared/api/httpClient'
 import Style from './SearchForm.module.less'
 
 export interface DramaFilters {
@@ -28,7 +37,11 @@ export default function SearchForm({ onSubmit, onReset }: SearchFormProps) {
   useEffect(() => {
     void listDramaLanguageOptions()
       .then(setLanguageOptions)
-      .catch(() => undefined)
+      .catch((error) => {
+        if (!isHandledRequestError(error)) {
+          void MessagePlugin.error('语言列表加载失败，请稍后重试')
+        }
+      })
   }, [])
   const handleSubmit = (event: SubmitContext) => {
     if (event.validateResult === true) {
