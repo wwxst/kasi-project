@@ -24,6 +24,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { isUnauthorizedError } from '../../api/http'
 import {
   getDramaCatalogDetail,
+  listDramaLanguageOptions,
   listDramaCatalog,
   requestDramaContentBatchSync,
   requestDramaContentSync,
@@ -36,7 +37,6 @@ import type {
   DramaContent,
   DramaLocalStatus,
 } from '../../features/drama/dramaCatalogTypes'
-import { formatDramaLanguage } from '../../features/drama/dramaCatalogLocale'
 import { listProviders } from '../../features/provider/providerApi'
 import type { DramaProvider } from '../../features/provider/providerTypes'
 import { DramaContentSyncModal } from './DramaContentSyncModal'
@@ -73,6 +73,21 @@ export function DramaCatalogPage() {
   const [contentSyncingId, setContentSyncingId] = useState<number | null>(null)
   const [batchContentSyncing, setBatchContentSyncing] = useState(false)
   const [detailContentRefreshKey, setDetailContentRefreshKey] = useState(0)
+  const [languageOptions, setLanguageOptions] = useState<
+    Awaited<ReturnType<typeof listDramaLanguageOptions>>
+  >([])
+  useEffect(() => {
+    void listDramaLanguageOptions()
+      .then(setLanguageOptions)
+      .catch(() => undefined)
+  }, [])
+  const languageValueEnum = useMemo(
+    () =>
+      Object.fromEntries(
+        languageOptions.map((option) => [option.value, { text: option.label }]),
+      ),
+    [languageOptions],
+  )
 
   useEffect(() => {
     void listProviders()
@@ -217,9 +232,10 @@ export function DramaCatalogPage() {
     {
       title: '语言',
       dataIndex: 'language',
+      valueType: 'select',
+      valueEnum: languageValueEnum,
       width: 110,
-      fieldProps: { placeholder: '如 ENGLISH' },
-      renderText: (value) => formatDramaLanguage(value),
+      render: (_, record) => record.languageLabel || '-',
     },
     {
       title: '分类',
@@ -566,7 +582,7 @@ function DramaDetail({
             <LocalStatusTag status={detail.localStatus} />
           </Descriptions.Item>
           <Descriptions.Item label="语言">
-            {formatDramaLanguage(detail.language)}
+            {detail.languageLabel || '-'}
           </Descriptions.Item>
           <Descriptions.Item label="类型">
             {detail.dramaType || '-'}

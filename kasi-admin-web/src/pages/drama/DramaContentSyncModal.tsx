@@ -9,8 +9,10 @@ import {
 } from 'antd'
 import { useEffect, useState } from 'react'
 import { isUnauthorizedError } from '../../api/http'
-import { requestAllDramaContentSync } from '../../features/drama/dramaCatalogApi'
-import { dramaLanguageLabels } from '../../features/drama/dramaCatalogLocale'
+import {
+  listDramaLanguageOptions,
+  requestAllDramaContentSync,
+} from '../../features/drama/dramaCatalogApi'
 import type { RequestAllDramaContentSync } from '../../features/drama/dramaCatalogTypes'
 import type { DramaProvider } from '../../features/provider/providerTypes'
 
@@ -30,10 +32,6 @@ interface DramaContentSyncModalProps {
   onSubmitted: (providerId: number) => void
 }
 
-const languageOptions = Object.entries(dramaLanguageLabels).map(
-  ([value, label]) => ({ value, label }),
-)
-
 export function DramaContentSyncModal({
   open,
   providers,
@@ -44,6 +42,15 @@ export function DramaContentSyncModal({
   const { message } = AntdApp.useApp()
   const [form] = Form.useForm<ContentSyncFormValues>()
   const [submitting, setSubmitting] = useState(false)
+  const [languageOptions, setLanguageOptions] = useState<
+    Awaited<ReturnType<typeof listDramaLanguageOptions>>
+  >([])
+  useEffect(() => {
+    if (open)
+      void listDramaLanguageOptions()
+        .then(setLanguageOptions)
+        .catch(() => undefined)
+  }, [open])
 
   useEffect(() => {
     if (!open) return

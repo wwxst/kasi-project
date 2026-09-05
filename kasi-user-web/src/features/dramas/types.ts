@@ -1,5 +1,10 @@
 export type DramaLocalStatus = 'DRAFT' | 'PUBLISHED' | 'OFFLINE'
 
+export interface DramaLanguageOption {
+  value: string
+  label: string
+}
+
 export interface DramaListItem {
   id: number
   providerId: number | null
@@ -13,6 +18,7 @@ export interface DramaListItem {
   labelNames: string[]
   categoryName: string | null
   language: string | null
+  languageLabel: string | null
   remoteRank: number | null
   dramaType: string | null
   novelType: string | null

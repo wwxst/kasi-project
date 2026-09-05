@@ -13,6 +13,7 @@ import {
   afterAll,
   afterEach,
   beforeAll,
+  beforeEach,
   describe,
   expect,
   it,
@@ -44,6 +45,17 @@ const providers: DramaProvider[] = [
 ]
 
 beforeAll(() => server.listen({ onUnhandledRequest: 'error' }))
+beforeEach(() => {
+  server.use(
+    http.get('/api/drama/languages', () =>
+      HttpResponse.json({
+        code: 0,
+        message: 'ok',
+        data: [{ value: 'ENGLISH', label: '英语' }],
+      }),
+    ),
+  )
+})
 afterEach(() => {
   cleanup()
   server.resetHandlers()

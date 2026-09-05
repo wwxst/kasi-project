@@ -3,6 +3,7 @@ import type { ApiResponse } from '../../api/types'
 import { unwrapApiResponse } from '../management/managementTypes'
 import type {
   DramaCatalogDetail,
+  DramaLanguageOption,
   DramaCatalogPage,
   DramaCatalogPageQuery,
   DramaContentSyncBatchResult,
@@ -17,6 +18,15 @@ import type {
 } from './dramaCatalogTypes'
 
 const basePath = '/api/admin/drama/catalog'
+
+export async function listDramaLanguageOptions(): Promise<
+  DramaLanguageOption[]
+> {
+  const response = await httpClient.get<ApiResponse<DramaLanguageOption[]>>(
+    '/api/drama/languages',
+  )
+  return unwrapApiResponse(response.data)
+}
 
 export async function listDramaCatalog(
   query: DramaCatalogPageQuery,

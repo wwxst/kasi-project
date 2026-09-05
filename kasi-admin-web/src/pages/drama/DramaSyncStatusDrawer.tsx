@@ -11,8 +11,10 @@ import type { ColumnsType } from 'antd/es/table'
 import { RefreshCw } from 'lucide-react'
 import { useCallback, useEffect, useState } from 'react'
 import { isUnauthorizedError } from '../../api/http'
-import { listDramaSyncStatuses } from '../../features/drama/dramaCatalogApi'
-import { formatDramaLanguage } from '../../features/drama/dramaCatalogLocale'
+import {
+  listDramaLanguageOptions,
+  listDramaSyncStatuses,
+} from '../../features/drama/dramaCatalogApi'
 import type {
   DramaSyncStatus,
   DramaSyncTask,
@@ -51,6 +53,9 @@ export function DramaSyncStatusDrawer({
   const { message } = AntdApp.useApp()
   const [tasks, setTasks] = useState<DramaSyncTask[]>([])
   const [loading, setLoading] = useState(false)
+  const [languageOptions, setLanguageOptions] = useState<
+    Awaited<ReturnType<typeof listDramaLanguageOptions>>
+  >([])
 
   const loadStatuses = useCallback(async () => {
     if (providerId === null) {
@@ -72,6 +77,13 @@ export function DramaSyncStatusDrawer({
     if (open) void loadStatuses()
   }, [loadStatuses, open])
 
+  useEffect(() => {
+    if (open)
+      void listDramaLanguageOptions()
+        .then(setLanguageOptions)
+        .catch(() => undefined)
+  }, [open])
+
   const columns: ColumnsType<DramaSyncTask> = [
     {
       title: '任务',
@@ -80,7 +92,10 @@ export function DramaSyncStatusDrawer({
       render: (_, task) => (
         <div className="drama-catalog-page__sync-task">
           <strong>{syncTypeLabels[task.syncType]}</strong>
-          <span>{formatDramaLanguage(task.language)}</span>
+          <span>
+            {languageOptions.find((option) => option.value === task.language)
+              ?.label ?? task.language}
+          </span>
         </div>
       ),
     },

@@ -90,6 +90,7 @@ class AdminDramaCatalogControllerTest extends BaseAuthTest {
         mockMvc.perform(get("/api/admin/drama/catalog").param("providerId", providerId.toString())
                         .header("Authorization", "Bearer " + token))
                 .andExpect(status().isOk()).andExpect(jsonPath("$.data.list[0].title").value("Time Story"))
+                .andExpect(jsonPath("$.data.list[0].languageLabel").value("英语"))
                 .andExpect(jsonPath("$.data.list[0].titleZh").value("时间故事"))
                 .andExpect(jsonPath("$.data.list[0].labelNames[0]").value("爱情"))
                 .andExpect(jsonPath("$.data.list[0].novelType").value("ORIGINAL"));
@@ -120,6 +121,16 @@ class AdminDramaCatalogControllerTest extends BaseAuthTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.commissionScopes[0]").value("ORDER"))
                 .andExpect(jsonPath("$.data.promotionDescription").value("说明"));
+    }
+
+    @Test
+    @DisplayName("管理员可以读取后端实际生效的语言选项")
+    void adminCanReadDramaLanguageOptions() throws Exception {
+        mockMvc.perform(get("/api/drama/languages")
+                        .header("Authorization", "Bearer " + loginAsAdmin("operator", ADMIN_PASSWORD)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data[0].value").value("ENGLISH"))
+                .andExpect(jsonPath("$.data[0].label").value("英语"));
     }
 
     @Test

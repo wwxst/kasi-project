@@ -18,12 +18,12 @@ import { isUnauthorizedError } from '../../api/http'
 import {
   getDramaContentSyncRecordDetails,
   getDramaSyncRecordDetails,
+  listDramaLanguageOptions,
   listDramaContentSyncRecords,
   listDramaSyncRecords,
   requestDramaCatalogSync,
   requestDramaContentBatchSync,
 } from '../../features/drama/dramaCatalogApi'
-import { formatDramaLanguage } from '../../features/drama/dramaCatalogLocale'
 import type {
   DramaContentSyncRecordDetail,
   DramaSyncRecord,
@@ -100,6 +100,14 @@ function SyncRecordsPage({ domain }: { domain: Domain }) {
   >([])
   const [catalogModalOpen, setCatalogModalOpen] = useState(false)
   const [contentModalOpen, setContentModalOpen] = useState(false)
+  const [languageOptions, setLanguageOptions] = useState<
+    Awaited<ReturnType<typeof listDramaLanguageOptions>>
+  >([])
+  useEffect(() => {
+    void listDramaLanguageOptions()
+      .then(setLanguageOptions)
+      .catch(() => undefined)
+  }, [])
 
   const availableProviders = useMemo(
     () => providers.filter((provider) => provider.connection),
@@ -320,7 +328,7 @@ function SyncRecordsPage({ domain }: { domain: Domain }) {
             loading={detailLoading}
             pagination={false}
             dataSource={catalogDetails}
-            columns={catalogDetailColumns(retryCatalog)}
+            columns={catalogDetailColumns(retryCatalog, languageOptions)}
             locale={{
               emptyText: (
                 <Empty
@@ -339,7 +347,7 @@ function SyncRecordsPage({ domain }: { domain: Domain }) {
             loading={detailLoading}
             pagination={false}
             dataSource={contentDetails}
-            columns={contentDetailColumns(retryContent)}
+            columns={contentDetailColumns(retryContent, languageOptions)}
             locale={{
               emptyText: (
                 <Empty
@@ -423,13 +431,17 @@ function recordColumns(
 
 function catalogDetailColumns(
   onRetry: (detail: DramaSyncRecordDetail) => Promise<void>,
+  languageOptions: { value: string; label: string }[],
 ): ColumnsType<DramaSyncRecordDetail> {
   return [
     {
       title: '语言',
       dataIndex: 'language',
       render: (value: string | null) =>
-        value ? formatDramaLanguage(value) : '-',
+        value
+          ? (languageOptions.find((option) => option.value === value)?.label ??
+            value)
+          : '-',
     },
     {
       title: '状态',
@@ -471,6 +483,7 @@ function catalogDetailColumns(
 
 function contentDetailColumns(
   onRetry: (detail: DramaContentSyncRecordDetail) => Promise<void>,
+  languageOptions: { value: string; label: string }[],
 ): ColumnsType<DramaContentSyncRecordDetail> {
   return [
     {
@@ -482,7 +495,10 @@ function contentDetailColumns(
       title: '语言',
       dataIndex: 'language',
       render: (value: string | null) =>
-        value ? formatDramaLanguage(value) : '-',
+        value
+          ? (languageOptions.find((option) => option.value === value)?.label ??
+            value)
+          : '-',
     },
     {
       title: '状态',

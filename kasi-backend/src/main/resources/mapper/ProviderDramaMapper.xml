@@ -60,6 +60,6 @@
     </select>
     <update id="updateLocalStatus">UPDATE provider_drama SET local_status=#{localStatus},updated_at=CURRENT_TIMESTAMP WHERE id=#{id}</update>
     <update id="updatePromotionMetadata">UPDATE provider_drama SET commission_scope=#{commissionScope},promotion_description=#{promotionDescription},updated_at=CURRENT_TIMESTAMP WHERE id=#{id}</update>
-    <select id="countPublished" resultType="long">SELECT COUNT(*) FROM provider_drama WHERE local_status = 'PUBLISHED' AND remote_show_status = '1'</select>
-    <select id="pagePublished" resultMap="DramaMap">SELECT d.*, c.provider_id, p.provider_name FROM provider_drama d JOIN short_drama_connection c ON c.id = d.connection_id JOIN short_drama_provider p ON p.id = c.provider_id WHERE d.local_status = 'PUBLISHED' AND d.remote_show_status = '1' ORDER BY d.remote_created_at DESC, d.id DESC LIMIT #{offset}, #{size}</select>
+    <select id="countPublished" resultType="long">SELECT COUNT(*) FROM provider_drama WHERE local_status = 'PUBLISHED' AND remote_show_status = '1' <if test="language != null and language != ''">AND language = #{language}</if></select>
+    <select id="pagePublished" resultMap="DramaMap">SELECT d.*, c.provider_id, p.provider_name FROM provider_drama d JOIN short_drama_connection c ON c.id = d.connection_id JOIN short_drama_provider p ON p.id = c.provider_id WHERE d.local_status = 'PUBLISHED' AND d.remote_show_status = '1' <if test="language != null and language != ''">AND d.language = #{language}</if> ORDER BY d.remote_created_at DESC, d.id DESC LIMIT #{offset}, #{size}</select>
 </mapper>

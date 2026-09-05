@@ -14,6 +14,7 @@ import {
   afterAll,
   afterEach,
   beforeAll,
+  beforeEach,
   describe,
   expect,
   it,
@@ -140,6 +141,17 @@ import { DramaCatalogPage } from './DramaCatalogPage'
 const server = setupServer()
 
 beforeAll(() => server.listen({ onUnhandledRequest: 'error' }))
+beforeEach(() => {
+  server.use(
+    http.get('/api/drama/languages', () =>
+      HttpResponse.json({
+        code: 0,
+        message: 'ok',
+        data: [{ value: 'ENGLISH', label: '英语' }],
+      }),
+    ),
+  )
+})
 afterEach(() => {
   cleanup()
   server.resetHandlers()
@@ -178,6 +190,7 @@ const publishedDrama = {
   coverUrl: 'https://example.com/cover.jpg',
   labelNames: ['甜宠', '先婚后爱', '逆袭', '都市'],
   language: 'ENGLISH',
+  languageLabel: '英语',
   dramaType: 'ROMANCE',
   categoryName: '爱情',
   remoteShowStatus: '1',
@@ -452,6 +465,7 @@ describe('DramaCatalogPage', () => {
               id: 41,
               syncType: 'INCREMENTAL',
               language: 'ENGLISH',
+              languageLabel: '英语',
               status: 'REQUESTED',
               pageNo: 1,
               updateTime: null,
@@ -517,6 +531,7 @@ describe('DramaCatalogPage', () => {
               id: 41,
               syncType: 'INCREMENTAL',
               language: 'ENGLISH',
+              languageLabel: '英语',
               status: 'RUNNING',
               pageNo: 3,
               updateTime: 1787280000000,
@@ -534,6 +549,7 @@ describe('DramaCatalogPage', () => {
               id: 42,
               syncType: 'FULL',
               language: 'ENGLISH',
+              languageLabel: '英语',
               status: 'FAILED',
               pageNo: 6,
               updateTime: null,

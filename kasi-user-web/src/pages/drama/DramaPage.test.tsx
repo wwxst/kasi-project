@@ -41,6 +41,7 @@ vi.mock('react-router-dom', async (importOriginal) => ({
 vi.mock('../../features/dramas/dramasApi', () => ({
   getPublishedDramas: vi.fn(),
   getPublishedDramaFreeContent: vi.fn(),
+  listDramaLanguageOptions: vi.fn().mockResolvedValue([]),
 }))
 vi.mock('../../features/promotionLinks/promotionLinksApi', () => ({
   createPromotionLinks: vi.fn(),
@@ -70,6 +71,7 @@ describe('DramaPage', () => {
           labelNames: ['复仇', '离婚', '隐藏身份'],
           categoryName: '都市',
           language: 'ENGLISH',
+          languageLabel: '英语',
           remoteRank: 1,
           dramaType: '短剧',
           novelType: null,
@@ -110,7 +112,7 @@ describe('DramaPage', () => {
     expect(screen.getByRole('img', { name: '故事' })).toBeTruthy()
     expect(screen.getByText('GoodShort')).toBeTruthy()
     expect(screen.getByText('都市')).toBeTruthy()
-    expect(screen.getByText('英文')).toBeTruthy()
+    expect(screen.getByText('英语')).toBeTruthy()
     expect(screen.getAllByText('推广说明').length).toBeGreaterThanOrEqual(1)
     expect(screen.getByText('发布时间')).toBeTruthy()
     expect(screen.getByText('2026-08-01 10:00')).toBeTruthy()
@@ -224,6 +226,7 @@ describe('DramaPage', () => {
           labelNames: [],
           categoryName: '都市',
           language: 'ENGLISH',
+          languageLabel: '英语',
           remoteRank: 1,
           dramaType: '短剧',
           novelType: null,
@@ -289,6 +292,7 @@ describe('DramaPage', () => {
           labelNames: [],
           categoryName: null,
           language: 'ENGLISH',
+          languageLabel: '英语',
           remoteRank: null,
           dramaType: null,
           novelType: null,
@@ -391,6 +395,7 @@ function promotionDrama() {
     labelNames: [],
     categoryName: null,
     language: 'ENGLISH',
+    languageLabel: '英语',
     remoteRank: null,
     dramaType: null,
     novelType: null,

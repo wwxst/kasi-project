@@ -6,6 +6,7 @@ import com.kasi.backend.drama.entity.ProviderDramaContent;
 import com.kasi.backend.drama.enums.DramaLocalStatus;
 import com.kasi.backend.drama.mapper.ProviderDramaMapper;
 import com.kasi.backend.drama.service.UserPromotionDramaService;
+import com.kasi.backend.drama.service.DramaLanguageService;
 import com.kasi.backend.drama.service.DramaMediaUrlValidator;
 import com.kasi.backend.drama.vo.DramaListItemVO;
 import com.kasi.backend.drama.vo.DramaPageVO;
@@ -31,15 +32,18 @@ public class UserPromotionDramaServiceImpl implements UserPromotionDramaService 
     private final ProviderDramaMapper dramaMapper;
     private final DramaMediaUrlValidator mediaUrlValidator;
     private final ShortDramaConnectionMapper connectionMapper;
+    private final DramaLanguageService languageService;
     private final tools.jackson.databind.ObjectMapper objectMapper = JsonMapper.builder().build();
 
     @Override
     @Transactional(readOnly = true)
     public DramaPageVO getPublished(DramaPageQueryDTO query) {
         int offset = (query.getPage() - 1) * query.getSize();
-        return DramaPageVO.builder().list(dramaMapper.pagePublished(offset, query.getSize()).stream()
+        String language = query.getLanguage() == null || query.getLanguage().isBlank()
+                ? null : query.getLanguage().trim().toUpperCase(java.util.Locale.ROOT);
+        return DramaPageVO.builder().list(dramaMapper.pagePublished(language, offset, query.getSize()).stream()
                         .map(this::toVO).toList()).page(query.getPage()).size(query.getSize())
-                .total(dramaMapper.countPublished()).build();
+                .total(dramaMapper.countPublished(language)).build();
     }
 
     private DramaListItemVO toVO(ProviderDrama drama) {
@@ -47,7 +51,8 @@ public class UserPromotionDramaServiceImpl implements UserPromotionDramaService 
                 .externalDramaId(drama.getExternalDramaId())
                 .title(drama.getTitle()).originalTitle(drama.getOriginalTitle()).titleZh(drama.getTitleZh())
                 .description(drama.getDescription()).coverUrl(drama.getCoverUrl()).labelNames(parseLabels(drama.getLabelNames()))
-                .categoryName(drama.getCategoryName()).language(drama.getLanguage()).remoteRank(drama.getRemoteRank())
+                .categoryName(drama.getCategoryName()).language(drama.getLanguage())
+                .languageLabel(languageService.labelOf(drama.getLanguage())).remoteRank(drama.getRemoteRank())
                 .dramaType(drama.getDramaType()).novelType(drama.getNovelType()).novelSubType(drama.getNovelSubType())
                 .commissionScopes(parseScopes(drama.getCommissionScope()))
                 .promotionDescription(drama.getPromotionDescription())
@@ -82,7 +87,8 @@ public class UserPromotionDramaServiceImpl implements UserPromotionDramaService 
         return DramaDetailVO.builder().id(drama.getId()).externalDramaId(drama.getExternalDramaId())
                 .title(drama.getTitle()).originalTitle(drama.getOriginalTitle()).titleZh(drama.getTitleZh())
                 .description(drama.getDescription()).coverUrl(drama.getCoverUrl()).labelNames(parseLabels(drama.getLabelNames()))
-                .categoryName(drama.getCategoryName()).language(drama.getLanguage()).remoteRank(drama.getRemoteRank())
+                .categoryName(drama.getCategoryName()).language(drama.getLanguage())
+                .languageLabel(languageService.labelOf(drama.getLanguage())).remoteRank(drama.getRemoteRank())
                 .dramaType(drama.getDramaType()).novelType(drama.getNovelType()).novelSubType(drama.getNovelSubType())
                 .commissionScopes(parseScopes(drama.getCommissionScope())).promotionDescription(drama.getPromotionDescription())
                 .remoteShowStatus(drama.getRemoteShowStatus()).localStatus(drama.getLocalStatus())

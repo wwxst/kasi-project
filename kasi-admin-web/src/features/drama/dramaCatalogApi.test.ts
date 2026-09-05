@@ -3,6 +3,7 @@ import { setupServer } from 'msw/node'
 import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest'
 import {
   getDramaCatalogDetail,
+  listDramaLanguageOptions,
   getDramaContentSyncRecordDetails,
   getDramaContentSyncStatus,
   getDramaSyncRecordDetails,
@@ -24,6 +25,22 @@ afterEach(() => server.resetHandlers())
 afterAll(() => server.close())
 
 describe('dramaCatalogApi', () => {
+  it('loads backend-owned drama language options', async () => {
+    server.use(
+      http.get('/api/drama/languages', () =>
+        HttpResponse.json({
+          code: 0,
+          message: 'ok',
+          data: [{ value: 'JAPANESE', label: '日语' }],
+        }),
+      ),
+    )
+
+    await expect(listDramaLanguageOptions()).resolves.toEqual([
+      { value: 'JAPANESE', label: '日语' },
+    ])
+  })
+
   it('maps catalog filters to backend query parameters', async () => {
     let requestUrl: URL | undefined
     server.use(

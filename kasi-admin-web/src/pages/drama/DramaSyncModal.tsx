@@ -1,8 +1,10 @@
 import { App as AntdApp, Button, Form, Modal, Segmented, Select } from 'antd'
 import { useEffect, useState } from 'react'
 import { isUnauthorizedError } from '../../api/http'
-import { requestDramaCatalogSync } from '../../features/drama/dramaCatalogApi'
-import { dramaLanguageLabels } from '../../features/drama/dramaCatalogLocale'
+import {
+  listDramaLanguageOptions,
+  requestDramaCatalogSync,
+} from '../../features/drama/dramaCatalogApi'
 import type {
   DramaSyncType,
   RequestDramaSync,
@@ -17,10 +19,6 @@ interface DramaSyncModalProps {
   onSubmitted: (providerId: number) => void
 }
 
-const languageOptions = Object.entries(dramaLanguageLabels).map(
-  ([value, label]) => ({ value, label }),
-)
-
 export function DramaSyncModal({
   open,
   providers,
@@ -31,6 +29,15 @@ export function DramaSyncModal({
   const { message } = AntdApp.useApp()
   const [form] = Form.useForm<RequestDramaSync>()
   const [submitting, setSubmitting] = useState(false)
+  const [languageOptions, setLanguageOptions] = useState<
+    Awaited<ReturnType<typeof listDramaLanguageOptions>>
+  >([])
+  useEffect(() => {
+    if (open)
+      void listDramaLanguageOptions()
+        .then(setLanguageOptions)
+        .catch(() => undefined)
+  }, [open])
 
   useEffect(() => {
     if (!open) return

@@ -113,6 +113,7 @@ function promotionDramaDetail() {
     labelNames: [],
     categoryName: null,
     language: 'ENGLISH',
+    languageLabel: '英语',
     remoteRank: null,
     dramaType: null,
     novelType: null,

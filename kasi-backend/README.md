@@ -254,7 +254,7 @@ mysql --host=127.0.0.1 --user=$env:SPRING_DATASOURCE_USERNAME --password --datab
 
 目录同步会为新增短剧、甲方更新时间变化的短剧以及本地缺少视频地址的短剧自动排队。免费剧集 worker 每分钟分批调用 GoodShort `/open/book/freeContent`，校验地址后把 `content_url` 永久保存到 MySQL；收费剧集因 GoodShort 没有对应接口而不同步。
 
-用户端 `GET /api/user/promotion/dramas/{id}/free-content` 只读取本地 `provider_drama_content.content_url`，不会在播放或下载时调用 GoodShort，也不再使用 Redis 剧集资源缓存。`refresh=true` 参数为兼容现有客户端而保留，行为仍是读取数据库；前端使用返回的 `downloadUrl` 直接下载媒体文件。
+用户端 `GET /api/user/promotion/dramas/{id}/free-content` 只读取本地 `provider_drama_content.content_url`，不会在播放或下载时调用 GoodShort，也不再使用 Redis 剧集资源缓存。`refresh=true` 参数为兼容现有客户端而保留，行为仍是读取数据库；前端使用返回的 `downloadUrl` 直接下载媒体文件。短剧列表/详情同时返回原始语言码 `language` 和后端统一的中文展示字段 `languageLabel`；管理端和用户端筛选选项统一来自 `GET /api/drama/languages`，该接口按当前实际生效的短剧同步语言配置返回 `{value,label}`。
 
 真实平台烟雾测试使用 `scripts/dev/smoke-goodshort-free-content.ps1`。本地缺少 `GOODSHORT_BASE_URL`、`GOODSHORT_PARTNER_ID`、`GOODSHORT_API_KEY` 或 `DRAMA_EXTERNAL_ID` 时明确 SKIP；承诺执行时使用 `-Required`，缺配置或真实请求失败均为 FAIL。脚本不需要 FFmpeg，也不打印变量值或保存联调凭据。
 

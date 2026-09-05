@@ -23,6 +23,7 @@ public class DramaListItemVO {
     private List<String> labelNames;
     private String categoryName;
     private String language;
+    private String languageLabel;
     private Integer remoteRank;
     private String dramaType;
     private String novelType;

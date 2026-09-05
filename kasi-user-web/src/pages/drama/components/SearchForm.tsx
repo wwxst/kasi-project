@@ -1,5 +1,7 @@
 import { Button, Col, Form, Input, Row, Select } from 'tdesign-react'
 import type { SubmitContext } from 'tdesign-react'
+import { useEffect, useState } from 'react'
+import { listDramaLanguageOptions } from '../../../features/dramas/dramasApi'
 import Style from './SearchForm.module.less'
 
 export interface DramaFilters {
@@ -12,11 +14,6 @@ interface SearchFormProps {
   onReset: () => void
 }
 
-const languageOptions = [
-  { value: 'ENGLISH', label: '英文' },
-  { value: 'CHINESE', label: '中文' },
-]
-
 function normalizeFilters(fields: Record<string, unknown>): DramaFilters {
   return {
     title: String(fields.title ?? '').trim(),
@@ -25,6 +22,14 @@ function normalizeFilters(fields: Record<string, unknown>): DramaFilters {
 }
 
 export default function SearchForm({ onSubmit, onReset }: SearchFormProps) {
+  const [languageOptions, setLanguageOptions] = useState<
+    Awaited<ReturnType<typeof listDramaLanguageOptions>>
+  >([])
+  useEffect(() => {
+    void listDramaLanguageOptions()
+      .then(setLanguageOptions)
+      .catch(() => undefined)
+  }, [])
   const handleSubmit = (event: SubmitContext) => {
     if (event.validateResult === true) {
       onSubmit(normalizeFilters(event.fields ?? {}))

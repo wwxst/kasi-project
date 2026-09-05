@@ -46,6 +46,7 @@ class UserPromotionDramaControllerTest extends BaseAuthTest {
                 .andExpect(jsonPath("$.data.total").value(2))
                 .andExpect(jsonPath("$.data.list[0].providerId").value(providerId))
                 .andExpect(jsonPath("$.data.list[0].title").value("Published Drama"))
+                .andExpect(jsonPath("$.data.list[0].languageLabel").value("英语"))
                 .andExpect(jsonPath("$.data.list[1].title").value("Older Published Drama"))
                 .andExpect(jsonPath("$.data.list[0].titleZh").value("中文剧名"))
                 .andExpect(jsonPath("$.data.list[0].labelNames[1]").value("霸总"))
@@ -55,6 +56,33 @@ class UserPromotionDramaControllerTest extends BaseAuthTest {
                 .andExpect(jsonPath("$.data.list[0].commissionScopes[1]").value("AD"))
                 .andExpect(jsonPath("$.data.list[0].promotionDescription").value("1. 单个视频建议不超过17分钟\n2. 点击创建推广任务获取"))
                 .andExpect(jsonPath("$.data.list[0].remoteUpdatedAt").value("2026-08-23T20:24:46"));
+    }
+
+    @Test
+    @DisplayName("推广用户可以读取后端实际生效的语言选项")
+    void userCanReadDramaLanguageOptions() throws Exception {
+        mockMvc.perform(get("/api/drama/languages")
+                        .header("Authorization", "Bearer " + loginAsUser()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data[0].value").value("ENGLISH"))
+                .andExpect(jsonPath("$.data[0].label").value("英语"));
+    }
+
+    @Test
+    @DisplayName("推广用户按语言筛选时提交原始语言码并返回对应中文名称")
+    void userCanFilterPublishedDramasByLanguageCode() throws Exception {
+        Long connectionId = jdbcTemplate.queryForObject(
+                "SELECT id FROM short_drama_connection WHERE provider_id=?", Long.class, providerId);
+        jdbcTemplate.update("INSERT INTO provider_drama (connection_id,external_drama_id,title,language,remote_show_status,local_status) VALUES (?,?,?,?,?,?)",
+                connectionId, "japanese", "Japanese Drama", "JAPANESE", "1", "PUBLISHED");
+
+        mockMvc.perform(get("/api/user/promotion/dramas")
+                        .param("language", "JAPANESE")
+                        .header("Authorization", "Bearer " + loginAsUser()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.total").value(1))
+                .andExpect(jsonPath("$.data.list[0].language").value("JAPANESE"))
+                .andExpect(jsonPath("$.data.list[0].languageLabel").value("日语"));
     }
 
     @Test

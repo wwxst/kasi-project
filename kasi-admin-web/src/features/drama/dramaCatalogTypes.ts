@@ -1,3 +1,8 @@
+export interface DramaLanguageOption {
+  value: string
+  label: string
+}
+
 export type DramaLocalStatus = 'DRAFT' | 'PUBLISHED' | 'OFFLINE'
 
 export type DramaSyncType = 'FULL' | 'INCREMENTAL'
@@ -39,6 +44,7 @@ export interface DramaCatalogListItem {
   coverUrl: string | null
   labelNames: string[] | null
   language: string | null
+  languageLabel: string | null
   dramaType: string | null
   categoryName: string | null
   remoteShowStatus: string | null

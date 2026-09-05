@@ -3,6 +3,7 @@ import type {
   ApiResponse,
   DramaDetail,
   DramaContentResource,
+  DramaLanguageOption,
   DramaPage,
   DramaPageQuery,
 } from './types'
@@ -12,6 +13,15 @@ function unwrap<T>(response: { data: ApiResponse<T> }) {
     throw new Error(response.data.message || '请求失败')
   }
   return response.data.data
+}
+
+export async function listDramaLanguageOptions(): Promise<
+  DramaLanguageOption[]
+> {
+  const response = await httpClient.get<ApiResponse<DramaLanguageOption[]>>(
+    '/api/drama/languages',
+  )
+  return unwrap(response)
 }
 
 export async function getPublishedDramas(query: DramaPageQuery) {

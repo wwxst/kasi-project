@@ -77,6 +77,7 @@ public class SecurityConfig {
                         .requestMatchers("/actuator/health").permitAll()
                         .requestMatchers("/uploads/admin-avatars/**").permitAll()
                         .requestMatchers("/uploads/user-avatars/**").permitAll()
+                        .requestMatchers("/api/drama/languages").hasAnyRole("ADMIN", "USER")
                         // 管理员管理接口：仅超级管理员可访问
                         .requestMatchers("/api/admin/management/**").hasRole("SUPER_ADMIN")
                         .requestMatchers("/api/admin/system/sms-config").hasRole("SUPER_ADMIN")

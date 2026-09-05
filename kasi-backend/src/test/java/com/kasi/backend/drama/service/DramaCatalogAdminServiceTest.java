@@ -8,6 +8,7 @@ import com.kasi.backend.drama.enums.DramaLocalStatus;
 import com.kasi.backend.drama.enums.PromotionCommissionScope;
 import com.kasi.backend.drama.mapper.ProviderDramaMapper;
 import com.kasi.backend.drama.service.impl.DramaCatalogAdminServiceImpl;
+import com.kasi.backend.drama.service.impl.DramaLanguageServiceImpl;
 import com.kasi.backend.provider.entity.ShortDramaConnection;
 import com.kasi.backend.provider.mapper.ShortDramaConnectionMapper;
 import org.junit.jupiter.api.BeforeEach;
@@ -30,7 +31,8 @@ class DramaCatalogAdminServiceTest {
     void setUp() {
         dramaMapper = mock(ProviderDramaMapper.class);
         connectionMapper = mock(ShortDramaConnectionMapper.class);
-        service = new DramaCatalogAdminServiceImpl(dramaMapper, connectionMapper);
+        service = new DramaCatalogAdminServiceImpl(dramaMapper, connectionMapper,
+                new DramaLanguageServiceImpl(new com.kasi.backend.drama.config.DramaSyncProperties()));
     }
 
     @Test
@@ -53,6 +55,7 @@ class DramaCatalogAdminServiceTest {
         assertThat(page.getList()).singleElement().satisfies(item -> {
             assertThat(item.getId()).isEqualTo(21L);
             assertThat(item.getTitle()).isEqualTo("Time Story");
+            assertThat(item.getLanguageLabel()).isEqualTo("英语");
             assertThat(item.getLocalStatus()).isEqualTo(DramaLocalStatus.PUBLISHED);
         });
     }

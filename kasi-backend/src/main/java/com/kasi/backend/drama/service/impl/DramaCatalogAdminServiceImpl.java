@@ -9,6 +9,7 @@ import com.kasi.backend.drama.enums.DramaLocalStatus;
 import com.kasi.backend.drama.enums.PromotionCommissionScope;
 import com.kasi.backend.drama.mapper.ProviderDramaMapper;
 import com.kasi.backend.drama.service.DramaCatalogAdminService;
+import com.kasi.backend.drama.service.DramaLanguageService;
 import com.kasi.backend.drama.vo.DramaContentVO;
 import com.kasi.backend.drama.vo.DramaDetailVO;
 import com.kasi.backend.drama.vo.DramaListItemVO;
@@ -31,6 +32,7 @@ import tools.jackson.databind.json.JsonMapper;
 public class DramaCatalogAdminServiceImpl implements DramaCatalogAdminService {
     private final ProviderDramaMapper dramaMapper;
     private final ShortDramaConnectionMapper connectionMapper;
+    private final DramaLanguageService languageService;
     private final tools.jackson.databind.ObjectMapper objectMapper = JsonMapper.builder().build();
 
     @Override
@@ -105,7 +107,8 @@ public class DramaCatalogAdminServiceImpl implements DramaCatalogAdminService {
         return DramaListItemVO.builder().id(drama.getId()).externalDramaId(drama.getExternalDramaId())
                 .title(drama.getTitle()).originalTitle(drama.getOriginalTitle()).titleZh(drama.getTitleZh())
                 .description(drama.getDescription()).coverUrl(drama.getCoverUrl()).labelNames(parseLabels(drama.getLabelNames()))
-                .categoryName(drama.getCategoryName()).language(drama.getLanguage()).remoteRank(drama.getRemoteRank())
+                .categoryName(drama.getCategoryName()).language(drama.getLanguage())
+                .languageLabel(languageService.labelOf(drama.getLanguage())).remoteRank(drama.getRemoteRank())
                 .dramaType(drama.getDramaType()).novelType(drama.getNovelType()).novelSubType(drama.getNovelSubType())
                 .commissionScopes(parseScopes(drama.getCommissionScope()))
                 .promotionDescription(drama.getPromotionDescription())
@@ -118,7 +121,8 @@ public class DramaCatalogAdminServiceImpl implements DramaCatalogAdminService {
         return DramaDetailVO.builder().id(drama.getId()).externalDramaId(drama.getExternalDramaId())
                 .title(drama.getTitle()).originalTitle(drama.getOriginalTitle()).titleZh(drama.getTitleZh())
                 .description(drama.getDescription()).coverUrl(drama.getCoverUrl()).labelNames(parseLabels(drama.getLabelNames()))
-                .categoryName(drama.getCategoryName()).language(drama.getLanguage()).remoteRank(drama.getRemoteRank())
+                .categoryName(drama.getCategoryName()).language(drama.getLanguage())
+                .languageLabel(languageService.labelOf(drama.getLanguage())).remoteRank(drama.getRemoteRank())
                 .dramaType(drama.getDramaType()).novelType(drama.getNovelType()).novelSubType(drama.getNovelSubType())
                 .commissionScopes(parseScopes(drama.getCommissionScope()))
                 .promotionDescription(drama.getPromotionDescription())

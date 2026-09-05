@@ -32,11 +32,6 @@ import SearchForm, { type DramaFilters } from './components/SearchForm'
 import { filterDramas, formatDramaDate } from './dramaList'
 import Style from './DramaPage.module.less'
 
-const languageLabels: Record<string, string> = {
-  ENGLISH: '英文',
-  CHINESE: '中文',
-}
-
 const mediaOptions = [
   { label: 'TikTok', value: 'TIKTOK' },
   { label: 'YouTube', value: 'YOUTUBE' },
@@ -296,8 +291,7 @@ export default function DramaPage({ title: _title }: { title: string }) {
       title: '语言',
       colKey: 'language',
       width: 120,
-      cell: ({ row }) =>
-        languageLabels[row.language ?? ''] ?? row.language ?? '未知',
+      cell: ({ row }) => row.languageLabel || '未知',
     },
     {
       title: '推广说明',
