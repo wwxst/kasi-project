@@ -3,17 +3,17 @@ package com.kasi.backend.promotion.service;
 import com.kasi.backend.drama.calculator.ProviderCommissionCalculator;
 import com.kasi.backend.drama.entity.ProviderCommissionRuleHistory;
 import com.kasi.backend.drama.mapper.ProviderCommissionRuleHistoryMapper;
-import com.kasi.backend.promotion.entity.PromotionLink;
 import com.kasi.backend.promotion.entity.PromotionOrder;
 import com.kasi.backend.promotion.enums.PromotionAttributionStatus;
 import com.kasi.backend.promotion.enums.PromotionCommissionStatus;
 import com.kasi.backend.promotion.enums.PromotionOrderStatus;
-import com.kasi.backend.promotion.mapper.PromotionLinkMapper;
 import com.kasi.backend.promotion.mapper.PromotionOrderMapper;
 import com.kasi.backend.promotion.service.impl.PromotionOrderServiceImpl;
 import com.kasi.backend.provider.spi.ProviderOrderRecord;
 import com.kasi.backend.provider.spi.ProviderOrderStatus;
 import com.kasi.backend.provider.spi.ProviderRuntimeConnection;
+import com.kasi.backend.user.entity.PromotionUser;
+import com.kasi.backend.user.mapper.PromotionUserMapper;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -32,7 +32,7 @@ import static org.mockito.Mockito.*;
 
 class PromotionOrderServiceTest {
     private PromotionOrderMapper orderMapper;
-    private PromotionLinkMapper linkMapper;
+    private PromotionUserMapper userMapper;
     private ProviderCommissionRuleHistoryMapper historyMapper;
     private PromotionOrderService service;
     private ProviderRuntimeConnection runtime;
@@ -40,9 +40,9 @@ class PromotionOrderServiceTest {
     @BeforeEach
     void setUp() {
         orderMapper = mock(PromotionOrderMapper.class);
-        linkMapper = mock(PromotionLinkMapper.class);
+        userMapper = mock(PromotionUserMapper.class);
         historyMapper = mock(ProviderCommissionRuleHistoryMapper.class);
-        service = new PromotionOrderServiceImpl(orderMapper, linkMapper, historyMapper,
+        service = new PromotionOrderServiceImpl(orderMapper, userMapper, historyMapper,
                 new ProviderCommissionCalculator(),
                 Clock.fixed(Instant.parse("2025-07-02T08:00:00Z"), ZoneOffset.UTC));
         runtime = new ProviderRuntimeConnection(3L, 7L, "GOODSHORT", "GoodShort", null, null);
@@ -57,10 +57,11 @@ class PromotionOrderServiceTest {
     }
 
     @Test
-    @DisplayName("首次已支付订单通过追踪号归因并保存费率和佣金快照")
+    @DisplayName("首次已支付订单通过用户编号归因并保存费率和佣金快照")
     void paidOrderIsAttributedAndSnapshotted() {
-        PromotionLink link = link();
-        when(linkMapper.findByTrackingNo("tracking-1")).thenReturn(link);
+        PromotionUser user = new PromotionUser();
+        user.setId(11L);
+        when(userMapper.findByUserNo("583729104628")).thenReturn(user);
         when(historyMapper.findLatestByProviderId(7L)).thenReturn(history());
         doAnswer(invocation -> {
             PromotionOrder order = invocation.getArgument(0);
@@ -78,7 +79,6 @@ class PromotionOrderServiceTest {
         assertThat(result.inserted()).isTrue();
         assertThat(result.attributed()).isTrue();
         assertThat(order.getUserId()).isEqualTo(11L);
-        assertThat(order.getPromotionLinkId()).isEqualTo(21L);
         assertThat(order.getAttributionStatus()).isEqualTo(PromotionAttributionStatus.ATTRIBUTED);
         assertThat(order.getRuleHistoryId()).isEqualTo(31L);
         assertThat(order.getCommissionAmount()).isEqualByComparingTo("4.79");
@@ -103,7 +103,7 @@ class PromotionOrderServiceTest {
 
         assertThat(result.inserted()).isFalse();
         verify(orderMapper).updateSourceFields(existing);
-        verifyNoInteractions(linkMapper, historyMapper);
+        verifyNoInteractions(userMapper, historyMapper);
         verify(orderMapper, never()).applyAttributionAndCommission(any());
     }
 
@@ -127,9 +127,9 @@ class PromotionOrderServiceTest {
     }
 
     @Test
-    @DisplayName("无法匹配追踪号的订单保存为未归因且不猜测用户")
-    void unknownTrackingNumberRemainsUnattributed() {
-        when(linkMapper.findByTrackingNo("tracking-1")).thenReturn(null);
+    @DisplayName("无法匹配用户编号的订单保存为未归因且不猜测用户")
+    void unknownUserNoRemainsUnattributed() {
+        when(userMapper.findByUserNo("583729104628")).thenReturn(null);
 
         PromotionOrderUpsertResult result = service.upsert(runtime, record(ProviderOrderStatus.PAID),
                 LocalDateTime.of(2025, 7, 1, 0, 0),
@@ -164,15 +164,6 @@ class PromotionOrderServiceTest {
         verify(orderMapper).findBySource(3L, "order-1");
     }
 
-    private PromotionLink link() {
-        PromotionLink link = new PromotionLink();
-        link.setId(21L);
-        link.setUserId(11L);
-        link.setDramaId(51L);
-        link.setTrackingNo("tracking-1");
-        return link;
-    }
-
     private ProviderCommissionRuleHistory history() {
         ProviderCommissionRuleHistory history = new ProviderCommissionRuleHistory();
         history.setId(31L);
@@ -189,7 +180,7 @@ class PromotionOrderServiceTest {
     private ProviderOrderRecord record(ProviderOrderStatus status) {
         return new ProviderOrderRecord("order-1", "remote-user", 999L, new BigDecimal("9.99"),
                 "USD", LocalDateTime.of(2025, 7, 1, 15, 55, 30), status,
-                status == ProviderOrderStatus.REFUNDED ? "3" : "1", "tracking-1", "book-1",
+                status == ProviderOrderStatus.REFUNDED ? "3" : "1", "583729104628", "book-1",
                 "21302", "GRKOCABTT00001", "partner-1",
                 LocalDateTime.of(2025, 7, 1, 16, 0), "{\"orderId\":\"order-1\"}");
     }

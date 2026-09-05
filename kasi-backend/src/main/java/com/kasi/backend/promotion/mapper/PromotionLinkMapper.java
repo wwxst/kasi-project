@@ -15,13 +15,12 @@ public interface PromotionLinkMapper {
     PromotionLink findByUserAndRequestKeyForUpdate(@Param("userId") Long userId, @Param("requestKey") String requestKey,
                                                    @Param("mediaType") String mediaType, @Param("linkVariant") String linkVariant);
     List<PromotionLink> findBatchByUserAndRequestKey(@Param("userId") Long userId, @Param("requestKey") String requestKey);
-    PromotionLink findByTrackingNo(@Param("trackingNo") String trackingNo);
     long countByUserId(@Param("userId") Long userId);
     List<PromotionLink> findPageByUserId(@Param("userId") Long userId,
                                          @Param("offset") int offset, @Param("size") int size);
     int insert(PromotionLink link);
     int markSuccess(@Param("id") Long id, @Param("externalCode") String externalCode,
-                    @Param("shareUrl") String shareUrl, @Param("customParams") String customParams);
+                    @Param("shareUrl") String shareUrl);
     int markFailed(@Param("id") Long id, @Param("errorCode") String errorCode,
                    @Param("errorMessage") String errorMessage);
     int resetPending(@Param("id") Long id, @Param("status") PromotionLinkStatus status,

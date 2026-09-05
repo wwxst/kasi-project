@@ -3,18 +3,17 @@ package com.kasi.backend.promotion.service.impl;
 import com.kasi.backend.drama.calculator.ProviderCommissionCalculator;
 import com.kasi.backend.drama.entity.ProviderCommissionRuleHistory;
 import com.kasi.backend.drama.mapper.ProviderCommissionRuleHistoryMapper;
-import com.kasi.backend.promotion.entity.PromotionLink;
 import com.kasi.backend.promotion.entity.PromotionOrder;
 import com.kasi.backend.promotion.enums.PromotionAttributionStatus;
 import com.kasi.backend.promotion.enums.PromotionCommissionStatus;
 import com.kasi.backend.promotion.enums.PromotionOrderStatus;
-import com.kasi.backend.promotion.mapper.PromotionLinkMapper;
 import com.kasi.backend.promotion.mapper.PromotionOrderMapper;
 import com.kasi.backend.promotion.service.PromotionOrderService;
 import com.kasi.backend.promotion.service.PromotionOrderUpsertResult;
 import com.kasi.backend.provider.spi.ProviderOrderRecord;
 import com.kasi.backend.provider.spi.ProviderOrderStatus;
 import com.kasi.backend.provider.spi.ProviderRuntimeConnection;
+import com.kasi.backend.user.mapper.PromotionUserMapper;
 import lombok.RequiredArgsConstructor;
 import org.springframework.dao.DuplicateKeyException;
 import org.springframework.stereotype.Service;
@@ -28,7 +27,7 @@ import java.time.LocalDateTime;
 @RequiredArgsConstructor
 public class PromotionOrderServiceImpl implements PromotionOrderService {
     private final PromotionOrderMapper orderMapper;
-    private final PromotionLinkMapper linkMapper;
+    private final PromotionUserMapper userMapper;
     private final ProviderCommissionRuleHistoryMapper historyMapper;
     private final ProviderCommissionCalculator commissionCalculator;
     private final Clock clock;
@@ -108,18 +107,14 @@ public class PromotionOrderServiceImpl implements PromotionOrderService {
     }
 
     private void applyAttributionAndCommission(PromotionOrder order) {
-        PromotionLink link = order.getCustomParams() == null
-                ? null : linkMapper.findByTrackingNo(order.getCustomParams());
-        if (link == null) {
+        var user = order.getCustomParams() == null ? null : userMapper.findByUserNo(order.getCustomParams());
+        if (user == null) {
             order.setAttributionStatus(PromotionAttributionStatus.UNATTRIBUTED);
             order.setCommissionStatus(PromotionCommissionStatus.NOT_APPLICABLE);
             return;
         }
 
-        order.setTrackingNo(link.getTrackingNo());
-        order.setPromotionLinkId(link.getId());
-        order.setUserId(link.getUserId());
-        order.setDramaId(link.getDramaId());
+        order.setUserId(user.getId());
         order.setAttributionStatus(PromotionAttributionStatus.ATTRIBUTED);
         if (order.getStatus() != PromotionOrderStatus.PAID) {
             order.setCommissionStatus(PromotionCommissionStatus.NOT_APPLICABLE);

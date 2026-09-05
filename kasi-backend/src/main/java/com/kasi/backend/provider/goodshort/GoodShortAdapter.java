@@ -193,7 +193,7 @@ public class GoodShortAdapter implements AccountFilingProviderAdapter, DramaCata
         Map<String, Object> parameters = new LinkedHashMap<>();
         parameters.put("pid", connection.getPartnerId());
         parameters.put("bookId", request.externalDramaId());
-        parameters.put("customParams", request.trackingNo());
+        parameters.put("customParams", request.userNo());
         parameters.put("shareUrlType", "ONELINK".equalsIgnoreCase(request.linkVariant()) ? 2 : 1);
         parameters.put("codeMedia", mapCodeMedia(request.mediaType()));
         parameters.put("timestamp", clock.millis());
@@ -203,8 +203,7 @@ public class GoodShortAdapter implements AccountFilingProviderAdapter, DramaCata
                 || response.getData().getCode() == null || response.getData().getShareUrl() == null) {
             throw new ProviderRemoteRejectedException("GoodShort推广链接生成被拒绝");
         }
-        return new PromotionLinkResult(response.getData().getCode(), response.getData().getShareUrl(),
-                response.getData().getCustomParams());
+        return new PromotionLinkResult(response.getData().getCode(), response.getData().getShareUrl());
     }
 
     @Override

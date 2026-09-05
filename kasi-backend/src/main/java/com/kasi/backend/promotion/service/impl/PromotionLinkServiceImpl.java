@@ -51,7 +51,7 @@ public class PromotionLinkServiceImpl implements PromotionLinkService {
                 PromotionLinkProviderAdapter adapter = (PromotionLinkProviderAdapter) preparation.runtime().adapter();
                 var result = adapter.generatePromotionLink(preparation.runtime().secret(), preparation.providerRequest());
                 links.add(toVO(persistenceService.markSuccess(link.getId(), result.externalCode(), result.shareUrl(),
-                        result.customParams(), userId, request.getRequestKey(), link.getMediaType(), link.getLinkVariant())));
+                        userId, request.getRequestKey(), link.getMediaType(), link.getLinkVariant())));
             } catch (ProviderTransientException exception) {
                 persistenceService.markFailed(link.getId(), "PROVIDER_REMOTE_UNAVAILABLE", exception.getMessage());
                 link.setStatus(PromotionLinkStatus.FAILED); link.setLastErrorCode("PROVIDER_REMOTE_UNAVAILABLE"); link.setLastErrorMessage(exception.getMessage());

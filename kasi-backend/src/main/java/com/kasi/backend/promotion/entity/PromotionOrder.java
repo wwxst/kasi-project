@@ -27,8 +27,6 @@ public class PromotionOrder {
     private LocalDateTime paidAt;
     private LocalDateTime providerUpdatedAt;
     private String customParams;
-    private String trackingNo;
-    private Long promotionLinkId;
     private Long userId;
     private Long dramaId;
     private PromotionAttributionStatus attributionStatus;

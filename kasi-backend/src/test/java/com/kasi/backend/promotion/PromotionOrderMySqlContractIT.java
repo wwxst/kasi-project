@@ -47,7 +47,7 @@ class PromotionOrderMySqlContractIT extends MySqlContractTestSupport {
         LocalDateTime paidAt = LocalDateTime.of(2026, 9, 1, 12, 0);
         ProviderOrderRecord record = new ProviderOrderRecord(
                 externalOrderId, "external-user", 1000L, new BigDecimal("10.00"), "USD", paidAt,
-                ProviderOrderStatus.PAID, "PAID", trackingNo("order-idempotency"),
+                ProviderOrderStatus.PAID, "PAID", primaryUserNo(),
                 CONTRACT_PREFIX + "order-idempotency", "search", "channel", "partner",
                 paidAt, "{\"orderId\":\"" + externalOrderId + "\"}");
 
@@ -72,7 +72,7 @@ class PromotionOrderMySqlContractIT extends MySqlContractTestSupport {
                 WHERE connection_id = ? AND external_order_id = ?
                 """, Long.class, connectionId, externalOrderId)).isEqualTo(1L);
         PromotionOrder stored = orderMapper.findBySource(connectionId, externalOrderId);
-        assertThat(stored.getTrackingNo()).isEqualTo(trackingNo("order-idempotency"));
+        assertThat(stored.getUserId()).isEqualTo(primaryUserId());
         assertThat(stored.getCommissionAmount()).isEqualByComparingTo("3.76");
     }
 

@@ -12,7 +12,6 @@ public class GoodShortPromotionLinkResponse {
     @Data
     public static class GoodShortPromotionLinkData {
         private String code;
-        private String customParams;
         private String shareUrl;
     }
 }

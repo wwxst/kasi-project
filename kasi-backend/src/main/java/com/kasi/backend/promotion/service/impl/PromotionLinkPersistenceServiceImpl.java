@@ -78,16 +78,16 @@ public class PromotionLinkPersistenceServiceImpl implements PromotionLinkPersist
                 link.setStatus(PromotionLinkStatus.PENDING);
             }
             result.add(new PromotionLinkPreparation(link, runtime,
-                    new PromotionLinkRequest(drama.getExternalDramaId(), link.getTrackingNo(), mediaType, linkVariant)));
+                    new PromotionLinkRequest(drama.getExternalDramaId(), user.getUserNo(), mediaType, linkVariant)));
         }
         return result;
     }
 
     @Override
     @Transactional(propagation = Propagation.REQUIRES_NEW)
-    public PromotionLink markSuccess(Long linkId, String externalCode, String shareUrl, String customParams,
+    public PromotionLink markSuccess(Long linkId, String externalCode, String shareUrl,
                                      Long userId, String requestKey, String mediaType, String linkVariant) {
-        if (linkMapper.markSuccess(linkId, externalCode, shareUrl, customParams) != 1) {
+        if (linkMapper.markSuccess(linkId, externalCode, shareUrl) != 1) {
             throw new IllegalStateException("推广链接成功状态更新未生效");
         }
         return linkMapper.findByUserAndRequestKey(userId, requestKey, mediaType, linkVariant);

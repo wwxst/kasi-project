@@ -68,6 +68,11 @@ public abstract class MySqlContractTestSupport {
                 "SELECT id FROM promotion_user WHERE email = '19193171667@163.com'", Long.class);
     }
 
+    protected String primaryUserNo() {
+        return jdbcTemplate.queryForObject(
+                "SELECT user_no FROM promotion_user WHERE email = '19193171667@163.com'", String.class);
+    }
+
     protected Long insertConnection(String suffix) {
         Long providerId = goodShortProviderId();
         String name = CONTRACT_PREFIX + suffix;

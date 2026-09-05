@@ -8,7 +8,7 @@
 
 这是卡司推广平台的后端仓库，基于 Spring Boot 4.0.7 + MyBatis 4.0.1 + MySQL 8 + JWT 构建。
 
-**当前已完成**：管理员（ADMIN）和推广用户（USER）双认证体系、两类账号管理 CRUD、短剧平台接入与 GoodShort 账号报备、GoodShort 短剧目录全量/增量同步、推广链接、GoodShort 订单每分钟自动同步最近 3 天及管理员按时间范围手动补拉、trackingNo 归因、CPS 费率快照、订单佣金及按月查询/CSV 导出。详见 [§6 API、认证与业务边界](#6-api认证与业务边界)。
+**当前已完成**：管理员（ADMIN）和推广用户（USER）双认证体系、两类账号管理 CRUD、短剧平台接入与 GoodShort 账号报备、GoodShort 短剧目录全量/增量同步、推广链接、GoodShort 订单每分钟自动同步最近 3 天及管理员按时间范围手动补拉、按 `customParams=user_no` 直接归因、CPS 费率快照、订单佣金及按月查询/CSV 导出。详见 [§6 API、认证与业务边界](#6-api认证与业务边界)。
 
 ## 2. 当前结构
 
@@ -405,7 +405,7 @@ mysql --host=127.0.0.1 --user=$env:SPRING_DATASOURCE_USERNAME --password --datab
 | GET | `/api/user/promotion/orders` | USER | 按月份查询本人已归因订单 |
 | GET | `/api/user/promotion/orders/monthly` | USER | 查询本人月度已支付订单数及收益汇总，不返回订单总额 |
 
-GoodShort 订单同步只按甲方订单字段接收数据：`orderId`、`userId`、`payMoney`、`payTime`、`payStatus`、`customParams`、`bookId`、`searchCode`、`channelCode`、`pid`、`utime`。本地订单状态包含 `UNPAID`（未支付）、`PAID`（已支付）、`REFUNDED`（已退款）和 `UNKNOWN`（未知）；四种状态均写入本地订单。`payMoney` 仅用于后台分佣计算和管理员核对。用户订单 JSON 只返回甲方订单号、币种快照、未支付/已支付/已退款状态、支付时间、跟踪号和该用户的收益，过滤 `UNKNOWN`，不返回本地订单主键、完整订单金额或内部佣金状态；用户端不提供订单导出，管理员查询仍保留内部核对字段并支持 CSV 导出。
+GoodShort 订单同步只按甲方订单字段接收数据：`orderId`、`userId`、`payMoney`、`payTime`、`payStatus`、`customParams`、`bookId`、`searchCode`、`channelCode`、`pid`、`utime`。本地订单状态包含 `UNPAID`（未支付）、`PAID`（已支付）、`REFUNDED`（已退款）和 `UNKNOWN`（未知）；四种状态均写入本地订单。`payMoney` 仅用于后台分佣计算和管理员核对。用户订单 JSON 只返回甲方订单号、币种快照、未支付/已支付/已退款状态、支付时间和该用户的收益，过滤 `UNKNOWN`；`customParams` 仅作为服务端原始字段保存，用户归因直接使用 `customParams -> user_no -> user_id`，不通过内部 `trackingNo` 反查链接。用户端不提供订单导出，管理员查询仍保留内部核对字段并支持 CSV 导出。
 
 订单 upsert 使用 `READ_COMMITTED` 事务隔离级别：已有订单继续通过 `FOR UPDATE` 串行更新；两个事务同时插入同一 `(connection_id, external_order_id)` 时由唯一键确定唯一记录，竞争事务回读已提交订单，避免默认 `REPEATABLE_READ` 对不存在行加 gap lock 后并发插入产生死锁。
 
@@ -475,7 +475,7 @@ GoodShort 订单同步只按甲方订单字段接收数据：`orderId`、`userId
 | `PromotionOrderMigrationTest` | 验证初始化 SQL 创建订单表、规则历史表和订单幂等约束 |
 | `ProviderDramaPromotionMetadataMigrationTest` | 验证初始化 SQL 包含 GoodShort 短剧完整字段 |
 | `GoodShortOrderAdapterTest` | 验证订单签名请求、分页、金额和状态映射 |
-| `PromotionOrderServiceTest` | 验证订单幂等、trackingNo 归因、费率快照和退款冲销 |
+| `PromotionOrderServiceTest` | 验证订单幂等、`customParams -> user_no` 归因、费率快照和退款冲销 |
 | `AdminPromotionOrderControllerTest` / `UserPromotionOrderControllerTest` | 验证管理员订单 CSV、用户订单端点/权限及用户字段隔离 |
 | `ProviderCommissionRulePersistenceTest` | 五项费率精度、平台查询、指定时间匹配和相邻区间 |
 | `ProviderCommissionCalculatorTest` | `BigDecimal` 五费率公式与最终两位 `HALF_UP` |
@@ -560,7 +560,7 @@ Unit/Integration 的 JaCoCo HTML/XML 报告分别位于 `target/site/jacoco-unit
 平台分佣规则采用默认配置：每个平台一条当前记录、无时间限制、无状态、不可删除；首次使用 POST，后续由超级管理员使用 PUT 直接覆盖五项费率。每次写入会生成不可变历史快照，但不提供规则时间线或按支付时间自动匹配历史版本；旧文档中的 PENDING/ACTIVE/ENDED 和提前结束不再是当前契约。
 ## 推广链接当前边界
 
-用户通过 `/api/user/promotion/links` 提交 `providerId`、`dramaId`、`mediaTypes`、可选 `linkVariant` 和 `requestKey`。`linkVariant` 只允许 `LANDING`（落地页）或 `ONELINK`（OneLink），每个选中的媒体平台只生成用户选择的一条链接和一个口令；未传时兼容旧客户端默认生成 `LANDING`。每条记录使用独立 `trackingNo/customParams`，不绑定媒体账号或报白状态。部分媒体平台失败时保留成功结果，失败记录可重试。
+用户通过 `/api/user/promotion/links` 提交 `providerId`、`dramaId`、`mediaTypes`、可选 `linkVariant` 和 `requestKey`。`linkVariant` 只允许 `LANDING`（落地页）或 `ONELINK`（OneLink），每个选中的媒体平台只生成用户选择的一条链接和一个口令；未传时兼容旧客户端默认生成 `LANDING`。每条记录保留独立的内部 `trackingNo`；发送 GoodShort 时 `customParams` 固定使用该推广用户的稳定 `user_no`，订单同步再按 `customParams -> user_no -> user_id` 直接归因，不通过推广链接追踪号反查。部分媒体平台失败时保留成功结果，失败记录可重试，重试不会改变 `customParams`。
 # 手机验证码（阿里云短信）
 
 超级管理员通过 `PUT/GET /api/admin/system/sms-config` 配置阿里云 AccessKey、签名和注册/登录/找回密码模板；AccessKey 仅以 AES-GCM 密文保存，响应不返回密钥。用户端手机号验证码接口为注册发码、验证码登录发码/校验和找回密码发码/校验，发送失败返回 HTTP 503。邮箱密码登录保持可用，邮箱验证码流程暂未开放。

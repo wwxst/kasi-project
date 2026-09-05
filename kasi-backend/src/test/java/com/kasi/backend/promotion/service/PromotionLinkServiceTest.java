@@ -37,13 +37,13 @@ class PromotionLinkServiceTest {
         ProviderRuntimeConnection runtime = runtime();
         PromotionLink landing = link(1L, "LANDING", "track-1");
         when(persistenceService.prepareBatchPending(7L, request)).thenReturn(List.of(
-                new PromotionLinkPreparation(landing, runtime, new PromotionLinkRequest("book", "track-1", MediaType.TIKTOK, "LANDING"))));
-        when(adapter.generatePromotionLink(any(), any())).thenReturn(new PromotionLinkResult("code", "https://url", "track"));
-        when(persistenceService.markSuccess(any(), any(), any(), any(), eq(7L), eq(request.getRequestKey()), any(), any()))
+                new PromotionLinkPreparation(landing, runtime, new PromotionLinkRequest("book", "583729104628", MediaType.TIKTOK, "LANDING"))));
+        when(adapter.generatePromotionLink(any(), any())).thenReturn(new PromotionLinkResult("code", "https://url"));
+        when(persistenceService.markSuccess(any(), any(), any(), eq(7L), eq(request.getRequestKey()), any(), any()))
                 .thenAnswer(invocation -> {
                     PromotionLink stored = new PromotionLink();
                     stored.setId(invocation.getArgument(0)); stored.setBatchNo("batch"); stored.setMediaType("TIKTOK");
-                    stored.setLinkVariant(invocation.getArgument(7)); stored.setStatus(PromotionLinkStatus.SUCCESS);
+                    stored.setLinkVariant(invocation.getArgument(6)); stored.setStatus(PromotionLinkStatus.SUCCESS);
                     return stored;
                 });
 
@@ -61,11 +61,11 @@ class PromotionLinkServiceTest {
         PromotionLink landing = link(1L, "LANDING", "track-1");
         PromotionLink onelink = link(2L, "ONELINK", "track-2");
         when(persistenceService.prepareBatchPending(7L, request)).thenReturn(List.of(
-                new PromotionLinkPreparation(landing, runtime, new PromotionLinkRequest("book", "track-1", MediaType.TIKTOK, "LANDING")),
-                new PromotionLinkPreparation(onelink, runtime, new PromotionLinkRequest("book", "track-2", MediaType.TIKTOK, "ONELINK"))));
-        when(adapter.generatePromotionLink(any(), any())).thenReturn(new PromotionLinkResult("code", "https://url", "track"))
+                new PromotionLinkPreparation(landing, runtime, new PromotionLinkRequest("book", "583729104628", MediaType.TIKTOK, "LANDING")),
+                new PromotionLinkPreparation(onelink, runtime, new PromotionLinkRequest("book", "583729104628", MediaType.TIKTOK, "ONELINK"))));
+        when(adapter.generatePromotionLink(any(), any())).thenReturn(new PromotionLinkResult("code", "https://url"))
                 .thenThrow(new ProviderTransientException("timeout"));
-        when(persistenceService.markSuccess(any(), any(), any(), any(), eq(7L), eq(request.getRequestKey()), any(), any()))
+        when(persistenceService.markSuccess(any(), any(), any(), eq(7L), eq(request.getRequestKey()), any(), any()))
                 .thenReturn(successLink());
 
         var result = service.createOrRetry(7L, request);

@@ -15,6 +15,8 @@ public interface PromotionUserMapper {
 
     PromotionUser findById(@Param("id") Long id);
 
+    PromotionUser findByUserNo(@Param("userNo") String userNo);
+
     PromotionUser findByMobile(@Param("mobile") String mobile);
 
     PromotionUser findByEmail(@Param("email") String email);

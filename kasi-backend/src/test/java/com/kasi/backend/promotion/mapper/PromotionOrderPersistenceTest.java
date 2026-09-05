@@ -68,7 +68,7 @@ class PromotionOrderPersistenceTest extends BaseAuthTest {
         order.setRawStatus(status == PromotionOrderStatus.PAID ? "1" : "0");
         order.setStatus(status);
         order.setPaidAt(LocalDateTime.of(2025, 7, 1, 15, 55, 30));
-        order.setCustomParams("tracking-1");
+        order.setCustomParams(PRIMARY_USER_NO);
         order.setAttributionStatus(PromotionAttributionStatus.UNATTRIBUTED);
         order.setRawPayloadJson("{\"orderId\":\"" + externalOrderId + "\"}");
         order.setSyncStartDate(LocalDateTime.of(2025, 7, 1, 0, 0));

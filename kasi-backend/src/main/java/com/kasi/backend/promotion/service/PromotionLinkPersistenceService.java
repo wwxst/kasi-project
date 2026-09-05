@@ -6,7 +6,7 @@ import java.util.List;
 public interface PromotionLinkPersistenceService {
     List<PromotionLinkPreparation> prepareBatchPending(Long userId, CreatePromotionLinkDTO request);
 
-    PromotionLink markSuccess(Long linkId, String externalCode, String shareUrl, String customParams,
+    PromotionLink markSuccess(Long linkId, String externalCode, String shareUrl,
                               Long userId, String requestKey, String mediaType, String linkVariant);
 
     void markFailed(Long linkId, String errorCode, String errorMessage);

@@ -64,11 +64,11 @@ class GoodShortOrderAdapterTest {
                         {"data":{"records":[
                           {"userId":"20031995","orderId":"order-paid","payMoney":999,
                            "payTime":"2025-07-01 15:55:30","payStatus":1,
-                           "customParams":"tracking-paid","bookId":"book-1","searchCode":"21302",
+                           "customParams":"583104726918","bookId":"book-1","searchCode":"21302",
                            "channelCode":"GRKOCABTT00001","pid":"partner-1","utime":"2025-07-01 16:00:00"},
                           {"userId":"20031996","orderId":"order-refund","payMoney":99,
                            "payTime":"2025-07-01 17:43:41","payStatus":3,
-                           "customParams":"tracking-refund","bookId":"book-2","searchCode":"21303",
+                           "customParams":"731000000042","bookId":"book-2","searchCode":"21303",
                            "channelCode":"GRKOCABFB00002","pid":"partner-1","utime":"2025-07-02 08:00:00"}
                         ],"pageNo":1,"pageSize":500,"pages":1,"total":2},
                          "status":0,"message":"success","success":true}
@@ -90,7 +90,7 @@ class GoodShortOrderAdapterTest {
             assertThat(order.orderAmountMinor()).isEqualTo(999);
             assertThat(order.orderAmount()).isEqualByComparingTo(new BigDecimal("9.99"));
             assertThat(order.currency()).isEqualTo("USD");
-            assertThat(order.customParams()).isEqualTo("tracking-paid");
+            assertThat(order.customParams()).isEqualTo("583104726918");
             assertThat(order.providerUpdatedAt()).isEqualTo(LocalDateTime.of(2025, 7, 1, 16, 0));
             assertThat(order.rawPayloadJson()).contains("\"orderId\":\"order-paid\"");
         });

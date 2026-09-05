@@ -24,6 +24,10 @@
         SELECT * FROM promotion_user WHERE id = #{id}
     </select>
 
+    <select id="findByUserNo" resultMap="BaseResultMap">
+        SELECT * FROM promotion_user WHERE user_no = #{userNo}
+    </select>
+
     <select id="findByMobile" resultMap="BaseResultMap">
         SELECT * FROM promotion_user WHERE mobile = #{mobile}
     </select>

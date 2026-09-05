@@ -23,7 +23,6 @@ public class PromotionOrderVO {
     private PromotionOrderStatus status;
     private LocalDateTime paidAt;
     private String customParams;
-    private String trackingNo;
     private Long userId;
     private Long dramaId;
     private PromotionAttributionStatus attributionStatus;

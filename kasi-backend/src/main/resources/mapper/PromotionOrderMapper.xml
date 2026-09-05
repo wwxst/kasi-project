@@ -19,8 +19,6 @@
         <result column="paid_at" property="paidAt"/>
         <result column="provider_updated_at" property="providerUpdatedAt"/>
         <result column="custom_params" property="customParams"/>
-        <result column="tracking_no" property="trackingNo"/>
-        <result column="promotion_link_id" property="promotionLinkId"/>
         <result column="user_id" property="userId"/>
         <result column="drama_id" property="dramaId"/>
         <result column="attribution_status" property="attributionStatus"/>
@@ -61,7 +59,7 @@
 
     <insert id="insert" useGeneratedKeys="true" keyProperty="id">
         INSERT INTO promotion_order
-        (<include refid="sourceColumns"/>, tracking_no, promotion_link_id, user_id,
+        (<include refid="sourceColumns"/>, user_id,
          drama_id, attribution_status, rule_history_id, channel_fee_rate, principal_fee_rate,
          principal_commission_rate, downstream_fee_rate, downstream_commission_rate,
          commission_amount, commission_status, last_error_message)
@@ -69,8 +67,7 @@
         (#{connectionId}, #{providerId}, #{externalOrderId}, #{externalUserId}, #{externalDramaId},
          #{searchCode}, #{channelCode}, #{partnerId}, #{orderAmountMinor}, #{orderAmount}, #{currency},
          #{rawStatus}, #{status}, #{paidAt}, #{providerUpdatedAt}, #{customParams}, #{rawPayloadJson},
-         #{syncStartDate}, #{syncEndDate}, #{lastSyncedAt}, #{trackingNo},
-         #{promotionLinkId}, #{userId}, #{dramaId}, #{attributionStatus},
+         #{syncStartDate}, #{syncEndDate}, #{lastSyncedAt}, #{userId}, #{dramaId}, #{attributionStatus},
          #{ruleHistoryId}, #{channelFeeRate}, #{principalFeeRate}, #{principalCommissionRate},
          #{downstreamFeeRate}, #{downstreamCommissionRate}, #{commissionAmount},
          #{commissionStatus}, #{lastErrorMessage})
@@ -95,7 +92,7 @@
 
     <update id="applyAttributionAndCommission">
         UPDATE promotion_order
-        SET tracking_no=#{trackingNo}, promotion_link_id=#{promotionLinkId}, user_id=#{userId},
+        SET user_id=#{userId},
             drama_id=#{dramaId},
             attribution_status=#{attributionStatus}, rule_history_id=#{ruleHistoryId},
             channel_fee_rate=#{channelFeeRate}, principal_fee_rate=#{principalFeeRate},

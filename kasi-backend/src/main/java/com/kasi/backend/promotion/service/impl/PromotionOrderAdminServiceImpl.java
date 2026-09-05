@@ -60,7 +60,7 @@ public class PromotionOrderAdminServiceImpl implements PromotionOrderAdminServic
                 .externalOrderId(order.getExternalOrderId()).externalDramaId(order.getExternalDramaId())
                 .searchCode(order.getSearchCode()).channelCode(order.getChannelCode())
                 .orderAmount(order.getOrderAmount()).currency(order.getCurrency()).status(order.getStatus())
-                .paidAt(order.getPaidAt()).customParams(order.getCustomParams()).trackingNo(order.getTrackingNo())
+                .paidAt(order.getPaidAt()).customParams(order.getCustomParams())
                 .userId(order.getUserId()).dramaId(order.getDramaId())
                 .attributionStatus(order.getAttributionStatus()).channelFeeRate(order.getChannelFeeRate())
                 .principalFeeRate(order.getPrincipalFeeRate())
@@ -73,11 +73,11 @@ public class PromotionOrderAdminServiceImpl implements PromotionOrderAdminServic
 
     static String csv(List<PromotionOrder> orders) {
         List<String> rows = new ArrayList<>();
-        rows.add("订单ID,平台ID,订单金额,币种,状态,支付时间,trackingNo,用户ID,归因状态,佣金,佣金状态");
+        rows.add("订单ID,平台ID,订单金额,币种,状态,支付时间,用户ID,归因状态,佣金,佣金状态");
         for (PromotionOrder order : orders) {
             rows.add(String.join(",", escape(order.getExternalOrderId()), value(order.getProviderId()),
                     value(order.getOrderAmount()), escape(order.getCurrency()), value(order.getStatus()),
-                    value(order.getPaidAt()), escape(order.getTrackingNo()), value(order.getUserId()),
+                    value(order.getPaidAt()), value(order.getUserId()),
                     value(order.getAttributionStatus()), value(order.getCommissionAmount()),
                     value(order.getCommissionStatus())));
         }

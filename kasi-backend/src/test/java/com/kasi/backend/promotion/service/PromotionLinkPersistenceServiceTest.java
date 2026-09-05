@@ -37,6 +37,7 @@ class PromotionLinkPersistenceServiceTest {
     void preparesOnlySelectedVariant() {
         PromotionUser user = new PromotionUser();
         user.setStatus(1);
+        user.setUserNo("583729104628");
         ProviderDrama drama = new ProviderDrama();
         drama.setId(23L);
         drama.setConnectionId(3L);
@@ -64,5 +65,42 @@ class PromotionLinkPersistenceServiceTest {
         assertThat(result).hasSize(1);
         assertThat(result.getFirst().link().getLinkVariant()).isEqualTo("ONELINK");
         assertThat(result.getFirst().providerRequest().linkVariant()).isEqualTo("ONELINK");
+        assertThat(result.getFirst().providerRequest().userNo()).isEqualTo("583729104628");
+    }
+
+    @Test
+    @DisplayName("失败链接重试时仍使用同一用户编号作为GoodShort customParams")
+    void retryKeepsUserNoAsProviderCustomParams() {
+        PromotionUser user = new PromotionUser();
+        user.setStatus(1);
+        user.setUserNo("583729104628");
+        ProviderDrama drama = new ProviderDrama();
+        drama.setId(23L);
+        drama.setConnectionId(3L);
+        drama.setExternalDramaId("book");
+        drama.setLocalStatus(DramaLocalStatus.PUBLISHED);
+        drama.setRemoteShowStatus("1");
+        PromotionLink failed = new PromotionLink();
+        failed.setId(41L);
+        failed.setStatus(com.kasi.backend.promotion.enums.PromotionLinkStatus.FAILED);
+        failed.setTrackingNo("old-tracking");
+        when(userMapper.findById(7L)).thenReturn(user);
+        when(dramaMapper.findById(23L)).thenReturn(drama);
+        when(runtimeService.resolve(1L, ProviderCapability.PROMOTION_LINK))
+                .thenReturn(new ProviderRuntimeConnection(3L, 1L, "GOODSHORT", "GoodShort", null, null));
+        when(linkMapper.findBatchByUserAndRequestKey(7L, "request")).thenReturn(List.of(failed));
+        when(linkMapper.findByUserAndRequestKeyForUpdate(eq(7L), eq("request"), eq("TIKTOK"), eq("LANDING")))
+                .thenReturn(failed);
+
+        CreatePromotionLinkDTO request = new CreatePromotionLinkDTO();
+        request.setProviderId(1L);
+        request.setDramaId(23L);
+        request.setMediaTypes(List.of("TIKTOK"));
+        request.setRequestKey("request");
+
+        List<PromotionLinkPreparation> result = new PromotionLinkPersistenceServiceImpl(
+                linkMapper, userMapper, dramaMapper, runtimeService).prepareBatchPending(7L, request);
+
+        assertThat(result.getFirst().providerRequest().userNo()).isEqualTo("583729104628");
     }
 }

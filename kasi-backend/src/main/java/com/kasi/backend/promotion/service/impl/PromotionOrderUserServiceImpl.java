@@ -52,7 +52,7 @@ public class PromotionOrderUserServiceImpl implements PromotionOrderUserService 
     private static UserPromotionOrderVO toUserVO(PromotionOrder order) {
         return UserPromotionOrderVO.builder().externalOrderId(order.getExternalOrderId())
                 .currency(order.getCurrency()).status(order.getStatus()).paidAt(order.getPaidAt())
-                .trackingNo(order.getTrackingNo()).commissionAmount(order.getCommissionAmount()).build();
+                .commissionAmount(order.getCommissionAmount()).build();
     }
 
     private BigDecimal zero(BigDecimal value) {
