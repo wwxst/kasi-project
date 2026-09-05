@@ -23,6 +23,7 @@ kasi-user-web/   React + TDesign 用户端
 - [日常开发流程与核心 Gate](DEVELOPMENT.md)
 - [工程治理与文档所有权](docs/development/governance.md)
 - [测试、CI 与 Real Verification](docs/development/testing.md)
+- [生产部署运行手册](docs/development/production-deployment.md)
 - [后端说明](docs/projects/kasi-backend.md)
 - [管理端说明](docs/projects/kasi-admin-web.md)
 - [用户端说明](docs/projects/kasi-user-web.md)
