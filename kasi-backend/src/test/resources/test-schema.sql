@@ -348,3 +348,23 @@ CREATE TABLE IF NOT EXISTS system_scheduled_task (
     lease_until TIMESTAMP,
     INDEX idx_system_scheduled_task_due (enabled, next_run_at, lease_until)
 );
+
+CREATE TABLE IF NOT EXISTS promotion_analytical_report (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    report_date DATE NOT NULL,
+    pid VARCHAR(128) NOT NULL,
+    custom_params VARCHAR(255) NOT NULL DEFAULT '',
+    book_id VARCHAR(128) NOT NULL DEFAULT '',
+    code VARCHAR(128) NOT NULL DEFAULT '',
+    click_count BIGINT NOT NULL,
+    attributed_user_count BIGINT NOT NULL,
+    new_registered_user_count BIGINT NOT NULL,
+    new_paid_user_count BIGINT NOT NULL,
+    new_member_user_count BIGINT NOT NULL,
+    paid_user_count BIGINT NOT NULL,
+    order_count BIGINT NOT NULL,
+    order_amount DECIMAL(18,2) NOT NULL,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE (report_date, pid, custom_params, book_id, code)
+);

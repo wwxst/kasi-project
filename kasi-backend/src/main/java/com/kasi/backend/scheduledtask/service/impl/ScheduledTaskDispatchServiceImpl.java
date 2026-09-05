@@ -7,6 +7,7 @@ import com.kasi.backend.drama.service.DramaContentSyncService;
 import com.kasi.backend.provider.entity.ShortDramaProvider;
 import com.kasi.backend.provider.mapper.ShortDramaProviderMapper;
 import com.kasi.backend.promotion.service.PromotionOrderSyncService;
+import com.kasi.backend.promotion.service.PromotionAnalyticalReportSyncService;
 import com.kasi.backend.provider.exception.ProviderRemoteRejectedException;
 import com.kasi.backend.provider.exception.ProviderTransientException;
 import com.kasi.backend.scheduledtask.config.ScheduledTaskProperties;
@@ -33,6 +34,7 @@ public class ScheduledTaskDispatchServiceImpl implements ScheduledTaskDispatchSe
     private final DramaCatalogSyncService syncService;
     private final DramaContentSyncService contentSyncService;
     private final PromotionOrderSyncService orderSyncService;
+    private final PromotionAnalyticalReportSyncService analyticalReportSyncService;
     private final TransactionTemplate transactionTemplate;
     private final ScheduledTaskProperties properties;
     private final DramaSyncProperties dramaProperties;
@@ -52,12 +54,14 @@ public class ScheduledTaskDispatchServiceImpl implements ScheduledTaskDispatchSe
                                             @Value("${app.scheduled-task.worker-id:${random.uuid}}")
                                             String workerId,
                                             PromotionOrderSyncService orderSyncService,
+                                            PromotionAnalyticalReportSyncService analyticalReportSyncService,
                                             ScheduledTaskScheduleCalculator scheduleCalculator) {
         this.taskMapper = taskMapper;
         this.providerMapper = providerMapper;
         this.syncService = syncService;
         this.contentSyncService = contentSyncService;
         this.orderSyncService = orderSyncService;
+        this.analyticalReportSyncService = analyticalReportSyncService;
         this.transactionTemplate = new TransactionTemplate(transactionManager);
         this.properties = properties;
         this.dramaProperties = dramaProperties;
@@ -77,7 +81,7 @@ public class ScheduledTaskDispatchServiceImpl implements ScheduledTaskDispatchSe
                                             String workerId,
                                             PromotionOrderSyncService orderSyncService) {
         this(taskMapper, providerMapper, syncService, contentSyncService, transactionManager, properties,
-                dramaProperties, clock, workerId, orderSyncService, new ScheduledTaskScheduleCalculator());
+                dramaProperties, clock, workerId, orderSyncService, null, new ScheduledTaskScheduleCalculator());
     }
 
     @Override
@@ -122,6 +126,7 @@ public class ScheduledTaskDispatchServiceImpl implements ScheduledTaskDispatchSe
             case GOODSHORT_DRAMA_INCREMENTAL_SYNC -> dispatchGoodShortDramaIncremental();
             case GOODSHORT_DRAMA_CONTENT_SYNC -> contentSyncService.processDueBatch();
             case GOODSHORT_ORDER_SYNC -> dispatchGoodShortOrderSync();
+            case GOODSHORT_ANALYTICAL_REPORT_SYNC -> dispatchGoodShortAnalyticalReportSync();
         }
     }
 
@@ -140,5 +145,17 @@ public class ScheduledTaskDispatchServiceImpl implements ScheduledTaskDispatchSe
         }
         LocalDateTime endDate = LocalDateTime.now(clock);
         orderSyncService.sync(provider.getId(), endDate.minusDays(3), endDate);
+    }
+
+    private void dispatchGoodShortAnalyticalReportSync() {
+        if (analyticalReportSyncService == null) {
+            return;
+        }
+        ShortDramaProvider provider = providerMapper.findByCode("GOODSHORT");
+        if (provider == null) {
+            return;
+        }
+        java.time.LocalDate yesterday = LocalDateTime.now(clock).toLocalDate().minusDays(1);
+        analyticalReportSyncService.sync(provider.getId(), yesterday, yesterday, null, null, null);
     }
 }

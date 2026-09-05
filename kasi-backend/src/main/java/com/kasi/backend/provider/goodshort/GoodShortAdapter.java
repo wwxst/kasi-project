@@ -31,12 +31,17 @@ import com.kasi.backend.provider.goodshort.dto.GoodShortEpisodeData;
 import com.kasi.backend.provider.goodshort.dto.GoodShortPromotionLinkResponse;
 import com.kasi.backend.provider.goodshort.dto.GoodShortFreeContentResponse;
 import com.kasi.backend.provider.goodshort.dto.GoodShortOrderResponse;
+import com.kasi.backend.provider.goodshort.dto.GoodShortAnalyticalReportResponse;
 import com.kasi.backend.provider.vo.ProviderConnectionTestVO;
 import com.kasi.backend.provider.spi.OrderSyncProviderAdapter;
 import com.kasi.backend.provider.spi.OrderSyncRequest;
 import com.kasi.backend.provider.spi.ProviderOrderPage;
 import com.kasi.backend.provider.spi.ProviderOrderRecord;
 import com.kasi.backend.provider.spi.ProviderOrderStatus;
+import com.kasi.backend.provider.spi.AnalyticalReportProviderAdapter;
+import com.kasi.backend.provider.spi.AnalyticalReportRequest;
+import com.kasi.backend.provider.spi.ProviderAnalyticalReportPage;
+import com.kasi.backend.provider.spi.ProviderAnalyticalReportRecord;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Component;
@@ -61,7 +66,8 @@ import java.util.Set;
 
 @Component
 public class GoodShortAdapter implements AccountFilingProviderAdapter, DramaCatalogProviderAdapter,
-        PromotionLinkProviderAdapter, OrderSyncProviderAdapter, FreeContentProviderAdapter {
+        PromotionLinkProviderAdapter, OrderSyncProviderAdapter, FreeContentProviderAdapter,
+        AnalyticalReportProviderAdapter {
 
     private static final String PROVIDER_CODE = "GOODSHORT";
     private static final String CONNECTION_PROBE_PATH = "/open/book/initBooks";
@@ -71,6 +77,7 @@ public class GoodShortAdapter implements AccountFilingProviderAdapter, DramaCata
     private static final String INCREMENTAL_CATALOG_PATH = "/open/book/incrementBooks";
     private static final String ORDER_PATH = "/open/partner/orders";
     private static final String FREE_CONTENT_PATH = "/open/book/freeContent";
+    private static final String ANALYTICAL_REPORT_PATH = "/creek/open/promotion/analyticalReport";
     private static final Set<ProviderCapability> CAPABILITIES = Set.of(
             ProviderCapability.FULL_DRAMA_SYNC,
             ProviderCapability.INCREMENTAL_DRAMA_SYNC,
@@ -81,7 +88,8 @@ public class GoodShortAdapter implements AccountFilingProviderAdapter, DramaCata
             ProviderCapability.FILING_STATUS_QUERY,
             ProviderCapability.PROMOTION_LINK,
             ProviderCapability.PROMOTION_CODE,
-            ProviderCapability.ORDER_SYNC);
+            ProviderCapability.ORDER_SYNC,
+            ProviderCapability.ANALYTICS_SYNC);
     private static final DateTimeFormatter REMOTE_DATE_FORMAT =
             DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss.SSSZ");
     private static final DateTimeFormatter REMOTE_DATE_FORMAT_WITHOUT_MILLIS =
@@ -264,6 +272,95 @@ public class GoodShortAdapter implements AccountFilingProviderAdapter, DramaCata
         return new ProviderOrderPage(records, pageNo, pageSize, pages, total, hasNext);
     }
 
+    @Override
+    public ProviderAnalyticalReportPage fetchAnalyticalReports(ProviderConnectionSecret connection,
+                                                               AnalyticalReportRequest request) {
+        Map<String, Object> parameters = new LinkedHashMap<>();
+        parameters.put("pid", connection.getPartnerId());
+        parameters.put("timestamp", clock.millis());
+        parameters.put("pageNo", request.pageNo());
+        parameters.put("pageSize", request.pageSize());
+        parameters.put("startTime", request.startDate().toString());
+        parameters.put("endTime", request.endDate().toString());
+        if (request.code() != null && !request.code().isBlank()) parameters.put("code", request.code());
+        if (request.bookId() != null && !request.bookId().isBlank()) parameters.put("bookId", request.bookId());
+        if (request.customParams() != null && !request.customParams().isBlank()) {
+            parameters.put("customParams", request.customParams());
+        }
+        String signature = signer.sign(parameters, connection.getApiKey());
+        GoodShortAnalyticalReportResponse response;
+        try {
+            response = restClient.mutate().baseUrl(connection.getBaseUrl()).build().post()
+                    .uri(ANALYTICAL_REPORT_PATH).contentType(org.springframework.http.MediaType.APPLICATION_JSON)
+                    .header("sign", signature).body(parameters).retrieve()
+                    .body(GoodShortAnalyticalReportResponse.class);
+        } catch (ResourceAccessException exception) {
+            throw new ProviderTransientException("GoodShort analytical report service is temporarily unavailable");
+        } catch (RestClientResponseException exception) {
+            if (exception.getStatusCode().is5xxServerError() || exception.getStatusCode().value() == 429) {
+                throw new ProviderTransientException("GoodShort analytical report service is temporarily unavailable");
+            }
+            throw new ProviderRemoteRejectedException("GoodShort analytical report request was rejected");
+        } catch (RestClientException exception) {
+            throw new ProviderRemoteRejectedException("GoodShort analytical report response is malformed");
+        }
+        if (response == null || !successful(response) || response.getData() == null
+                || response.getData().getRecords() == null) {
+            throw new ProviderRemoteRejectedException("GoodShort analytical report response is incomplete");
+        }
+        var data = response.getData();
+        List<ProviderAnalyticalReportRecord> records = data.getRecords().stream()
+                .map(this::mapAnalyticalReport).toList();
+        int pageNo = data.getPageNo() == null ? request.pageNo() : data.getPageNo();
+        int pageSize = data.getPageSize() == null ? request.pageSize() : data.getPageSize();
+        long total = data.getTotal() == null ? records.size() : data.getTotal();
+        int pages = data.getPages() == null
+                ? (pageSize > 0 ? (int) Math.ceil((double) total / pageSize) : pageNo)
+                : data.getPages();
+        boolean hasNext = !records.isEmpty() && pageNo < pages && (long) pageNo * pageSize < total;
+        return new ProviderAnalyticalReportPage(records, pageNo, pageSize, pages, total, hasNext);
+    }
+
+    private ProviderAnalyticalReportRecord mapAnalyticalReport(Map<String, Object> record) {
+        String reportDate = stringValue(record.get("reportDate"));
+        if (reportDate == null || reportDate.isBlank()) {
+            throw new ProviderRemoteRejectedException("GoodShort analytical reportDate is missing");
+        }
+        String pid = firstNonBlank(stringValue(record.get("pId")), stringValue(record.get("pid")));
+        if (pid == null || pid.isBlank()) {
+            throw new ProviderRemoteRejectedException("GoodShort analytical pId is missing");
+        }
+        return new ProviderAnalyticalReportRecord(java.time.LocalDate.parse(reportDate), pid,
+                valueOrEmpty(record.get("customParams")), valueOrEmpty(record.get("bookId")),
+                valueOrEmpty(record.get("code")), requiredLong(record, "clickCount"),
+                requiredLong(record, "attributedUserCount"), requiredLong(record, "newRegisteredUserCount"),
+                requiredLong(record, "newPaidUserCount"), requiredLong(record, "newMemberUserCount"),
+                requiredLong(record, "paidUserCount"), requiredLong(record, "orderCount"),
+                requiredDecimal(record, "orderAmount"));
+    }
+
+    private long requiredLong(Map<String, Object> record, String key) {
+        Object value = record.get(key);
+        if (value == null) throw new ProviderRemoteRejectedException("GoodShort analytical " + key + " is missing");
+        try { return Long.parseLong(value.toString()); }
+        catch (NumberFormatException exception) {
+            throw new ProviderRemoteRejectedException("GoodShort analytical " + key + " is invalid");
+        }
+    }
+
+    private BigDecimal requiredDecimal(Map<String, Object> record, String key) {
+        Object value = record.get(key);
+        if (value == null) throw new ProviderRemoteRejectedException("GoodShort analytical " + key + " is missing");
+        try { return new BigDecimal(value.toString()); }
+        catch (NumberFormatException exception) {
+            throw new ProviderRemoteRejectedException("GoodShort analytical " + key + " is invalid");
+        }
+    }
+
+    private String valueOrEmpty(Object value) {
+        return value == null ? "" : value.toString();
+    }
+
     private ProviderOrderRecord mapOrder(Map<String, Object> record, String currency) {
         String externalOrderId = stringValue(record.get("orderId"));
         if (externalOrderId == null || externalOrderId.isBlank()) {
@@ -315,6 +412,11 @@ public class GoodShortAdapter implements AccountFilingProviderAdapter, DramaCata
     }
 
     private boolean successful(GoodShortOrderResponse response) {
+        return response != null && Integer.valueOf(0).equals(response.getStatus())
+                && Boolean.TRUE.equals(response.getSuccess());
+    }
+
+    private boolean successful(GoodShortAnalyticalReportResponse response) {
         return response != null && Integer.valueOf(0).equals(response.getStatus())
                 && Boolean.TRUE.equals(response.getSuccess());
     }

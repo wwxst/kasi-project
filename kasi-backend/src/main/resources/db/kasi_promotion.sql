@@ -284,6 +284,32 @@ CREATE TABLE `drama_sync_display_run_item`
     KEY `idx_drama_sync_display_run_item_task` (`task_domain`, `task_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='同步记录展示子任务关联';
 
+CREATE TABLE `promotion_analytical_report`
+(
+    `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+    `report_date` DATE NOT NULL,
+    `pid` VARCHAR(128) NOT NULL,
+    `custom_params` VARCHAR(255) NOT NULL DEFAULT '',
+    `book_id` VARCHAR(128) NOT NULL DEFAULT '',
+    `code` VARCHAR(128) NOT NULL DEFAULT '',
+    `click_count` BIGINT UNSIGNED NOT NULL,
+    `attributed_user_count` BIGINT UNSIGNED NOT NULL,
+    `new_registered_user_count` BIGINT UNSIGNED NOT NULL,
+    `new_paid_user_count` BIGINT UNSIGNED NOT NULL,
+    `new_member_user_count` BIGINT UNSIGNED NOT NULL,
+    `paid_user_count` BIGINT UNSIGNED NOT NULL,
+    `order_count` BIGINT UNSIGNED NOT NULL,
+    `order_amount` DECIMAL(18, 2) NOT NULL,
+    `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    `updated_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    PRIMARY KEY (`id`),
+    UNIQUE KEY `uk_promotion_analytical_report_dimension` (`report_date`, `pid`, `custom_params`, `book_id`, `code`),
+    KEY `idx_promotion_analytical_report_date` (`report_date`),
+    KEY `idx_promotion_analytical_report_custom_params` (`custom_params`),
+    KEY `idx_promotion_analytical_report_book` (`book_id`),
+    KEY `idx_promotion_analytical_report_code` (`code`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='GoodShort daily analytical report';
+
 CREATE TABLE `provider_sync_checkpoint`
 (
     `id`                 BIGINT UNSIGNED NOT NULL AUTO_INCREMENT COMMENT '主键ID',
@@ -350,6 +376,11 @@ CREATE TABLE system_scheduled_task (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 INSERT INTO system_scheduled_task (task_code, description, cycle_type, interval_value, interval_hours_part, interval_minutes_part, enabled, next_run_at) VALUES ('GOODSHORT_DRAMA_INCREMENTAL_SYNC','每隔60分钟执行一次GoodShort短剧目录增量同步','INTERVAL_MINUTES',60,0,0,1,TIMESTAMPADD(MINUTE,60,CURRENT_TIMESTAMP)),('GOODSHORT_DRAMA_CONTENT_SYNC','每隔1分钟同步GoodShort免费剧集','INTERVAL_MINUTES',1,0,0,1,TIMESTAMPADD(MINUTE,1,CURRENT_TIMESTAMP)),('GOODSHORT_ORDER_SYNC','每隔1分钟同步最近3天的GoodShort订单','INTERVAL_MINUTES',1,0,0,1,TIMESTAMPADD(MINUTE,1,CURRENT_TIMESTAMP));
+INSERT INTO system_scheduled_task
+    (task_code, description, cycle_type, time_of_day, enabled, next_run_at)
+VALUES ('GOODSHORT_ANALYTICAL_REPORT_SYNC', 'Daily 08:00 GoodShort analytical report sync', 'DAILY', '08:00:00', 1,
+        TIMESTAMPADD(HOUR, 8, CURRENT_DATE));
+
 -- 推广链接
 CREATE TABLE `promotion_link` (
     `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,

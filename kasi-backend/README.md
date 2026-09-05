@@ -1,6 +1,14 @@
 # Kasi Backend 开发文档
 
-最后核对时间：2026-09-01
+## GoodShort 推广转化日报
+
+后端通过 GoodShort `POST /creek/open/promotion/analyticalReport` 拉取每日汇总，数据独立保存于 `promotion_analytical_report`，不写入 `promotion_order`。同步请求固定 `pageSize=500`，按 `reportDate` 使用 `yyyy-MM-dd`，单次日期范围最多 30 个自然日；`customParams` 原样保存并按 `promotion_user.user_no` 查询归属。
+
+管理接口：`POST /api/admin/promotion/analytical-reports/sync` 手动补拉（日期范围及可选 `code`、`bookId`、`customParams`），`GET /api/admin/promotion/analytical-reports` 分页查询（日期范围、达人 `customParams/user_no`、短剧 `bookId`、口令 `code`）。系统任务 `GOODSHORT_ANALYTICAL_REPORT_SYNC` 使用 `Asia/Shanghai` 每日 08:00 同步前一天。
+
+生产库通过 Flyway 独立执行 `src/main/resources/db/migration/V2__promotion_analytical_report.sql`；已部署 Docker 数据库不要重新执行 `kasi_promotion.sql` 或删库重建。
+
+最后核对时间：2026-09-05
 
 跨项目工程规则、CI 和 Real Verification 语义以根级 [DEVELOPMENT.md](../DEVELOPMENT.md) 与 [测试规范](../docs/development/testing.md) 为准；本文只维护后端业务和运行边界。
 

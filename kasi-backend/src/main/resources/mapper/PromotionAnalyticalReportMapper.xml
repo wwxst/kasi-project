@@ -1,0 +1,54 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.kasi.backend.promotion.mapper.PromotionAnalyticalReportMapper">
+    <resultMap id="ReportMap" type="com.kasi.backend.promotion.entity.PromotionAnalyticalReport">
+        <id column="id" property="id"/>
+        <result column="report_date" property="reportDate"/>
+        <result column="pid" property="pid"/>
+        <result column="custom_params" property="customParams"/>
+        <result column="book_id" property="bookId"/>
+        <result column="code" property="code"/>
+        <result column="click_count" property="clickCount"/>
+        <result column="attributed_user_count" property="attributedUserCount"/>
+        <result column="new_registered_user_count" property="newRegisteredUserCount"/>
+        <result column="new_paid_user_count" property="newPaidUserCount"/>
+        <result column="new_member_user_count" property="newMemberUserCount"/>
+        <result column="paid_user_count" property="paidUserCount"/>
+        <result column="order_count" property="orderCount"/>
+        <result column="order_amount" property="orderAmount"/>
+        <result column="created_at" property="createdAt"/>
+        <result column="updated_at" property="updatedAt"/>
+    </resultMap>
+
+    <sql id="filters">
+        <where>
+            <if test="startDate != null">report_date &gt;= #{startDate}</if>
+            <if test="endDate != null">AND report_date &lt;= #{endDate}</if>
+            <if test="customParams != null and customParams != ''">AND custom_params=#{customParams}</if>
+            <if test="bookId != null and bookId != ''">AND book_id=#{bookId}</if>
+            <if test="code != null and code != ''">AND code=#{code}</if>
+        </where>
+    </sql>
+
+    <insert id="upsert">
+        INSERT INTO promotion_analytical_report
+        (report_date,pid,custom_params,book_id,code,click_count,attributed_user_count,
+         new_registered_user_count,new_paid_user_count,new_member_user_count,paid_user_count,order_count,order_amount)
+        VALUES (#{reportDate},#{pid},#{customParams},#{bookId},#{code},#{clickCount},#{attributedUserCount},
+                #{newRegisteredUserCount},#{newPaidUserCount},#{newMemberUserCount},#{paidUserCount},#{orderCount},#{orderAmount})
+        ON DUPLICATE KEY UPDATE
+            click_count=VALUES(click_count), attributed_user_count=VALUES(attributed_user_count),
+            new_registered_user_count=VALUES(new_registered_user_count), new_paid_user_count=VALUES(new_paid_user_count),
+            new_member_user_count=VALUES(new_member_user_count), paid_user_count=VALUES(paid_user_count),
+            order_count=VALUES(order_count), order_amount=VALUES(order_amount), updated_at=CURRENT_TIMESTAMP
+    </insert>
+
+    <select id="countPage" resultType="long">
+        SELECT COUNT(*) FROM promotion_analytical_report <include refid="filters"/>
+    </select>
+
+    <select id="findPage" resultMap="ReportMap">
+        SELECT * FROM promotion_analytical_report <include refid="filters"/>
+        ORDER BY report_date DESC, id DESC LIMIT #{offset}, #{size}
+    </select>
+</mapper>
