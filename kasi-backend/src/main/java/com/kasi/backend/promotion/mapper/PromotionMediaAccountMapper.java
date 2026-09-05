@@ -1,6 +1,7 @@
 package com.kasi.backend.promotion.mapper;
 
 import com.kasi.backend.promotion.entity.PromotionMediaAccount;
+import com.kasi.backend.promotion.dto.AdminMediaAccountPageQueryDTO;
 import com.kasi.backend.promotion.enums.MediaType;
 import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
@@ -10,6 +11,9 @@ import java.util.List;
 @Mapper
 public interface PromotionMediaAccountMapper {
     List<PromotionMediaAccount> findAll();
+    List<PromotionMediaAccount> findAdminPage(@Param("query") AdminMediaAccountPageQueryDTO query,
+                                              @Param("offset") int offset, @Param("size") int size);
+    long countAdminPage(@Param("query") AdminMediaAccountPageQueryDTO query);
     PromotionMediaAccount findById(@Param("id") Long id);
     PromotionMediaAccount findOwnedById(@Param("id") Long id, @Param("userId") Long userId);
     PromotionMediaAccount findByIdForUpdate(@Param("id") Long id);

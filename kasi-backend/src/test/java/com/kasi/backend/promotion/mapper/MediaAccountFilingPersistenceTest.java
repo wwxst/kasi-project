@@ -3,6 +3,7 @@ package com.kasi.backend.promotion.mapper;
 import com.kasi.backend.BaseAuthTest;
 import com.kasi.backend.promotion.entity.PromotionMediaAccount;
 import com.kasi.backend.promotion.entity.ProviderMediaFiling;
+import com.kasi.backend.promotion.dto.AdminMediaAccountPageQueryDTO;
 import com.kasi.backend.promotion.enums.FilingAction;
 import com.kasi.backend.promotion.enums.FilingStatus;
 import com.kasi.backend.promotion.enums.MediaType;
@@ -104,7 +105,8 @@ class MediaAccountFilingPersistenceTest extends BaseAuthTest {
         filingMapper.insert(filing);
         LocalDateTime now = LocalDateTime.now();
         jdbcTemplate.update("UPDATE provider_media_filing SET status = 'FAILED', submitted_data_version = 1, "
-                        + "remote_status = '2', filing_time = ?, operate_time = ?, last_submitted_at = ?, "
+                        + "remote_status = '2', external_filing_id = 'old-filing', filing_time = ?, operate_time = ?, "
+                        + "operate_by = 99, last_submitted_at = ?, "
                         + "last_queried_at = ? WHERE id = ?",
                 now, now, now, now, filing.getId());
 
@@ -115,9 +117,38 @@ class MediaAccountFilingPersistenceTest extends BaseAuthTest {
         assertThat(stored.getStatus()).isEqualTo(FilingStatus.PENDING);
         assertThat(stored.getTaskDataVersion()).isEqualTo(2);
         assertThat(stored.getRemoteStatus()).isNull();
+        assertThat(stored.getExternalFilingId()).isNull();
+        assertThat(stored.getSubmittedDataVersion()).isNull();
+        assertThat(stored.getFilingTime()).isNull();
         assertThat(stored.getLastSubmittedAt()).isNull();
         assertThat(stored.getLastQueriedAt()).isNull();
         assertThat(stored.getOperateTime()).isNull();
+        assertThat(stored.getOperateBy()).isNull();
+    }
+
+    @Test
+    @DisplayName("报备五态筛选在数据库查询和分页前生效")
+    void adminFilingDisplayStatusFiltersBeforePagination() {
+        PromotionMediaAccount failed = mediaAccount(userId(PRIMARY_USER_NO), MediaType.TIKTOK, "creator-filter-failed");
+        mediaAccountMapper.insert(failed);
+        PromotionMediaAccount pending = mediaAccount(userId(PRIMARY_USER_NO), MediaType.TIKTOK, "creator-filter-pending");
+        mediaAccountMapper.insert(pending);
+        Long connectionId = insertConnection();
+        ProviderMediaFiling filing = pendingFiling(connectionId, failed.getId(), 1);
+        filing.setNextAction(FilingAction.NONE);
+        filing.setNextActionAt(null);
+        filing.setLastErrorMessage("report failed");
+        filingMapper.insert(filing);
+
+        AdminMediaAccountPageQueryDTO query = new AdminMediaAccountPageQueryDTO();
+        query.setFilingStatus("SUBMIT_FAILED");
+        query.setPage(1);
+        query.setSize(1);
+
+        assertThat(mediaAccountMapper.countAdminPage(query)).isEqualTo(1);
+        assertThat(mediaAccountMapper.findAdminPage(query, 0, 1))
+                .extracting(PromotionMediaAccount::getExternalAccountId)
+                .containsExactly("creator-filter-failed");
     }
 
     @Test

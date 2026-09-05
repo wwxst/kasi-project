@@ -60,6 +60,47 @@ class AdminMediaAccountControllerTest extends BaseAuthTest {
     }
 
     @Test
+    @DisplayName("报备状态筛选按五种页面状态派生")
+    void filingStatusFilterUsesDisplayStatus() throws Exception {
+        long providerId = jdbcTemplate.queryForObject(
+                "SELECT id FROM short_drama_provider WHERE provider_code = 'GOODSHORT'", Long.class);
+        jdbcTemplate.update(
+                "INSERT INTO short_drama_connection "
+                        + "(provider_id, connection_name, base_url, partner_id, api_key_ciphertext, currency, status) "
+                        + "VALUES (?, 'GoodShort', 'https://goodshort.test', 'pid', 'cipher', 'USD', 1)", providerId);
+        long connectionId = jdbcTemplate.queryForObject(
+                "SELECT id FROM short_drama_connection WHERE provider_id = ? ORDER BY id DESC LIMIT 1",
+                Long.class, providerId);
+        jdbcTemplate.update("INSERT INTO promotion_media_account "
+                        + "(user_id, media_type, external_account_id, status, data_version) "
+                        + "VALUES ((SELECT id FROM promotion_user WHERE user_no = ?), 'TIKTOK', 'display-filter', 1, 1)",
+                PRIMARY_USER_NO);
+        long mediaAccountId = jdbcTemplate.queryForObject(
+                "SELECT id FROM promotion_media_account WHERE external_account_id = 'display-filter'", Long.class);
+        jdbcTemplate.update("INSERT INTO provider_media_filing "
+                        + "(connection_id, media_account_id, status, next_action, last_error_message, task_data_version) "
+                        + "VALUES (?, ?, 'PENDING', 'NONE', 'report failed', 1)", connectionId, mediaAccountId);
+
+        String adminToken = loginAsAdmin("operator", ADMIN_PASSWORD);
+        mockMvc.perform(get("/api/admin/promotion/media-accounts")
+                        .param("filingStatus", "SUBMIT_FAILED")
+                        .header("Authorization", "Bearer " + adminToken))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.total").value(1))
+                .andExpect(jsonPath("$.data.list[0].externalAccountId").value("display-filter"));
+    }
+
+    @Test
+    @DisplayName("报备状态筛选拒绝旧三态之外的值")
+    void filingStatusFilterRejectsUnknownValue() throws Exception {
+        String adminToken = loginAsAdmin("operator", ADMIN_PASSWORD);
+        mockMvc.perform(get("/api/admin/promotion/media-accounts")
+                        .param("filingStatus", "LEGACY")
+                        .header("Authorization", "Bearer " + adminToken))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
     @DisplayName("绠＄悊鍛樺彲缂栬緫濯掍綋璐﹀彿浣嗙敤鎴蜂笉鑳借闂")
     void adminCanUpdateMediaAccount() throws Exception {
         jdbcTemplate.update(

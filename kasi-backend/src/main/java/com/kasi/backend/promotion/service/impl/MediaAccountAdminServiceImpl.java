@@ -38,12 +38,11 @@ public class MediaAccountAdminServiceImpl implements MediaAccountAdminService {
     @Override
     @Transactional(readOnly = true)
     public AdminMediaAccountPageVO getPage(AdminMediaAccountPageQueryDTO query) {
-        List<AdminMediaAccountListItemVO> all = mediaMapper.findAll().stream()
-                .map(this::toListItem).filter(item -> matches(item, query)).toList();
-        long total = all.size();
-        int from = Math.min((query.getPage() - 1) * query.getSize(), all.size());
-        int to = Math.min(from + query.getSize(), all.size());
-        return AdminMediaAccountPageVO.builder().list(all.subList(from, to)).page(query.getPage())
+        int offset = (query.getPage() - 1) * query.getSize();
+        long total = mediaMapper.countAdminPage(query);
+        List<AdminMediaAccountListItemVO> list = mediaMapper.findAdminPage(query, offset, query.getSize()).stream()
+                .map(this::toListItem).toList();
+        return AdminMediaAccountPageVO.builder().list(list).page(query.getPage())
                 .size(query.getSize()).total(total).build();
     }
 
@@ -118,11 +117,4 @@ public class MediaAccountAdminServiceImpl implements MediaAccountAdminService {
                 .updatedAt(account.getUpdatedAt()).build();
     }
 
-    private boolean matches(AdminMediaAccountListItemVO item, AdminMediaAccountPageQueryDTO query) {
-        return (query.getUserNo() == null || query.getUserNo().isBlank() || query.getUserNo().equals(item.getUserNo()))
-                && (query.getMediaType() == null || query.getMediaType() == item.getMediaType())
-                && (query.getAccountStatus() == null || query.getAccountStatus().equals(item.getStatus()))
-                && (query.getProviderId() == null || query.getProviderId().equals(item.getProviderId()))
-                && (query.getFilingStatus() == null || query.getFilingStatus() == item.getFilingStatus());
-    }
 }

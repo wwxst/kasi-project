@@ -28,6 +28,7 @@ import type {
   AdminUpdateMediaAccountRequest,
   DramaProviderOption,
   FilingStatus,
+  FilingDisplayStatus,
   MediaAccountPageQuery,
   MediaType,
 } from '../../features/promotion/mediaAccountTypes'
@@ -40,7 +41,9 @@ const mediaTypeLabels: Record<MediaType, string> = {
   INSTAGRAM: 'Instagram',
 }
 
-const filingStatusLabels: Record<FilingStatus, string> = {
+const filingStatusLabels: Record<FilingDisplayStatus, string> = {
+  NOT_SUBMITTED: '待提交',
+  SUBMIT_FAILED: '提交失败',
   PENDING: '审核中',
   APPROVED: '已加白',
   FAILED: '已拒绝',
@@ -240,7 +243,7 @@ export function MediaAccountFilingPage() {
       mediaType: params.mediaType as MediaType | undefined,
       accountStatus: numberValue(params.accountStatus),
       providerId: numberValue(params.providerId),
-      filingStatus: params.filingStatus as FilingStatus | undefined,
+      filingStatus: params.filingStatus as FilingDisplayStatus | undefined,
     }
     const result = await listAdminMediaAccounts(query)
     return { data: result.list, total: result.total, success: true }

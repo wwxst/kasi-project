@@ -1,9 +1,9 @@
 package com.kasi.backend.promotion.dto;
 
-import com.kasi.backend.promotion.enums.FilingStatus;
 import com.kasi.backend.promotion.enums.MediaType;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
+import jakarta.validation.constraints.Pattern;
 import lombok.Data;
 
 @Data
@@ -14,5 +14,6 @@ public class AdminMediaAccountPageQueryDTO {
     private MediaType mediaType;
     private Integer accountStatus;
     private Long providerId;
-    private FilingStatus filingStatus;
+    @Pattern(regexp = "NOT_SUBMITTED|SUBMIT_FAILED|PENDING|APPROVED|FAILED")
+    private String filingStatus;
 }

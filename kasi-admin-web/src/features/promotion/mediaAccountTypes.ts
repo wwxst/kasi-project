@@ -1,6 +1,8 @@
 export type MediaType = 'FACEBOOK' | 'TIKTOK' | 'YOUTUBE' | 'INSTAGRAM'
 
 export type FilingStatus = 'PENDING' | 'APPROVED' | 'FAILED'
+export type FilingDisplayStatus =
+  'NOT_SUBMITTED' | 'SUBMIT_FAILED' | 'PENDING' | 'APPROVED' | 'FAILED'
 
 export interface MediaAccountPageQuery {
   page: number
@@ -9,7 +11,7 @@ export interface MediaAccountPageQuery {
   mediaType?: MediaType
   accountStatus?: number
   providerId?: number
-  filingStatus?: FilingStatus
+  filingStatus?: FilingDisplayStatus
 }
 
 export interface MediaAccountPageResult<T> {

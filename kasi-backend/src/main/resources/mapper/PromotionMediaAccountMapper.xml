@@ -18,6 +18,67 @@
     <select id="findAll" resultMap="BaseResultMap">
         SELECT * FROM promotion_media_account ORDER BY id DESC
     </select>
+    <sql id="adminPageFrom">
+        FROM promotion_media_account a
+        JOIN promotion_user u ON u.id = a.user_id
+        LEFT JOIN provider_media_filing f ON f.media_account_id = a.id
+            AND f.id = (SELECT MIN(f2.id) FROM provider_media_filing f2 WHERE f2.media_account_id = a.id)
+        LEFT JOIN short_drama_connection c ON c.id = f.connection_id
+    </sql>
+    <sql id="adminPageWhere">
+        WHERE 1 = 1
+        <if test="query.userNo != null and query.userNo != ''">
+            AND u.user_no = #{query.userNo}
+        </if>
+        <if test="query.mediaType != null">
+            AND a.media_type = #{query.mediaType}
+        </if>
+        <if test="query.accountStatus != null">
+            AND a.status = #{query.accountStatus}
+        </if>
+        <if test="query.providerId != null">
+            AND c.provider_id = #{query.providerId}
+        </if>
+        <if test="query.filingStatus != null and query.filingStatus != ''">
+            <choose>
+                <when test="query.filingStatus == 'NOT_SUBMITTED'">
+                    AND (f.id IS NULL OR (f.last_submitted_at IS NULL
+                        AND (f.last_error_message IS NULL OR TRIM(f.last_error_message) = '')
+                        AND f.status NOT IN ('APPROVED', 'FAILED')))
+                </when>
+                <when test="query.filingStatus == 'SUBMIT_FAILED'">
+                    AND f.last_submitted_at IS NULL
+                    AND f.last_error_message IS NOT NULL
+                    AND TRIM(f.last_error_message) &lt;&gt; ''
+                </when>
+                <when test="query.filingStatus == 'PENDING'">
+                    AND f.last_submitted_at IS NOT NULL
+                    AND COALESCE(f.remote_status, '') NOT IN ('1', '2')
+                    AND f.status &lt;&gt; 'APPROVED'
+                </when>
+                <when test="query.filingStatus == 'APPROVED'">
+                    AND (f.status = 'APPROVED' OR f.remote_status = '1')
+                </when>
+                <when test="query.filingStatus == 'FAILED'">
+                    AND (f.remote_status = '2' OR (f.status = 'FAILED'
+                        AND f.last_submitted_at IS NULL
+                        AND (f.last_error_message IS NULL OR TRIM(f.last_error_message) = '')))
+                </when>
+            </choose>
+        </if>
+    </sql>
+    <select id="findAdminPage" resultMap="BaseResultMap">
+        SELECT a.*
+        <include refid="adminPageFrom"/>
+        <include refid="adminPageWhere"/>
+        ORDER BY a.id DESC
+        LIMIT #{offset}, #{size}
+    </select>
+    <select id="countAdminPage" resultType="long">
+        SELECT COUNT(*)
+        <include refid="adminPageFrom"/>
+        <include refid="adminPageWhere"/>
+    </select>
     <select id="findOwnedById" resultMap="BaseResultMap">
         SELECT * FROM promotion_media_account WHERE id = #{id} AND user_id = #{userId}
     </select>
