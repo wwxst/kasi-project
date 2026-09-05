@@ -139,6 +139,10 @@
   margin-top: 20px;
 }
 
+.starter-forgot-password-form .starter-forgot-password-submit {
+  margin-top: 20px;
+}
+
 .starter-login-switches {
   display: flex;
   flex-wrap: wrap;

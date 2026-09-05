@@ -48,9 +48,7 @@ describe('App', () => {
     expect(await screen.findByAltText('卡司短剧推广平台')).toBeTruthy()
     expect(screen.queryByText('TDesign Starter')).toBeNull()
     expect(await screen.findByRole('heading', { name: '登录到' })).toBeTruthy()
-    expect(
-      await screen.findByPlaceholderText('请输入手机号或者邮箱'),
-    ).toBeTruthy()
+    expect(await screen.findByPlaceholderText('请输入手机号')).toBeTruthy()
     expect(await screen.findByPlaceholderText('请输入登录密码')).toBeTruthy()
     expect(await screen.findByRole('button', { name: '登录' })).toBeTruthy()
     expect(
@@ -180,6 +178,9 @@ describe('App', () => {
     render(<App />)
 
     await user.click(screen.getByRole('button', { name: '忘记密码？' }))
+    expect(
+      document.querySelector('.starter-forgot-password-submit'),
+    ).toBeTruthy()
     await user.type(screen.getByPlaceholderText('请输入手机号'), '13600136000')
     await user.click(screen.getByRole('button', { name: '发送验证码' }))
 
@@ -191,6 +192,9 @@ describe('App', () => {
     await user.click(screen.getByRole('button', { name: '下一步' }))
 
     await screen.findByPlaceholderText('请输入新密码')
+    expect(
+      document.querySelector('.starter-forgot-password-submit'),
+    ).toBeTruthy()
     expect(verifyForgotPasswordCode).toHaveBeenCalledWith(
       '13600136000',
       '123456',
@@ -252,10 +256,7 @@ describe('App', () => {
     })
     render(<App />)
 
-    await user.type(
-      screen.getByPlaceholderText('请输入手机号或者邮箱'),
-      'user@example.com',
-    )
+    await user.type(screen.getByPlaceholderText('请输入手机号'), '13600136000')
     await user.type(
       screen.getByPlaceholderText('请输入登录密码'),
       'password123',
@@ -274,10 +275,7 @@ describe('App', () => {
     vi.mocked(loginUser).mockRejectedValue(new Error('账号或密码错误'))
     render(<App />)
 
-    await user.type(
-      screen.getByPlaceholderText('请输入手机号或者邮箱'),
-      'user@example.com',
-    )
+    await user.type(screen.getByPlaceholderText('请输入手机号'), '13600136000')
     await user.type(
       screen.getByPlaceholderText('请输入登录密码'),
       'password123',
@@ -288,5 +286,23 @@ describe('App', () => {
       '账号或密码错误',
     )
     expect(screen.getByRole('heading', { name: '登录到' })).toBeTruthy()
+  })
+
+  it('rejects email input for password login', async () => {
+    const user = userEvent.setup()
+    render(<App />)
+
+    await user.type(
+      screen.getByPlaceholderText('请输入手机号'),
+      'user@example.com',
+    )
+    await user.type(
+      screen.getByPlaceholderText('请输入登录密码'),
+      'password123',
+    )
+    await user.click(screen.getByRole('button', { name: '登录' }))
+
+    expect(await screen.findByText('请输入正确的11位手机号')).toBeTruthy()
+    expect(loginUser).not.toHaveBeenCalled()
   })
 })

@@ -96,13 +96,11 @@ function PasswordFields({
 }) {
   return (
     <>
-      <Form.FormItem
-        name="account"
-        rules={[{ required: true, message: '账号必填', type: 'error' }]}
-      >
+      <Form.FormItem name="account" rules={mobileRules}>
         <Input
           size="large"
-          placeholder="请输入手机号或者邮箱"
+          maxlength={11}
+          placeholder="请输入手机号"
           prefixIcon={<UserIcon />}
         />
       </Form.FormItem>
@@ -579,7 +577,7 @@ function ForgotPasswordForm({
         </div>
       ) : null}
 
-      <Form.FormItem className="starter-login-submit">
+      <Form.FormItem className="starter-login-submit starter-forgot-password-submit">
         <Button block size="large" type="submit" loading={submitting}>
           {resetToken ? '重置密码' : '下一步'}
         </Button>
