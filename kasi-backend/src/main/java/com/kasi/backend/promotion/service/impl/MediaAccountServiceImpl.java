@@ -191,15 +191,17 @@ public class MediaAccountServiceImpl implements MediaAccountService {
             filing.setNextActionAt(LocalDateTime.now());
             filingMapper.insert(filing);
             registerImmediateSubmit(filing.getId());
-        } else if (filing.getStatus() == FilingStatus.APPROVED) {
-            throw new BusinessException(ErrorCode.MEDIA_FILING_APPROVED);
         } else if (mode == FilingMode.MANUAL) {
             throw new BusinessException(ErrorCode.MEDIA_FILING_MANUAL_ONLY);
-        } else if (filing.getStatus() == FilingStatus.FAILED || filing.getNextAction() == FilingAction.NONE) {
+        } else if (filing.getLastSubmittedAt() == null
+                && filing.getLastErrorMessage() != null && !filing.getLastErrorMessage().isBlank()) {
             filingMapper.reschedule(filing.getId(), FilingStatus.PENDING, FilingAction.SUBMIT,
                     filing.getTaskDataVersion(), account.getDataVersion(), LocalDateTime.now());
             filing = filingMapper.findById(filing.getId());
             registerImmediateSubmit(filing.getId());
+        } else {
+            throw new BusinessException(filing.getStatus() == FilingStatus.APPROVED
+                    ? ErrorCode.MEDIA_FILING_APPROVED : ErrorCode.MEDIA_FILING_RETRY_NOT_ALLOWED);
         }
         return toFilingVO(filing);
     }
@@ -251,16 +253,16 @@ public class MediaAccountServiceImpl implements MediaAccountService {
         account.setAccountLink(trimToNull(accountLink));
         account.setDataVersion(previousVersion + 1);
         mediaMapper.updateDetails(account);
-        for (ProviderMediaFiling filing : filings) {
-            FilingStatus nextStatus = filing.getStatus() == FilingStatus.APPROVED && !identityChanged
-                    ? FilingStatus.APPROVED : FilingStatus.PENDING;
-            boolean manual = filingMode(filing.getConnectionId()) == FilingMode.MANUAL;
-            filingMapper.reschedule(filing.getId(), nextStatus,
-                    manual ? FilingAction.NONE : FilingAction.SUBMIT,
-                    filing.getTaskDataVersion(), account.getDataVersion(),
-                    manual ? null : LocalDateTime.now());
-            if (!manual && nextStatus != FilingStatus.APPROVED) {
-                registerImmediateSubmit(filing.getId());
+        if (identityChanged) {
+            for (ProviderMediaFiling filing : filings) {
+                boolean manual = filingMode(filing.getConnectionId()) == FilingMode.MANUAL;
+                filingMapper.reschedule(filing.getId(), FilingStatus.PENDING,
+                        manual ? FilingAction.NONE : FilingAction.SUBMIT,
+                        filing.getTaskDataVersion(), account.getDataVersion(),
+                        manual ? null : LocalDateTime.now());
+                if (!manual) {
+                    registerImmediateSubmit(filing.getId());
+                }
             }
         }
     }

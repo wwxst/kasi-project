@@ -80,6 +80,32 @@ class MediaFilingTaskServiceTest {
     }
 
     @Test
+    @DisplayName("查询返回已加白后停止继续查询")
+    void approvedQueryStopsFurtherQueries() {
+        LocalDateTime now = LocalDateTime.of(2026, 8, 18, 8, 0);
+        ProviderMediaFiling filing = filing();
+        filing.setNextAction(FilingAction.QUERY);
+        when(filingMapper.findDueIds(now, 50)).thenReturn(List.of(1L));
+        when(filingMapper.claimLease(eq(1L), any(), eq(now), any())).thenReturn(1);
+        when(filingMapper.findById(1L)).thenReturn(filing);
+        when(mediaMapper.findById(2L)).thenReturn(account());
+        ShortDramaConnection connection = new ShortDramaConnection();
+        connection.setId(3L);
+        connection.setProviderId(4L);
+        when(connectionMapper.findById(3L)).thenReturn(connection);
+        when(runtimeService.resolve(4L, com.kasi.backend.provider.enums.ProviderCapability.FILING_STATUS_QUERY))
+                .thenReturn(new ProviderRuntimeConnection(3L, 4L, "GOODSHORT", "GoodShort",
+                        new ProviderConnectionSecret("https://test", "pid", "key", "USD"), adapter));
+        when(adapter.queryAccountFiling(any(), any())).thenReturn(
+                new AccountFilingResult(FilingStatus.APPROVED, "1", null, null, now));
+
+        service.processDueBatch();
+
+        verify(filingMapper).completeQuery(eq(1L), any(), eq(1), eq(FilingStatus.APPROVED), eq("1"),
+                isNull(), isNull(), eq(now), eq(now), eq(FilingAction.NONE), isNull());
+    }
+
+    @Test
     @DisplayName("浜嬪姟鎻愪氦鍚庣珛鍗虫彁浜ゆ姤澶囦笖鎴愬姛鍚庡畾鏃舵煡璇")
     void submitNowSubmitsOnlyQueuedFiling() {
         LocalDateTime now = LocalDateTime.of(2026, 8, 18, 8, 0);

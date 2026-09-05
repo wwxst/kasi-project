@@ -30,8 +30,10 @@ export interface AdminMediaAccountListItem {
   providerId: number | null
   status: number
   filingStatus: FilingStatus | null
+  filingRemoteStatus?: string | null
   filingLastSubmittedAt?: string | null
   filingNextActionAt?: string | null
+  filingLastErrorMessage?: string | null
   updatedAt: string | null
 }
 

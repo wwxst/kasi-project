@@ -7,7 +7,6 @@ import {
   getMediaAccounts,
 } from '../../features/mediaAccounts/mediaAccountsApi'
 import type {
-  FilingStatus,
   MediaAccount,
   MediaType,
 } from '../../features/mediaAccounts/types'
@@ -27,38 +26,39 @@ const mediaTypeLabels: Record<MediaType, string> = {
   INSTAGRAM: 'Instagram',
 }
 
-const filingStatusLabels: Record<FilingStatus, string> = {
-  PENDING: '报白中',
-  APPROVED: '已报白',
-  FAILED: '报白失败',
-}
-
 function filingTag(filing: MediaAccount['filings'][number] | undefined) {
-  if (!filing)
-    return (
-      <Tag theme="default" variant="light">
-        未报备
-      </Tag>
-    )
+  const label = getFilingStatusLabel(filing)
   const theme =
-    filing.status === 'APPROVED'
+    label === '已加白'
       ? 'success'
-      : filing.status === 'FAILED'
+      : label === '已拒绝' || label === '提交失败'
         ? 'danger'
-        : 'warning'
-  const label =
-    filing.status === 'FAILED'
-      ? '\u5df2\u62d2\u7edd'
-      : filing.status === 'PENDING' && !filing.lastSubmittedAt
-        ? filing.nextActionAt
-          ? '\u63d0\u4ea4\u4e2d'
-          : '\u5f85\u63d0\u4ea4'
-        : filingStatusLabels[filing.status]
+        : label === '审核中'
+          ? 'warning'
+          : 'default'
   return (
     <Tag theme={theme} variant="light">
       {label}
     </Tag>
   )
+}
+
+function getFilingStatusLabel(
+  filing: MediaAccount['filings'][number] | undefined,
+) {
+  if (!filing?.lastSubmittedAt) {
+    if (filing?.lastErrorMessage) return '提交失败'
+    if (filing?.status === 'APPROVED') return '已加白'
+    if (filing?.status === 'FAILED') return '已拒绝'
+    return '待提交'
+  }
+  if (filing.status === 'APPROVED' || filing.remoteStatus === '1') {
+    return '已加白'
+  }
+  if (filing.remoteStatus === '2') {
+    return '已拒绝'
+  }
+  return '审核中'
 }
 
 export default function MediaAccountsPage() {
@@ -101,7 +101,7 @@ export default function MediaAccountsPage() {
     setMutationLoading(true)
     try {
       await createMediaAccount(values)
-      void MessagePlugin.success('账号报白提交成功')
+      void MessagePlugin.success('媒体账号已创建')
       setDialogVisible(false)
       await refreshAccounts()
     } catch (error) {

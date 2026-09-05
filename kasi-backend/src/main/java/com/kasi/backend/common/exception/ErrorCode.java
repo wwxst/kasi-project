@@ -89,6 +89,7 @@ public enum ErrorCode {
     MEDIA_FILING_APPROVED(7007, "已加白报备不需要重试"),
     MEDIA_FILING_STATUS_INVALID(7008, "报备状态只能更新为已加白或已失败"),
     MEDIA_FILING_MANUAL_ONLY(7009, "人工报备无需执行API任务"),
+    MEDIA_FILING_RETRY_NOT_ALLOWED(7012, "只有提交甲方失败的报备可以重新提交"),
     PROMOTION_LINK_DRAMA_UNAVAILABLE(7010, "短剧当前不可推广"),
     PROMOTION_LINK_MEDIA_NOT_APPROVED(7011, "媒体账号尚未在该平台加白"),
 

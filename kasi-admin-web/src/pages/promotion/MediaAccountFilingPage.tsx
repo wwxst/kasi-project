@@ -131,7 +131,7 @@ export function MediaAccountFilingPage() {
       await retryMediaFiling(detail.id, providerId)
       setDetail(await getAdminMediaAccount(detail.id))
       actionRef.current?.reload()
-      message.success('报备已重新提交')
+      message.success('已发起重新提交')
     } catch (error) {
       if (isUnauthorizedError(error)) return
       message.error(error instanceof Error ? error.message : '重试失败')
@@ -189,7 +189,8 @@ export function MediaAccountFilingPage() {
         <FilingStatusTag
           status={record.filingStatus}
           lastSubmittedAt={record.filingLastSubmittedAt}
-          nextActionAt={record.filingNextActionAt}
+          lastErrorMessage={record.filingLastErrorMessage}
+          remoteStatus={record.filingRemoteStatus}
         />
       ),
     },
@@ -361,16 +362,17 @@ export function MediaAccountFilingPage() {
                           <FilingStatusTag
                             status={filing.status}
                             lastSubmittedAt={filing.lastSubmittedAt}
-                            nextActionAt={filing.nextActionAt}
+                            lastErrorMessage={filing.lastErrorMessage}
+                            remoteStatus={filing.remoteStatus}
                           />
                         </Space>
-                        {filing.status === 'FAILED' ? (
+                        {!filing.lastSubmittedAt && filing.lastErrorMessage ? (
                           <Button
                             type="link"
                             loading={retryingProviderId === filing.providerId}
                             onClick={() => void handleRetry(filing.providerId)}
                           >
-                            重试报备
+                            重新提交
                           </Button>
                         ) : null}
                       </div>
@@ -382,10 +384,13 @@ export function MediaAccountFilingPage() {
                           下次处理时间：{formatDate(filing.nextActionAt)}
                         </span>
                         <span>
-                          最近提交：{formatDate(filing.lastSubmittedAt)}
+                          提交甲方时间：{formatDate(filing.lastSubmittedAt)}
                         </span>
                         <span>
-                          最近查询：{formatDate(filing.lastQueriedAt)}
+                          最后查询时间：{formatDate(filing.lastQueriedAt)}
+                        </span>
+                        <span>
+                          甲方审核时间：{formatDate(filing.operateTime)}
                         </span>
                       </div>
                       {filing.lastErrorMessage ? (
@@ -484,28 +489,46 @@ function AccountStatusTag({ status }: { status: number }) {
 function FilingStatusTag({
   status,
   lastSubmittedAt,
-  nextActionAt,
+  lastErrorMessage,
+  remoteStatus,
 }: {
   status: FilingStatus | null
   lastSubmittedAt?: string | null
-  nextActionAt?: string | null
+  lastErrorMessage?: string | null
+  remoteStatus?: string | null
 }) {
-  if (!status) return <Tag>未报备</Tag>
+  const label = getFilingStatusLabel(
+    status,
+    lastSubmittedAt,
+    lastErrorMessage,
+    remoteStatus,
+  )
   const color =
-    status === 'APPROVED'
+    label === '已加白'
       ? 'success'
-      : status === 'FAILED'
+      : label === '已拒绝' || label === '提交失败'
         ? 'error'
-        : 'processing'
-  const label =
-    status === 'FAILED'
-      ? '\u5df2\u62d2\u7edd'
-      : status === 'PENDING' && !lastSubmittedAt
-        ? nextActionAt
-          ? '\u63d0\u4ea4\u4e2d'
-          : '\u5f85\u63d0\u4ea4'
-        : filingStatusLabels[status]
+        : label === '审核中'
+          ? 'processing'
+          : 'default'
   return <Tag color={color}>{label}</Tag>
+}
+
+function getFilingStatusLabel(
+  status: FilingStatus | null,
+  lastSubmittedAt?: string | null,
+  lastErrorMessage?: string | null,
+  remoteStatus?: string | null,
+) {
+  if (!lastSubmittedAt) {
+    if (lastErrorMessage) return '提交失败'
+    if (status === 'APPROVED') return '已加白'
+    if (status === 'FAILED') return '已拒绝'
+    return '待提交'
+  }
+  if (status === 'APPROVED' || remoteStatus === '1') return '已加白'
+  if (remoteStatus === '2') return '已拒绝'
+  return '审核中'
 }
 
 function stringValue(value: unknown) {

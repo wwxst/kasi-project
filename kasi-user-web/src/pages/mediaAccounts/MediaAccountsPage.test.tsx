@@ -46,6 +46,8 @@ describe('MediaAccountsPage', () => {
             providerId: 3,
             providerName: 'GoodShort',
             status: 'APPROVED',
+            remoteStatus: '1',
+            lastSubmittedAt: '2026-09-05T10:00:00',
           } as never,
         ],
       },
@@ -55,7 +57,7 @@ describe('MediaAccountsPage', () => {
 
     expect(await screen.findByText('Creator One')).toBeTruthy()
     expect(screen.getByText('TikTok')).toBeTruthy()
-    expect(screen.getAllByText('已报白').length).toBeGreaterThanOrEqual(1)
+    expect(screen.getAllByText('已加白').length).toBeGreaterThanOrEqual(1)
     expect(screen.queryByText('账号状态')).toBeNull()
     expect(screen.queryByText('操作')).toBeNull()
     expect(screen.getByText('查询')).toBeTruthy()
@@ -97,7 +99,7 @@ describe('MediaAccountsPage', () => {
 
     renderPage()
 
-    expect(await screen.findByText('\u63d0\u4ea4\u4e2d')).toBeTruthy()
+    expect(await screen.findByText('\u5f85\u63d0\u4ea4')).toBeTruthy()
     expect(screen.queryByText('\u5ba1\u6838\u4e2d')).toBeNull()
   })
 

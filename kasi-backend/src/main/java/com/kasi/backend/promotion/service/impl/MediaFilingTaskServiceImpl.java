@@ -79,7 +79,7 @@ public class MediaFilingTaskServiceImpl implements MediaFilingTaskService {
         PromotionMediaAccount account = mediaMapper.findById(filing.getMediaAccountId());
         ShortDramaConnection connection = connectionMapper.findById(filing.getConnectionId());
         if (account == null || connection == null || !Integer.valueOf(1).equals(account.getStatus())) {
-            recordFinalFailure(filing, now, "LOCAL_INVALID", "报备所需本地配置不可用");
+            recordProcessingFailure(filing, now, "LOCAL_INVALID", "报备所需本地配置不可用");
             return;
         }
         try {
@@ -87,7 +87,7 @@ public class MediaFilingTaskServiceImpl implements MediaFilingTaskService {
                     ? ProviderCapability.ACCOUNT_FILING : ProviderCapability.FILING_STATUS_QUERY;
             ProviderRuntimeConnection runtime = runtimeService.resolve(connection.getProviderId(), capability);
             if (!(runtime.adapter() instanceof AccountFilingProviderAdapter adapter)) {
-                recordFinalFailure(filing, now, "CAPABILITY_UNSUPPORTED", "平台不支持账号报备");
+                recordProcessingFailure(filing, now, "CAPABILITY_UNSUPPORTED", "平台不支持账号报备");
                 return;
             }
             if (filing.getNextAction() == FilingAction.SUBMIT) {
@@ -98,30 +98,36 @@ public class MediaFilingTaskServiceImpl implements MediaFilingTaskService {
             } else if (filing.getNextAction() == FilingAction.QUERY) {
                 AccountFilingResult result = adapter.queryAccountFiling(runtime.secret(),
                         new AccountFilingQuery(account.getMediaType(), account.getExternalAccountId()));
-                FilingAction nextAction = result.status() == FilingStatus.FAILED ? FilingAction.NONE : FilingAction.QUERY;
-                Duration delay = result.status() == FilingStatus.APPROVED
-                        ? properties.getApprovedQueryInterval() : properties.getPendingQueryInterval();
+                FilingAction nextAction = result.status() == FilingStatus.PENDING
+                        ? FilingAction.QUERY : FilingAction.NONE;
+                LocalDateTime nextActionAt = nextAction == FilingAction.QUERY
+                        ? now.plus(properties.getPendingQueryInterval()) : null;
                 filingMapper.completeQuery(filing.getId(), workerId, filing.getTaskDataVersion(), result.status(),
                         result.remoteStatus(), result.externalFilingId(), result.filingTime(), result.operateTime(),
-                        now, nextAction, now.plus(delay));
+                        now, nextAction, nextActionAt);
             }
         } catch (ProviderTransientException exception) {
-            recordRetry(filing, now, "REMOTE_TRANSIENT", exception.getMessage());
+            recordRetry(filing, now, "REMOTE_TRANSIENT", safeMessage(exception));
         } catch (ProviderRemoteRejectedException exception) {
-            recordFinalFailure(filing, now, "REMOTE_REJECTED", exception.getMessage());
+            recordProcessingFailure(filing, now, "REMOTE_REJECTED", safeMessage(exception));
         } catch (RuntimeException exception) {
-            recordFinalFailure(filing, now, "TASK_ERROR", safeMessage(exception));
+            recordProcessingFailure(filing, now, "TASK_ERROR", safeMessage(exception));
             throw exception;
+        }
+    }
+
+    private void recordProcessingFailure(ProviderMediaFiling filing, LocalDateTime now,
+                                         String code, String message) {
+        if (filing.getNextAction() == FilingAction.SUBMIT) {
+            recordFinalFailure(filing, now, code, message);
+        } else {
+            recordRetry(filing, now, code, message);
         }
     }
 
     private void recordRetry(ProviderMediaFiling filing, LocalDateTime now, String code, String message) {
         int retries = filing.getRetryCount() == null ? 1 : filing.getRetryCount() + 1;
-        if (retries >= properties.getMaxPendingRetries() && filing.getStatus() != FilingStatus.APPROVED) {
-            recordFinalFailure(filing, now, code, message);
-            return;
-        }
-        FilingStatus status = filing.getStatus() == FilingStatus.APPROVED ? FilingStatus.APPROVED : FilingStatus.PENDING;
+        FilingStatus status = FilingStatus.PENDING;
         // Report calls are initiated explicitly after a user action; the scheduled worker only queries.
         FilingAction action = filing.getNextAction() == FilingAction.SUBMIT
                 ? FilingAction.NONE : filing.getNextAction();
@@ -131,12 +137,9 @@ public class MediaFilingTaskServiceImpl implements MediaFilingTaskService {
     }
 
     private void recordFinalFailure(ProviderMediaFiling filing, LocalDateTime now, String code, String message) {
-        FilingStatus status = filing.getStatus() == FilingStatus.APPROVED ? FilingStatus.APPROVED : FilingStatus.FAILED;
-        FilingAction action = filing.getStatus() == FilingStatus.APPROVED ? FilingAction.QUERY : FilingAction.NONE;
-        LocalDateTime next = filing.getStatus() == FilingStatus.APPROVED
-                ? now.plus(properties.getApprovedQueryInterval()) : now;
-        filingMapper.recordRetry(filing.getId(), workerId, filing.getTaskDataVersion(), status, action,
-                next, filing.getRetryCount() == null ? 1 : filing.getRetryCount() + 1, code, message);
+        filingMapper.recordRetry(filing.getId(), workerId, filing.getTaskDataVersion(), FilingStatus.FAILED,
+                FilingAction.NONE, null, filing.getRetryCount() == null ? 1 : filing.getRetryCount() + 1,
+                code, message);
     }
 
     private Duration retryDelay(int retryCount) {

@@ -96,6 +96,31 @@ class MediaAccountFilingPersistenceTest extends BaseAuthTest {
     }
 
     @Test
+    @DisplayName("账号身份变化重新报备时清空旧提交和审核结果")
+    void rescheduleClearsPreviousFilingResult() {
+        PromotionMediaAccount account = mediaAccount(userId(PRIMARY_USER_NO), MediaType.TIKTOK, "creator-old");
+        mediaAccountMapper.insert(account);
+        ProviderMediaFiling filing = pendingFiling(insertConnection(), account.getId(), 1);
+        filingMapper.insert(filing);
+        LocalDateTime now = LocalDateTime.now();
+        jdbcTemplate.update("UPDATE provider_media_filing SET status = 'FAILED', submitted_data_version = 1, "
+                        + "remote_status = '2', filing_time = ?, operate_time = ?, last_submitted_at = ?, "
+                        + "last_queried_at = ? WHERE id = ?",
+                now, now, now, now, filing.getId());
+
+        assertThat(filingMapper.reschedule(filing.getId(), FilingStatus.PENDING, FilingAction.SUBMIT,
+                1, 2, now)).isEqualTo(1);
+
+        ProviderMediaFiling stored = filingMapper.findById(filing.getId());
+        assertThat(stored.getStatus()).isEqualTo(FilingStatus.PENDING);
+        assertThat(stored.getTaskDataVersion()).isEqualTo(2);
+        assertThat(stored.getRemoteStatus()).isNull();
+        assertThat(stored.getLastSubmittedAt()).isNull();
+        assertThat(stored.getLastQueriedAt()).isNull();
+        assertThat(stored.getOperateTime()).isNull();
+    }
+
+    @Test
     @DisplayName("人工报白可以原子更新为最终状态并记录管理员")
     void manualFilingStatusRecordsOperator() {
         PromotionMediaAccount account = mediaAccount(userId(PRIMARY_USER_NO), MediaType.TIKTOK, "creator-manual");

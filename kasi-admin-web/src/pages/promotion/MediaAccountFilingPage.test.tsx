@@ -89,6 +89,9 @@ const listItem = {
   providerId: 1,
   status: 1,
   filingStatus: 'FAILED',
+  filingRemoteStatus: null,
+  filingLastSubmittedAt: null,
+  filingLastErrorMessage: '上报接口超时',
   updatedAt: '2026-08-18T10:00:00',
 }
 
@@ -111,15 +114,29 @@ const detail = {
         providerId: 1,
         providerName: 'GoodShort',
         status: 'FAILED',
-        remoteStatus: '2',
+        remoteStatus: null,
         externalFilingId: null,
         filingTime: null,
         operateTime: null,
-        nextActionAt: '2026-08-18T10:05:00',
-        lastSubmittedAt: '2026-08-18T10:00:00',
+        nextActionAt: null,
+        lastSubmittedAt: null,
         lastQueriedAt: null,
-        lastErrorCode: 'REMOTE_REJECTED',
-        lastErrorMessage: '账号资料未通过审核',
+        lastErrorCode: 'REMOTE_TRANSIENT',
+        lastErrorMessage: '上报接口超时',
+      },
+      {
+        providerId: 2,
+        providerName: 'Other Provider',
+        status: 'FAILED',
+        remoteStatus: '2',
+        externalFilingId: null,
+        filingTime: '2026-08-18T10:00:00',
+        operateTime: '2026-08-18T10:10:00',
+        nextActionAt: null,
+        lastSubmittedAt: '2026-08-18T10:00:00',
+        lastQueriedAt: '2026-08-18T10:10:00',
+        lastErrorCode: null,
+        lastErrorMessage: null,
       },
     ],
   },
@@ -135,6 +152,11 @@ describe('MediaAccountFilingPage', () => {
           message: 'ok',
           data: [
             { id: 1, providerName: 'GoodShort', providerCode: 'GOODSHORT' },
+            {
+              id: 2,
+              providerName: 'Other Provider',
+              providerCode: 'OTHER',
+            },
           ],
         }),
       ),
@@ -173,17 +195,19 @@ describe('MediaAccountFilingPage', () => {
     await user.click(screen.getByTestId('media-account-detail-8'))
     const drawer = await screen.findByText('媒体账号详情')
     expect(drawer).toBeInTheDocument()
+    const drawerElement = screen
+      .getByText('媒体账号详情')
+      .closest('.ant-drawer') as HTMLElement
+    expect(within(drawerElement).getByText('提交失败')).toBeInTheDocument()
+    expect(within(drawerElement).getByText('已拒绝')).toBeInTheDocument()
     expect(
-      await screen.findByText('失败原因：账号资料未通过审核'),
+      await screen.findByText('失败原因：上报接口超时'),
     ).toBeInTheDocument()
 
-    const retryButton = screen.getByRole('button', { name: '重试报备' })
+    const retryButton = screen.getByRole('button', { name: '重新提交' })
+    expect(screen.getAllByRole('button', { name: '重新提交' })).toHaveLength(1)
     await user.click(retryButton)
     await waitFor(() => expect(retryCalled).toBe(true))
-    expect(
-      within(
-        screen.getByText('媒体账号详情').closest('.ant-drawer') as HTMLElement,
-      ).getByText('已拒绝'),
-    ).toBeInTheDocument()
+    expect(within(drawerElement).getByText('已拒绝')).toBeInTheDocument()
   })
 })

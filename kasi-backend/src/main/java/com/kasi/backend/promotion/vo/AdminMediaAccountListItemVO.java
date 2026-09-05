@@ -20,7 +20,9 @@ public class AdminMediaAccountListItemVO {
     private Long providerId;
     private Integer status;
     private FilingStatus filingStatus;
+    private String filingRemoteStatus;
     private LocalDateTime filingLastSubmittedAt;
     private LocalDateTime filingNextActionAt;
+    private String filingLastErrorMessage;
     private LocalDateTime updatedAt;
 }

@@ -182,6 +182,31 @@ class MediaAccountServiceTest {
                 eq(com.kasi.backend.promotion.enums.FilingAction.SUBMIT), eq(1), eq(2), any(LocalDateTime.class));
     }
 
+    @Test
+    @DisplayName("只修改账号名称和主页链接时不重新报备")
+    void detailsOnlyUpdateDoesNotResubmit() {
+        PromotionMediaAccount existing = account(31L, 1L, MediaType.TIKTOK, "creator-1", 1);
+        when(mediaMapper.findByIdForUpdate(31L)).thenReturn(existing);
+        when(filingMapper.findByMediaAccountId(31L)).thenReturn(
+                List.of(filing(41L, 21L, 31L, FilingStatus.PENDING, 1)));
+        when(mediaMapper.updateStatus(31L, 1)).thenReturn(1);
+        when(mediaMapper.findById(31L)).thenReturn(existing);
+
+        AdminUpdateMediaAccountDTO request = new AdminUpdateMediaAccountDTO();
+        request.setMediaType(MediaType.TIKTOK);
+        request.setExternalAccountId("creator-1");
+        request.setAccountName("Updated Creator");
+        request.setAccountLink("https://tiktok.com/@updated-creator");
+        request.setStatus(1);
+
+        service.updateByAdmin(31L, request);
+
+        verify(mediaMapper).updateDetails(argThat(account -> account.getDataVersion() == 2
+                && account.getAccountName().equals("Updated Creator")));
+        verify(filingMapper, never()).reschedule(anyLong(), any(), any(), anyInt(), anyInt(), any());
+        verify(filingTaskService, never()).submitNow(anyLong());
+    }
+
     private ProviderRuntimeConnection runtime(AccountFilingProviderAdapter adapter, Long connectionId) {
         ShortDramaProvider provider = new ShortDramaProvider();
         provider.setId(10L);

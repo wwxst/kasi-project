@@ -111,8 +111,10 @@ public class MediaAccountAdminServiceImpl implements MediaAccountAdminService {
                 .externalAccountId(account.getExternalAccountId()).accountName(account.getAccountName())
                 .providerId(providerId).status(account.getStatus())
                 .filingStatus(firstFiling == null ? null : firstFiling.getStatus())
+                .filingRemoteStatus(firstFiling == null ? null : firstFiling.getRemoteStatus())
                 .filingLastSubmittedAt(firstFiling == null ? null : firstFiling.getLastSubmittedAt())
                 .filingNextActionAt(firstFiling == null ? null : firstFiling.getNextActionAt())
+                .filingLastErrorMessage(firstFiling == null ? null : firstFiling.getLastErrorMessage())
                 .updatedAt(account.getUpdatedAt()).build();
     }
 
