@@ -91,13 +91,14 @@ class AdminMediaAccountControllerTest extends BaseAuthTest {
     }
 
     @Test
-    @DisplayName("报备状态筛选拒绝旧三态之外的值")
+    @DisplayName("报备状态筛选拒绝未知值并返回参数校验业务码")
     void filingStatusFilterRejectsUnknownValue() throws Exception {
         String adminToken = loginAsAdmin("operator", ADMIN_PASSWORD);
         mockMvc.perform(get("/api/admin/promotion/media-accounts")
                         .param("filingStatus", "LEGACY")
                         .header("Authorization", "Bearer " + adminToken))
-                .andExpect(status().isBadRequest());
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(1006));
     }
 
     @Test

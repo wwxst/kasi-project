@@ -244,7 +244,7 @@ mysql --host=127.0.0.1 --user=$env:SPRING_DATASOURCE_USERNAME --password --datab
 
 `kasi_promotion.sql` 和生产 `V1` 均按当前完整结构一次建库，并在建表后直接插入 `admin` 超级管理员和一个启用的初始推广用户。管理员固定写入 `status=1`、`is_super_admin=1`；推广用户使用邮箱登录，密码和管理员密码均只以 BCrypt 哈希保存。两条路径都不会在应用启动时自动执行，也不植入任何平台接入密钥。
 
-当前已完成平台定义与接入账号持久层、AES-GCM 密钥加密、不暴露密钥的管理服务和管理员 API，以及 GoodShort 签名和连接探测适配器。GoodShort 接入配置同时保存一个媒体根域名，未知域名不会自动加入白名单；官方文档未保证媒体资源固定属于 `novelopen.com`，`novelopen.com` 是当前实际配置值而非官方契约。媒体账号绑定与通用报备模块也已完成后端闭环：推广用户可绑定多个媒体账号，同一媒体平台账号全局唯一；推广用户创建或编辑媒体账号时，媒体平台、账号 ID、账号名称和账号主页链接均为必填，主页链接必须使用 HTTPS；创建媒体账号时不选择单个平台，系统会为所有已启用、接入配置完整且适配器声明支持账号报备的平台分别建立报备记录。API 模式在本地事务提交后立即调用 GoodShort `/open/filing/report`，接口成功只表示已提交甲方并进入审核中；上报失败会保存明确错误且不自动重试，用户端不提供重试，管理端仅允许从未成功提交且存在提交错误的记录重新提交。后台持久任务只对已成功提交且仍在审核中的记录调用 `/open/filing/query`：甲方状态 `0` 每 5 分钟继续查询，`1` 记为已加白并停止，`2` 记为已拒绝并停止；页面统一显示待提交、提交失败、审核中、已加白、已拒绝。修改账号名称或主页链接不会重新报备，只有媒体平台或账号 ID 实际变化才重新上报。任务继续使用现有租约和资料版本隔离；绑定媒体账号的推广用户只能禁用不能物理删除。平台接入配置支持 API 自动报备和人工报备两种模式：API 模式必须填写接口 URL、媒体根域名、PID、KEY，人工模式无需保存这些 API 凭据，由管理员维护报备状态。
+当前已完成平台定义与接入账号持久层、AES-GCM 密钥加密、不暴露密钥的管理服务和管理员 API，以及 GoodShort 签名和连接探测适配器。GoodShort 接入配置同时保存一个媒体根域名，未知域名不会自动加入白名单；官方文档未保证媒体资源固定属于 `novelopen.com`，`novelopen.com` 是当前实际配置值而非官方契约。媒体账号绑定与通用报备模块也已完成后端闭环：推广用户可绑定多个媒体账号，同一媒体平台账号全局唯一；推广用户创建或编辑媒体账号时，媒体平台、账号 ID、账号名称和账号主页链接均为必填，主页链接必须使用 HTTPS；创建媒体账号时不选择单个平台，系统会为所有已启用、接入配置完整且适配器声明支持账号报备的平台分别建立报备记录。API 模式在本地事务提交后立即调用 GoodShort `/creek/open/filing/report`，接口成功只表示已提交甲方并进入审核中；上报失败会保存明确错误且不自动重试，用户端不提供重试，管理端仅允许从未成功提交且存在提交错误的记录重新提交。后台持久任务只对已成功提交且仍在审核中的记录调用 `/creek/open/filing/query`：甲方状态 `0` 每 5 分钟继续查询，`1` 记为已加白并停止，`2` 记为已拒绝并停止；页面统一显示待提交、提交失败、审核中、已加白、已拒绝。修改账号名称或主页链接不会重新报备，只有媒体平台或账号 ID 实际变化才重新上报。任务继续使用现有租约和资料版本隔离；绑定媒体账号的推广用户只能禁用不能物理删除。平台接入配置支持 API 自动报备和人工报备两种模式：API 模式必须填写接口 URL、媒体根域名、PID、KEY，人工模式无需保存这些 API 凭据，由管理员维护报备状态。
 
 当前已实现 GoodShort 短剧目录全量 `initBooks`、增量 `incrementBooks`、断点恢复、数据库租约、定时/手动触发、固定定时任务入队、管理员查询详情和本地上下架；首次全量同步仍由管理员手动发起，只有成功全量基线存在时才自动创建增量任务。新同步的甲方在线短剧默认上架，甲方下架会同步我方下架，甲方恢复在线后需管理员手动重新上架。平台分佣规则按平台保存一条默认配置，POST 首次设置、PUT 直接覆盖；每次写入都会产生不可变 `provider_commission_rule_history` 快照，订单同时保存当次五费率和计算结果。规则计算器使用 `BigDecimal`，最终金额保留两位并按 `HALF_UP` 四舍五入。
 
@@ -260,7 +260,7 @@ mysql --host=127.0.0.1 --user=$env:SPRING_DATASOURCE_USERNAME --password --datab
 
 `provider_drama` 包含 `commission_scope` 和 `promotion_description` 两个本地维护字段。管理员通过 `PUT /api/admin/drama/catalog/{id}/promotion-metadata` 更新分佣范围（`ORDER`/`AD`）和推广说明；用户端 `GET /api/user/promotion/dramas` 只返回已上架且甲方在线的短剧，并返回简介、分佣范围、推广说明和甲方发布时间，按 `remote_created_at DESC, id DESC` 倒序分页。只有“创建推广”页面展示这些字段；“推广任务”页面不使用这组元数据。目录同步只更新远端字段，不覆盖本地推广元数据。
 
-目录同步会为新增短剧、甲方更新时间变化的短剧以及本地缺少视频地址的短剧自动排队。免费剧集 worker 每分钟分批调用 GoodShort `/open/book/freeContent`，校验地址后把 `content_url` 永久保存到 MySQL；收费剧集因 GoodShort 没有对应接口而不同步。
+目录同步会为新增短剧、甲方更新时间变化的短剧以及本地缺少视频地址的短剧自动排队。免费剧集 worker 每分钟分批调用 GoodShort `/creek/open/book/freeContent`，校验地址后把 `content_url` 永久保存到 MySQL；收费剧集因 GoodShort 没有对应接口而不同步。
 
 用户端 `GET /api/user/promotion/dramas/{id}/free-content` 只读取本地 `provider_drama_content.content_url`，不会在播放或下载时调用 GoodShort，也不再使用 Redis 剧集资源缓存。`refresh=true` 参数为兼容现有客户端而保留，行为仍是读取数据库；前端使用返回的 `downloadUrl` 直接下载媒体文件。短剧列表/详情同时返回原始语言码 `language` 和后端统一的中文展示字段 `languageLabel`；管理端和用户端筛选选项统一来自 `GET /api/drama/languages`，该接口按当前实际生效的短剧同步语言配置返回 `{value,label}`。
 
@@ -383,7 +383,7 @@ mysql --host=127.0.0.1 --user=$env:SPRING_DATASOURCE_USERNAME --password --datab
 | PATCH | `/api/admin/drama/catalog/{id}/status` | 将本地状态修改为 `PUBLISHED` 或 `OFFLINE` |
 | PUT | `/api/admin/drama/catalog/{id}/promotion-metadata` | 更新短剧分佣范围（`ORDER`/`AD`）和推广说明；空数组/空文本表示清空 |
 
-手动同步不指定语言时，会按配置展开 GoodShort 全部 13 种支持语言并为每种语言创建独立任务；固定增量任务使用同一完整语言集合。全量使用 GoodShort `/open/book/initBooks`，增量使用 `/open/book/incrementBooks`；增量请求按文档发送 `utimeStart`/`utimeEnd`（`yyyy-MM-dd HH:mm:ss`），没有成功全量基线时自动升级为全量。同一连接和语言只允许一个 FULL/INCREMENTAL 任务排队或运行。短剧列表返回的 `bookId`、`bookName`、`bookNameZh`、`bookCover`、`labelNames`、`introduce`、`typeTwoName`、`language`、`rank`、`showStatus`、`novelType`、`novelSubType`、`ctime`、`utime` 均转换为本地领域字段并保存；标签以 JSON 文本保存，目录列表/详情接口返回 `titleZh`、`coverUrl`、`labelNames`、`categoryName`、`remoteRank`、`novelType`、`novelSubType`、`remoteCreatedAt`、`remoteUpdatedAt` 等字段。
+手动同步不指定语言时，会按配置展开 GoodShort 全部 13 种支持语言并为每种语言创建独立任务；固定增量任务使用同一完整语言集合。全量使用 GoodShort `/creek/open/book/initBooks`，增量使用 `/creek/open/book/incrementBooks`；增量请求按文档发送 `utimeStart`/`utimeEnd`（`yyyy-MM-dd HH:mm:ss`），没有成功全量基线时自动升级为全量。同一连接和语言只允许一个 FULL/INCREMENTAL 任务排队或运行。短剧列表返回的 `bookId`、`bookName`、`bookNameZh`、`bookCover`、`labelNames`、`introduce`、`typeTwoName`、`language`、`rank`、`showStatus`、`novelType`、`novelSubType`、`ctime`、`utime` 均转换为本地领域字段并保存；标签以 JSON 文本保存，目录列表/详情接口返回 `titleZh`、`coverUrl`、`labelNames`、`categoryName`、`remoteRank`、`novelType`、`novelSubType`、`remoteCreatedAt`、`remoteUpdatedAt` 等字段。
 
 管理员手动提交同步后，事务提交完成会立即异步唤醒目录执行器；固定 5 分钟调度仍保留，用于后台任务和即时触发失败时的兜底。接口不会等待 GoodShort 分页请求完成，状态可通过同步状态接口刷新查看。
 

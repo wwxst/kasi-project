@@ -60,7 +60,7 @@ class GoodShortFilingAdapterTest {
         parameters.put("accountId", "creator-1");
         parameters.put("accountName", "Creator One");
         parameters.put("accountLink", "https://www.tiktok.com/@creator-1");
-        server.expect(requestTo("https://goodshort.test/open/filing/report"))
+        server.expect(requestTo("https://goodshort.test/creek/open/filing/report"))
                 .andExpect(method(HttpMethod.POST))
                 .andExpect(header("sign", signer.sign(parameters, API_KEY)))
                 .andExpect(content().json("""
@@ -81,7 +81,7 @@ class GoodShortFilingAdapterTest {
     @DisplayName("查询状态映射为审核中、已加白和已失败")
     void queryMapsRemoteStatus() {
         for (int remoteStatus = 0; remoteStatus <= 2; remoteStatus++) {
-            server.expect(requestTo("https://goodshort.test/open/filing/query"))
+            server.expect(requestTo("https://goodshort.test/creek/open/filing/query"))
                     .andExpect(method(HttpMethod.POST))
                     .andRespond(withSuccess("{\"status\":0,\"success\":true,\"data\":"
                                     + "{\"status\":" + remoteStatus + ",\"filingTime\":\"2025-08-28T11:26:18.000+0000\","
@@ -100,7 +100,7 @@ class GoodShortFilingAdapterTest {
     @Test
     @DisplayName("平台暂时不可用和明确拒绝使用可区分异常")
     void remoteFailuresAreClassified() {
-        server.expect(requestTo("https://goodshort.test/open/filing/report"))
+        server.expect(requestTo("https://goodshort.test/creek/open/filing/report"))
                 .andRespond(withServerError());
         assertThatThrownBy(() -> adapter.submitAccountFiling(CONNECTION,
                 new AccountFilingSubmission(MediaType.TIKTOK, "creator-1", null, null)))

@@ -118,7 +118,7 @@ class ProviderConnectionServiceTest {
         verify(connectionMapper).insert(captor.capture());
         ShortDramaConnection inserted = captor.getValue();
         assertThat(inserted.getConnectionName()).isEqualTo("GoodShort账号");
-        assertThat(inserted.getBaseUrl()).isEqualTo("https://api.goodshort.test/creek");
+        assertThat(inserted.getBaseUrl()).isEqualTo("https://api.goodshort.test");
         assertThat(inserted.getMediaRootDomain()).isEqualTo("novelopen.com");
         assertThat(inserted.getPartnerId()).isEqualTo("partner-1");
         assertThat(inserted.getCurrency()).isEqualTo("USD");
@@ -206,7 +206,7 @@ class ProviderConnectionServiceTest {
         ArgumentCaptor<ProviderConnectionSecret> secretCaptor =
                 ArgumentCaptor.forClass(ProviderConnectionSecret.class);
         verify(adapter).testConnection(secretCaptor.capture());
-        assertThat(secretCaptor.getValue().getBaseUrl()).isEqualTo("https://api.goodshort.test/creek");
+        assertThat(secretCaptor.getValue().getBaseUrl()).isEqualTo("https://api.goodshort.test");
         assertThat(secretCaptor.getValue().getPartnerId()).isEqualTo("partner-1");
         assertThat(secretCaptor.getValue().getApiKey()).isEqualTo("plain-secret");
         assertThat(secretCaptor.getValue().getCurrency()).isEqualTo("USD");
@@ -295,7 +295,7 @@ class ProviderConnectionServiceTest {
         connection.setId(2L);
         connection.setProviderId(1L);
         connection.setConnectionName("GoodShort账号");
-        connection.setBaseUrl("https://api.goodshort.test/creek");
+        connection.setBaseUrl("https://api.goodshort.test");
         connection.setMediaRootDomain("novelopen.com");
         connection.setPartnerId("partner-1");
         connection.setApiKeyCiphertext(ciphertext);
@@ -309,7 +309,7 @@ class ProviderConnectionServiceTest {
 
     private UpsertProviderConnectionDTO request(String apiKey, Integer status) {
         UpsertProviderConnectionDTO request = new UpsertProviderConnectionDTO();
-        request.setBaseUrl("https://api.goodshort.test/creek");
+        request.setBaseUrl("https://api.goodshort.test/");
         request.setMediaRootDomain("NovelOpen.COM");
         request.setConnectionName("  GoodShort账号  ");
         request.setPartnerId("  partner-1  ");

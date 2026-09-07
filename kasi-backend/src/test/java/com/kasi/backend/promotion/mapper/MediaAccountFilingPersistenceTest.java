@@ -137,8 +137,10 @@ class MediaAccountFilingPersistenceTest extends BaseAuthTest {
         ProviderMediaFiling filing = pendingFiling(connectionId, failed.getId(), 1);
         filing.setNextAction(FilingAction.NONE);
         filing.setNextActionAt(null);
-        filing.setLastErrorMessage("report failed");
         filingMapper.insert(filing);
+        assertThat(jdbcTemplate.update(
+                "UPDATE provider_media_filing SET last_error_message = ? WHERE id = ?",
+                "report failed", filing.getId())).isEqualTo(1);
 
         AdminMediaAccountPageQueryDTO query = new AdminMediaAccountPageQueryDTO();
         query.setFilingStatus("SUBMIT_FAILED");

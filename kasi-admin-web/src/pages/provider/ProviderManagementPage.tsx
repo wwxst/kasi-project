@@ -246,7 +246,7 @@ export function ProviderManagementPage() {
                             { max: 512, message: '接口 URL 不能超过512个字符' },
                           ]}
                         >
-                          <Input placeholder="例如：https://api.novelopen.com/creek" />
+                          <Input placeholder="例如：https://api.novelopen.com" />
                         </Form.Item>
                         <Form.Item
                           label="PID"

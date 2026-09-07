@@ -56,7 +56,7 @@ class GoodShortAdapterTest {
     @DisplayName("连接探测发送固定最小请求和正确签名")
     void probeSendsSignedMinimumRequest() {
         Map<String, Object> parameters = parameters();
-        server.expect(once(), requestTo("https://goodshort.test/open/book/initBooks"))
+        server.expect(once(), requestTo("https://goodshort.test/creek/open/book/initBooks"))
                 .andExpect(method(HttpMethod.POST))
                 .andExpect(header("sign", signer.sign(parameters, API_KEY)))
                 .andExpect(content().json("""
@@ -83,7 +83,7 @@ class GoodShortAdapterTest {
     @Test
     @DisplayName("GoodShort业务状态非零时返回平台拒绝错误")
     void nonzeroStatusIsRejectedWithoutLeakingCredential() {
-        server.expect(requestTo("https://goodshort.test/open/book/initBooks"))
+        server.expect(requestTo("https://goodshort.test/creek/open/book/initBooks"))
                 .andRespond(withSuccess(
                         "{\"status\":1001,\"success\":false,\"message\":\"invalid\"}",
                         MediaType.APPLICATION_JSON));
@@ -94,7 +94,7 @@ class GoodShortAdapterTest {
     @Test
     @DisplayName("GoodShort服务端错误转换为平台暂不可用")
     void serverFailureIsUnavailableWithoutLeakingCredential() {
-        server.expect(requestTo("https://goodshort.test/open/book/initBooks"))
+        server.expect(requestTo("https://goodshort.test/creek/open/book/initBooks"))
                 .andRespond(withServerError());
 
         assertRemoteFailure(6005);
@@ -103,7 +103,7 @@ class GoodShortAdapterTest {
     @Test
     @DisplayName("GoodShort网络异常转换为平台暂不可用")
     void ioFailureIsUnavailableWithoutLeakingCredential() {
-        server.expect(requestTo("https://goodshort.test/open/book/initBooks"))
+        server.expect(requestTo("https://goodshort.test/creek/open/book/initBooks"))
                 .andRespond(withException(new IOException("network down " + API_KEY)));
 
         assertRemoteFailure(6005);
@@ -126,7 +126,7 @@ class GoodShortAdapterTest {
         parameters.put("pid", "partner-1");
         parameters.put("timestamp", TIMESTAMP);
         parameters.put("bookId", "book-1");
-        server.expect(once(), requestTo("https://goodshort.test/open/book/freeContent"))
+        server.expect(once(), requestTo("https://goodshort.test/creek/open/book/freeContent"))
                 .andExpect(method(HttpMethod.POST))
                 .andExpect(header("sign", signer.sign(parameters, API_KEY)))
                 .andExpect(content().json("""

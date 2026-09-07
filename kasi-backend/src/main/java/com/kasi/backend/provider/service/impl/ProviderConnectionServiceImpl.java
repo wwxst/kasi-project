@@ -77,7 +77,7 @@ public class ProviderConnectionServiceImpl implements ProviderConnectionService 
         FilingMode targetMode = request.getFilingMode() != null
                 ? request.getFilingMode()
                 : existing == null ? FilingMode.API : existing.getFilingMode();
-        String baseUrl = trimToNull(request.getBaseUrl());
+        String baseUrl = normalizeBaseUrl(request.getBaseUrl());
         String partnerId = trimToNull(request.getPartnerId());
         String mediaRootDomain = trimToNull(request.getMediaRootDomain());
         if (targetMode == FilingMode.API && (baseUrl == null || partnerId == null
@@ -197,7 +197,7 @@ public class ProviderConnectionServiceImpl implements ProviderConnectionService 
         }
         connection.setProviderId(providerId);
         connection.setConnectionName(defaultText(request.getConnectionName(), providerName));
-        connection.setBaseUrl(trimToNull(request.getBaseUrl()));
+        connection.setBaseUrl(normalizeBaseUrl(request.getBaseUrl()));
         String mediaRootDomain = trimToNull(request.getMediaRootDomain());
         connection.setMediaRootDomain(mediaRootDomain == null ? null : mediaRootDomain.toLowerCase(Locale.ROOT));
         connection.setPartnerId(trimToNull(request.getPartnerId()));
@@ -266,5 +266,16 @@ public class ProviderConnectionServiceImpl implements ProviderConnectionService 
             return null;
         }
         return value.trim();
+    }
+
+    private String normalizeBaseUrl(String value) {
+        String normalized = trimToNull(value);
+        if (normalized == null) {
+            return null;
+        }
+        while (normalized.endsWith("/")) {
+            normalized = normalized.substring(0, normalized.length() - 1);
+        }
+        return normalized.isEmpty() ? null : normalized;
     }
 }

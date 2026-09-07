@@ -70,13 +70,14 @@ public class GoodShortAdapter implements AccountFilingProviderAdapter, DramaCata
         AnalyticalReportProviderAdapter {
 
     private static final String PROVIDER_CODE = "GOODSHORT";
-    private static final String CONNECTION_PROBE_PATH = "/open/book/initBooks";
-    private static final String FILING_REPORT_PATH = "/open/filing/report";
-    private static final String FILING_QUERY_PATH = "/open/filing/query";
-    private static final String FULL_CATALOG_PATH = "/open/book/initBooks";
-    private static final String INCREMENTAL_CATALOG_PATH = "/open/book/incrementBooks";
-    private static final String ORDER_PATH = "/open/partner/orders";
-    private static final String FREE_CONTENT_PATH = "/open/book/freeContent";
+    private static final String CONNECTION_PROBE_PATH = "/creek/open/book/initBooks";
+    private static final String FILING_REPORT_PATH = "/creek/open/filing/report";
+    private static final String FILING_QUERY_PATH = "/creek/open/filing/query";
+    private static final String FULL_CATALOG_PATH = "/creek/open/book/initBooks";
+    private static final String INCREMENTAL_CATALOG_PATH = "/creek/open/book/incrementBooks";
+    private static final String ORDER_PATH = "/creek/open/partner/orders";
+    private static final String FREE_CONTENT_PATH = "/creek/open/book/freeContent";
+    private static final String PROMOTION_LINK_PATH = "/creek/open/inviteCode/generate/partner/code";
     private static final String ANALYTICAL_REPORT_PATH = "/creek/open/promotion/analyticalReport";
     private static final Set<ProviderCapability> CAPABILITIES = Set.of(
             ProviderCapability.FULL_DRAMA_SYNC,
@@ -205,8 +206,7 @@ public class GoodShortAdapter implements AccountFilingProviderAdapter, DramaCata
         parameters.put("shareUrlType", "ONELINK".equalsIgnoreCase(request.linkVariant()) ? 2 : 1);
         parameters.put("codeMedia", mapCodeMedia(request.mediaType()));
         parameters.put("timestamp", clock.millis());
-        GoodShortPromotionLinkResponse response = postPromotionLink(connection,
-                "/open/inviteCode/generate/partner/code", parameters);
+        GoodShortPromotionLinkResponse response = postPromotionLink(connection, PROMOTION_LINK_PATH, parameters);
         if (!successful(response) || response.getData() == null
                 || response.getData().getCode() == null || response.getData().getShareUrl() == null) {
             throw new ProviderRemoteRejectedException("GoodShort推广链接生成被拒绝");

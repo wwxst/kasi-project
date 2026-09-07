@@ -54,7 +54,7 @@ class GoodShortOrderAdapterTest {
         parameters.put("startDate", "2025-07-01 00:00:00");
         parameters.put("endDate", "2025-07-01 23:59:59");
 
-        server.expect(requestTo("https://goodshort.test/open/partner/orders"))
+        server.expect(requestTo("https://goodshort.test/creek/open/partner/orders"))
                 .andExpect(header("sign", signer.sign(parameters, API_KEY)))
                 .andExpect(content().json("""
                         {"pid":"partner-1","timestamp":1681810530092,"pageNo":1,"pageSize":500,
@@ -101,7 +101,7 @@ class GoodShortOrderAdapterTest {
     @Test
     @DisplayName("未知支付状态保留原值且不误判为已支付")
     void fetchOrdersPreservesUnknownStatus() {
-        server.expect(requestTo("https://goodshort.test/open/partner/orders"))
+        server.expect(requestTo("https://goodshort.test/creek/open/partner/orders"))
                 .andRespond(withSuccess("""
                         {"data":{"records":[{"orderId":"order-unknown","payMoney":100,"payStatus":9}],
                          "pageNo":1,"pageSize":500,"pages":1,"total":1},

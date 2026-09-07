@@ -56,7 +56,7 @@ class GoodShortCatalogAdapterTest {
     @DisplayName("鍏ㄩ噺鍚屾鍙戦€乮nitBooks璇锋眰骞舵槧灏勭煭鍓у拰鍓ч泦")
     void fetchFullMapsBookAndEpisodes() {
         var parameters = parameters(1, 100, "ENGLISH");
-        server.expect(requestTo("https://goodshort.test/open/book/initBooks"))
+        server.expect(requestTo("https://goodshort.test/creek/open/book/initBooks"))
                 .andExpect(method(HttpMethod.POST))
                 .andExpect(header("sign", signer.sign(parameters, API_KEY)))
                 .andExpect(content().json("""
@@ -105,7 +105,7 @@ class GoodShortCatalogAdapterTest {
         var parameters = parameters(2, 50, "ENGLISH");
         parameters.put("utimeStart", "2023-11-14 22:13:20");
         parameters.put("utimeEnd", "2023-11-14 22:30:00");
-        server.expect(requestTo("https://goodshort.test/open/book/incrementBooks"))
+        server.expect(requestTo("https://goodshort.test/creek/open/book/incrementBooks"))
                 .andExpect(header("sign", signer.sign(parameters, API_KEY)))
                 .andExpect(content().json("""
                         {"pageNo":2,"pageSize":50,"language":"ENGLISH","pid":"partner-1","timestamp":1681810530092,"utimeStart":"2023-11-14 22:13:20","utimeEnd":"2023-11-14 22:30:00"}
@@ -125,7 +125,7 @@ class GoodShortCatalogAdapterTest {
     @Test
     @DisplayName("鏃堕棿鏄剧ず鏀寔 ISO Z 鍜?+0000 鍋忕Щ")
     void fetchMapsZuluAndCompactOffsetTimes() {
-        server.expect(requestTo("https://goodshort.test/open/book/initBooks"))
+        server.expect(requestTo("https://goodshort.test/creek/open/book/initBooks"))
                 .andRespond(withSuccess("""
                         {"status":0,"success":true,"data":{"pageNo":1,"pageSize":10,"total":1,"hasNext":false,
                          "items":[{"bookId":"book-time","bookName":"Time","updateTime":"2025-08-28T11:26:18Z",
@@ -143,7 +143,7 @@ class GoodShortCatalogAdapterTest {
     @Test
     @DisplayName("绌哄墽闆嗗厓绱犳寜骞冲彴鎷掔粷澶勭悊锛屼笉鎶涘嚭 NPE")
     void nullEpisodeElementIsRejected() {
-        server.expect(requestTo("https://goodshort.test/open/book/initBooks"))
+        server.expect(requestTo("https://goodshort.test/creek/open/book/initBooks"))
                 .andRespond(withSuccess("""
                         {"status":0,"success":true,"data":{"pageNo":1,"pageSize":10,"total":1,"hasNext":false,
                          "items":[{"bookId":"book-null-episode","bookName":"Invalid","episodes":[null]}]}}
@@ -158,15 +158,15 @@ class GoodShortCatalogAdapterTest {
     @Test
     @DisplayName("涓氬姟澶辫触銆佺┖data鍜屾湭鐭ユ牸寮忕粺涓€鎶ュ钩鍙版嫆缁濓紒")
     void businessAndMalformedResponsesAreRejected() {
-        server.expect(requestTo("https://goodshort.test/open/book/initBooks"))
+        server.expect(requestTo("https://goodshort.test/creek/open/book/initBooks"))
                 .andRespond(withSuccess("{\"status\":1001,\"success\":false}", MediaType.APPLICATION_JSON));
-        server.expect(requestTo("https://goodshort.test/open/book/initBooks"))
+        server.expect(requestTo("https://goodshort.test/creek/open/book/initBooks"))
                 .andRespond(withSuccess("{\"status\":0,\"success\":true,\"data\":null}", MediaType.APPLICATION_JSON));
-        server.expect(requestTo("https://goodshort.test/open/book/initBooks"))
+        server.expect(requestTo("https://goodshort.test/creek/open/book/initBooks"))
                 .andRespond(withSuccess("{\"status\":0,\"success\":true,\"data\":{\"items\":null}}", MediaType.APPLICATION_JSON));
-        server.expect(requestTo("https://goodshort.test/open/book/initBooks"))
+        server.expect(requestTo("https://goodshort.test/creek/open/book/initBooks"))
                 .andRespond(withSuccess("{\"status\":0,\"success\":true,", MediaType.APPLICATION_JSON));
-        server.expect(requestTo("https://goodshort.test/open/book/initBooks"))
+        server.expect(requestTo("https://goodshort.test/creek/open/book/initBooks"))
                 .andRespond(withSuccess("", MediaType.APPLICATION_JSON));
         assertThatThrownBy(() -> adapter.fetchFullDramas(CONNECTION,
                 new DramaCatalogFetchRequest(1, 10, "ENGLISH"))).isInstanceOf(ProviderRemoteRejectedException.class);
@@ -184,10 +184,10 @@ class GoodShortCatalogAdapterTest {
     @Test
     @DisplayName("缃戠粶銆?xx鍜?29杩斿洖鏆傛椂寮傚父")
     void transientFailuresAreRetryable() {
-        server.expect(requestTo("https://goodshort.test/open/book/initBooks")).andRespond(withServerError());
-        server.expect(requestTo("https://goodshort.test/open/book/initBooks"))
+        server.expect(requestTo("https://goodshort.test/creek/open/book/initBooks")).andRespond(withServerError());
+        server.expect(requestTo("https://goodshort.test/creek/open/book/initBooks"))
                 .andRespond(withException(new IOException("network down")));
-        server.expect(requestTo("https://goodshort.test/open/book/initBooks"))
+        server.expect(requestTo("https://goodshort.test/creek/open/book/initBooks"))
                 .andRespond(org.springframework.test.web.client.response.MockRestResponseCreators.withStatus(HttpStatus.TOO_MANY_REQUESTS));
         assertThatThrownBy(() -> adapter.fetchFullDramas(CONNECTION,
                 new DramaCatalogFetchRequest(1, 10, "ENGLISH"))).isInstanceOf(ProviderTransientException.class);
