@@ -103,6 +103,7 @@ public class DramaCatalogSyncServiceImpl implements DramaCatalogSyncService {
         }
         connectionMapper.lockById(runtime.connectionId());
         List<DramaSyncTaskVO> tasks = new ArrayList<>();
+        List<Long> requestedCheckpointIds = new ArrayList<>();
         LocalDateTime now = LocalDateTime.now(clock);
         DramaSyncDisplayRun displayRun = displayRunService.createRun(providerId, null, DramaSyncDomain.CATALOG,
                 requestedType == DramaSyncType.FULL ? DramaSyncTaskType.FULL : DramaSyncTaskType.INCREMENTAL,
@@ -125,20 +126,21 @@ public class DramaCatalogSyncServiceImpl implements DramaCatalogSyncService {
                     throw new IllegalStateException("Requested catalog checkpoint cannot be reloaded");
                 }
                 tasks.add(DramaSyncTaskVO.from(requested));
+                requestedCheckpointIds.add(requested.getId());
                 displayRunService.attachTask(displayRun.getId(), DramaSyncDomain.CATALOG, requested.getId());
             } else {
                 throw new BusinessException(ErrorCode.DRAMA_SYNC_TASK_RUNNING);
             }
         }
         displayRunService.updateTaskType(displayRun.getId(), displayTaskType(effectiveTypes));
-        triggerAfterCommit();
+        triggerAfterCommit(requestedCheckpointIds);
         return tasks;
     }
 
-    private void triggerAfterCommit() {
+    private void triggerAfterCommit(List<Long> requestedCheckpointIds) {
         Runnable trigger = () -> {
             try {
-                taskExecutor.execute(this::processDueBatch);
+                taskExecutor.execute(() -> processRequestedTasks(requestedCheckpointIds));
             } catch (RuntimeException exception) {
                 log.warn("Failed to submit immediate drama catalog synchronization", exception);
             }
@@ -155,6 +157,22 @@ public class DramaCatalogSyncServiceImpl implements DramaCatalogSyncService {
         });
     }
 
+    private void processRequestedTasks(List<Long> requestedCheckpointIds) {
+        if (requestedCheckpointIds.isEmpty()) {
+            return;
+        }
+        for (ProviderSyncCheckpoint candidate : checkpointMapper.findByIds(requestedCheckpointIds)) {
+            LocalDateTime now = LocalDateTime.now(clock);
+            if (!claim(candidate, now)) {
+                continue;
+            }
+            ProviderSyncCheckpoint checkpoint = checkpointMapper.findById(candidate.getId());
+            if (checkpoint != null) {
+                processClaimed(checkpoint);
+            }
+        }
+    }
+
     @Override
     @Transactional
     public List<DramaSyncTaskVO> requestScheduledIncremental(Long providerId, List<String> languages) {
@@ -169,11 +187,8 @@ public class DramaCatalogSyncServiceImpl implements DramaCatalogSyncService {
         }
         connectionMapper.lockById(runtime.connectionId());
         List<DramaSyncTaskVO> tasks = new ArrayList<>();
+        List<Long> requestedCheckpointIds = new ArrayList<>();
         LocalDateTime now = LocalDateTime.now(clock);
-        DramaSyncDisplayRun displayRun = displayRunService.createRun(providerId, null, DramaSyncDomain.CATALOG,
-                DramaSyncTaskType.INCREMENTAL, SyncTriggerSource.SCHEDULED, now);
-        DramaSyncDisplayRun contentRun = displayRunService.createRun(providerId, displayRun.getId(),
-                DramaSyncDomain.CONTENT, DramaSyncTaskType.CATALOG_AUTO, SyncTriggerSource.SCHEDULED, now);
         for (String language : normalizeLanguages(languages)) {
             List<ProviderSyncCheckpoint> active = checkpointMapper.findActive(runtime.connectionId(), language);
             if (!active.isEmpty()) {
@@ -194,8 +209,18 @@ public class DramaCatalogSyncServiceImpl implements DramaCatalogSyncService {
                     throw new IllegalStateException("Requested catalog checkpoint cannot be reloaded");
                 }
                 tasks.add(DramaSyncTaskVO.from(requested));
-                displayRunService.attachTask(displayRun.getId(), DramaSyncDomain.CATALOG, requested.getId());
+                requestedCheckpointIds.add(requested.getId());
             }
+        }
+        if (tasks.isEmpty()) {
+            return tasks;
+        }
+        DramaSyncDisplayRun displayRun = displayRunService.createRun(providerId, null, DramaSyncDomain.CATALOG,
+                DramaSyncTaskType.INCREMENTAL, SyncTriggerSource.SCHEDULED, now);
+        displayRunService.createRun(providerId, displayRun.getId(),
+                DramaSyncDomain.CONTENT, DramaSyncTaskType.CATALOG_AUTO, SyncTriggerSource.SCHEDULED, now);
+        for (Long requestedCheckpointId : requestedCheckpointIds) {
+            displayRunService.attachTask(displayRun.getId(), DramaSyncDomain.CATALOG, requestedCheckpointId);
         }
         return tasks;
     }
@@ -360,9 +385,31 @@ public class DramaCatalogSyncServiceImpl implements DramaCatalogSyncService {
                         contentSyncService.requestAutomatic(stored.getId(), contentRunId);
                     }
                 }
-            if (existing == null) inserted++; else updated++;
+            if (existing == null) {
+                inserted++;
+            } else if (remoteFieldsChanged(existing, drama)) {
+                updated++;
+            }
         }
         return new PageStats(records.size(), records.size(), inserted, updated, 0);
+    }
+
+    private boolean remoteFieldsChanged(ProviderDrama existing, ProviderDrama incoming) {
+        return !Objects.equals(existing.getTitle(), incoming.getTitle())
+                || !Objects.equals(existing.getTitleZh(), incoming.getTitleZh())
+                || !Objects.equals(existing.getOriginalTitle(), incoming.getOriginalTitle())
+                || !Objects.equals(existing.getDescription(), incoming.getDescription())
+                || !Objects.equals(existing.getCoverUrl(), incoming.getCoverUrl())
+                || !Objects.equals(existing.getLabelNames(), incoming.getLabelNames())
+                || !Objects.equals(existing.getCategoryName(), incoming.getCategoryName())
+                || !Objects.equals(existing.getLanguage(), incoming.getLanguage())
+                || !Objects.equals(existing.getRemoteRank(), incoming.getRemoteRank())
+                || !Objects.equals(existing.getDramaType(), incoming.getDramaType())
+                || !Objects.equals(existing.getNovelType(), incoming.getNovelType())
+                || !Objects.equals(existing.getNovelSubType(), incoming.getNovelSubType())
+                || !Objects.equals(existing.getRemoteShowStatus(), incoming.getRemoteShowStatus())
+                || !Objects.equals(existing.getRemoteCreatedAt(), incoming.getRemoteCreatedAt())
+                || !Objects.equals(existing.getRemoteUpdatedAt(), incoming.getRemoteUpdatedAt());
     }
 
     private ProviderDrama toEntity(Long connectionId, ProviderDramaRecord record) {

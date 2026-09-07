@@ -86,6 +86,33 @@ class UserPromotionDramaControllerTest extends BaseAuthTest {
     }
 
     @Test
+    @DisplayName("用户标题搜索在数据库分页前按标题中文标题或外部ID过滤")
+    void userCanSearchPublishedDramasBeforePagination() throws Exception {
+        mockMvc.perform(get("/api/user/promotion/dramas")
+                        .param("title", "Older")
+                        .param("page", "1")
+                        .param("size", "1")
+                        .header("Authorization", "Bearer " + loginAsUser()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.total").value(1))
+                .andExpect(jsonPath("$.data.list[0].title").value("Older Published Drama"));
+
+        mockMvc.perform(get("/api/user/promotion/dramas")
+                        .param("title", "中文剧名")
+                        .param("language", "ENGLISH")
+                        .header("Authorization", "Bearer " + loginAsUser()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.total").value(1))
+                .andExpect(jsonPath("$.data.list[0].externalDramaId").value("published"));
+
+        mockMvc.perform(get("/api/user/promotion/dramas")
+                        .param("title", "published-older")
+                        .header("Authorization", "Bearer " + loginAsUser()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.total").value(1));
+    }
+
+    @Test
     @DisplayName("匿名和管理员不能访问推广短剧接口")
     void promotionDramaEndpointEnforcesRoleBoundary() throws Exception {
         mockMvc.perform(get("/api/user/promotion/dramas"))

@@ -134,6 +134,31 @@ describe('DramaPage', () => {
     expect(screen.getByText('重置')).toBeTruthy()
   })
 
+  it('renders the server-filtered page without filtering it again in the browser', async () => {
+    const user = userEvent.setup()
+    vi.mocked(getPublishedDramas).mockResolvedValue({
+      list: [{ ...promotionDrama(), title: 'Server result', titleZh: null }],
+      page: 1,
+      size: 20,
+      total: 1,
+    })
+
+    renderDramaPage()
+
+    await user.type(screen.getByPlaceholderText('输入短剧标题'), '故事')
+    await user.click(screen.getByRole('button', { name: '查询' }))
+
+    await waitFor(() =>
+      expect(getPublishedDramas).toHaveBeenLastCalledWith({
+        page: 1,
+        size: 20,
+        title: '故事',
+        language: undefined,
+      }),
+    )
+    expect(await screen.findByText('Server result')).toBeTruthy()
+  })
+
   it('navigates to promotion tasks only after links are generated', async () => {
     const user = userEvent.setup()
     vi.mocked(getPublishedDramas).mockResolvedValueOnce({

@@ -18,6 +18,8 @@ import java.io.IOException;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.ZoneOffset;
+import java.time.Duration;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.LinkedHashMap;
 import java.util.Map;
 
@@ -40,30 +42,31 @@ class GoodShortCatalogAdapterTest {
             new ProviderConnectionSecret("https://goodshort.test", "partner-1", API_KEY, "USD");
 
     private MockRestServiceServer server;
+    private RestClient.Builder clientBuilder;
     private GoodShortAdapter adapter;
     private GoodShortSigner signer;
 
     @BeforeEach
     void setUp() {
-        RestClient.Builder builder = RestClient.builder().baseUrl("https://goodshort.test");
-        server = MockRestServiceServer.bindTo(builder).build();
+        clientBuilder = RestClient.builder().baseUrl("https://goodshort.test");
+        server = MockRestServiceServer.bindTo(clientBuilder).build();
         signer = new GoodShortSigner();
-        adapter = new GoodShortAdapter(builder.build(), signer,
+        adapter = new GoodShortAdapter(clientBuilder.build(), signer,
                 Clock.fixed(Instant.ofEpochMilli(TIMESTAMP), ZoneOffset.UTC));
     }
 
     @Test
     @DisplayName("鍏ㄩ噺鍚屾鍙戦€乮nitBooks璇锋眰骞舵槧灏勭煭鍓у拰鍓ч泦")
     void fetchFullMapsBookAndEpisodes() {
-        var parameters = parameters(1, 100, "ENGLISH");
+        var parameters = parameters(1, 50, "ENGLISH");
         server.expect(requestTo("https://goodshort.test/creek/open/book/initBooks"))
                 .andExpect(method(HttpMethod.POST))
                 .andExpect(header("sign", signer.sign(parameters, API_KEY)))
                 .andExpect(content().json("""
-                        {"pageNo":1,"pageSize":100,"language":"ENGLISH","pid":"partner-1","timestamp":1681810530092}
+                        {"pageNo":1,"pageSize":50,"language":"ENGLISH","pid":"partner-1","timestamp":1681810530092}
                         """, JsonCompareMode.STRICT))
                 .andRespond(withSuccess("""
-                        {"status":0,"success":true,"data":{"pageNo":1,"pageSize":100,"total":1,"hasNext":false,
+                        {"status":0,"success":true,"data":{"pageNo":1,"pageSize":50,"total":1,"hasNext":false,
                          "items":[{"bookId":"book-1","bookName":"Title","bookNameZh":"中文标题",
                          "bookCover":"https://img/1","labelNames":["霸总","爱情"],
                          "introduce":"Intro","typeTwoName":"爱情","language":"ENGLISH","rank":3,
@@ -73,7 +76,7 @@ class GoodShortCatalogAdapterTest {
                          "duration":42,"updateTime":"2025-08-28T12:26:18.000+0000"}]}]}}
                         """, MediaType.APPLICATION_JSON));
 
-        var page = adapter.fetchFullDramas(CONNECTION, new DramaCatalogFetchRequest(1, 100, "ENGLISH"));
+        var page = adapter.fetchFullDramas(CONNECTION, new DramaCatalogFetchRequest(1, 50, "ENGLISH"));
 
         assertThat(page.items()).hasSize(1);
         var book = page.items().getFirst();
@@ -97,6 +100,60 @@ class GoodShortCatalogAdapterTest {
             assertThat(content.durationSeconds()).isEqualTo(42);
         });
         server.verify();
+    }
+
+    @Test
+    @DisplayName("目录请求拒绝超过甲方上限的分页大小")
+    void rejectsPageSizeAboveProviderLimit() {
+        assertThatThrownBy(() -> adapter.fetchFullDramas(
+                CONNECTION, new DramaCatalogFetchRequest(1, 51, "ENGLISH")))
+                .isInstanceOf(ProviderRemoteRejectedException.class)
+                .hasMessageContaining("pageSize");
+    }
+
+    @Test
+    @DisplayName("showStatus按第三方整数在适配器边界转换")
+    void mapsIntegerShowStatusAndRejectsInvalidValue() {
+        server.expect(requestTo("https://goodshort.test/creek/open/book/initBooks"))
+                .andRespond(withSuccess("""
+                        {"status":0,"success":true,"data":{"items":[
+                        {"bookId":"book-0","showStatus":0},
+                        {"bookId":"book-null","showStatus":null}]}}
+                        """, MediaType.APPLICATION_JSON));
+        server.expect(requestTo("https://goodshort.test/creek/open/book/initBooks"))
+                .andRespond(withSuccess("""
+                        {"status":0,"success":true,"data":{"items":[
+                        {"bookId":"book-invalid","showStatus":"online"}]}}
+                        """, MediaType.APPLICATION_JSON));
+
+        var page = adapter.fetchFullDramas(CONNECTION,
+                new DramaCatalogFetchRequest(1, 50, "ENGLISH"));
+
+        assertThat(page.items()).extracting(record -> record.remoteShowStatus())
+                .containsExactly("0", null);
+
+        assertThatThrownBy(() -> adapter.fetchFullDramas(CONNECTION,
+                new DramaCatalogFetchRequest(1, 50, "ENGLISH")))
+                .isInstanceOf(ProviderRemoteRejectedException.class);
+    }
+
+    @Test
+    @DisplayName("全量和增量目录请求共用主动限速")
+    void fullAndIncrementalRequestsShareCatalogRateLimit() {
+        AtomicInteger sleeps = new AtomicInteger();
+        GoodShortCatalogRateLimiter limiter = new GoodShortCatalogRateLimiter(
+                Duration.ofMillis(610), System::nanoTime, ignored -> sleeps.incrementAndGet());
+        adapter = new GoodShortAdapter(clientBuilder.build(), signer,
+                Clock.fixed(Instant.ofEpochMilli(TIMESTAMP), ZoneOffset.UTC), limiter);
+        server.expect(requestTo("https://goodshort.test/creek/open/book/initBooks"))
+                .andRespond(withSuccess("{\"status\":0,\"success\":true,\"data\":{\"items\":[]}}", MediaType.APPLICATION_JSON));
+        server.expect(requestTo("https://goodshort.test/creek/open/book/incrementBooks"))
+                .andRespond(withSuccess("{\"status\":0,\"success\":true,\"data\":{\"items\":[]}}", MediaType.APPLICATION_JSON));
+
+        adapter.fetchFullDramas(CONNECTION, new DramaCatalogFetchRequest(1, 50, "ENGLISH"));
+        adapter.fetchIncrementalDramas(CONNECTION, new DramaCatalogFetchRequest(1, 50, "ENGLISH"));
+
+        assertThat(sleeps).hasValue(1);
     }
 
     @Test

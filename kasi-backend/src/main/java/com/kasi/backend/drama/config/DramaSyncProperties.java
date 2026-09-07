@@ -17,7 +17,7 @@ public class DramaSyncProperties {
     private boolean schedulerEnabled = true;
     private Duration fixedDelay = Duration.ofMinutes(5);
     private int batchSize = 10;
-    private int pageSize = 100;
+    private int pageSize = 50;
     private Duration leaseDuration = Duration.ofMinutes(2);
     private List<String> languages = DEFAULT_LANGUAGES;
 }

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import {
   Button,
   Dialog,
@@ -29,7 +29,7 @@ import { createPromotionLinks } from '../../features/promotionLinks/promotionLin
 import type { MediaType } from '../../features/promotionLinks/types'
 import { isHandledRequestError } from '../../shared/api/httpClient'
 import SearchForm, { type DramaFilters } from './components/SearchForm'
-import { filterDramas, formatDramaDate } from './dramaList'
+import { formatDramaDate } from './dramaList'
 import Style from './DramaPage.module.less'
 
 const mediaOptions = [
@@ -162,10 +162,7 @@ export default function DramaPage({ title: _title }: { title: string }) {
     void MessagePlugin.error('短剧加载失败，请稍后重试')
   }, [query.error, query.isError])
 
-  const rows = useMemo(
-    () => filterDramas(query.data?.list ?? [], filters),
-    [filters, query.data?.list],
-  )
+  const rows = query.data?.list ?? []
 
   const downloadEpisodes = async (episodes: DramaContentResource[]) => {
     if (!viewDrama) return

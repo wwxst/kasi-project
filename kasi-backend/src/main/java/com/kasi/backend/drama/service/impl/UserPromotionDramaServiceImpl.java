@@ -39,11 +39,13 @@ public class UserPromotionDramaServiceImpl implements UserPromotionDramaService 
     @Transactional(readOnly = true)
     public DramaPageVO getPublished(DramaPageQueryDTO query) {
         int offset = (query.getPage() - 1) * query.getSize();
+        String title = query.getTitle() == null || query.getTitle().isBlank()
+                ? null : query.getTitle().trim();
         String language = query.getLanguage() == null || query.getLanguage().isBlank()
                 ? null : query.getLanguage().trim().toUpperCase(java.util.Locale.ROOT);
-        return DramaPageVO.builder().list(dramaMapper.pagePublished(language, offset, query.getSize()).stream()
+        return DramaPageVO.builder().list(dramaMapper.pagePublished(title, language, offset, query.getSize()).stream()
                         .map(this::toVO).toList()).page(query.getPage()).size(query.getSize())
-                .total(dramaMapper.countPublished(language)).build();
+                .total(dramaMapper.countPublished(title, language)).build();
     }
 
     private DramaListItemVO toVO(ProviderDrama drama) {

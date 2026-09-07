@@ -27,7 +27,7 @@ public class GoodShortBookData {
     private String novelType;
     private Integer novelSubType;
     @JsonAlias({"showStatus", "status"})
-    private String showStatus;
+    private Integer showStatus;
     private String ctime;
     private String utime;
     @JsonAlias({"updateTime", "updatedAt"})

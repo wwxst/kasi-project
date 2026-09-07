@@ -88,6 +88,12 @@ class DramaCatalogSyncServiceTest {
     }
 
     @Test
+    @DisplayName("目录同步默认分页大小为50")
+    void defaultPageSizeMatchesProviderLimit() {
+        assertThat(new DramaSyncProperties().getPageSize()).isEqualTo(50);
+    }
+
+    @Test
     @DisplayName("手动同步事务提交后才异步唤醒，回滚不触发")
     void requestSyncTriggersOnlyAfterCommit() {
         when(runtimeService.resolve(7L, ProviderCapability.FULL_DRAMA_SYNC)).thenReturn(runtime());
@@ -106,6 +112,33 @@ class DramaCatalogSyncServiceTest {
 
             synchronization.afterCommit();
             verify(taskExecutor).execute(any(Runnable.class));
+        } finally {
+            TransactionSynchronizationManager.clearSynchronization();
+        }
+    }
+
+    @Test
+    @DisplayName("手动同步提交后按本次请求的检查点ID定向唤醒")
+    void requestSyncRunsRequestedCheckpointIdsAfterCommit() {
+        when(runtimeService.resolve(7L, ProviderCapability.FULL_DRAMA_SYNC)).thenReturn(runtime());
+        when(connectionMapper.lockById(3L)).thenReturn(mock(com.kasi.backend.provider.entity.ShortDramaConnection.class));
+        when(checkpointMapper.find(3L, DramaSyncType.FULL, "ENGLISH"))
+                .thenReturn(null, checkpoint(11L, DramaSyncType.FULL));
+        when(checkpointMapper.findById(11L)).thenReturn(checkpoint(11L, DramaSyncType.FULL));
+        when(checkpointMapper.findByIds(List.of(11L))).thenReturn(List.of());
+
+        TransactionSynchronizationManager.initSynchronization();
+        try {
+            service.requestSync(7L, DramaSyncType.FULL, List.of("ENGLISH"));
+            var synchronization = TransactionSynchronizationManager.getSynchronizations().get(0);
+            synchronization.afterCommit();
+
+            ArgumentCaptor<Runnable> runnable = ArgumentCaptor.forClass(Runnable.class);
+            verify(taskExecutor).execute(runnable.capture());
+            runnable.getValue().run();
+
+            verify(checkpointMapper).findByIds(List.of(11L));
+            verify(checkpointMapper, never()).findDue(any(), anyInt());
         } finally {
             TransactionSynchronizationManager.clearSynchronization();
         }
@@ -169,6 +202,7 @@ class DramaCatalogSyncServiceTest {
 
         verify(checkpointMapper, never()).insert(any());
         verify(checkpointMapper, never()).requestRun(anyLong(), any(), anyBoolean());
+        verifyNoInteractions(displayRunService);
     }
 
     @Test
@@ -207,6 +241,7 @@ class DramaCatalogSyncServiceTest {
         assertThat(service.requestScheduledIncremental(7L, List.of("ENGLISH"))).isEmpty();
 
         verify(checkpointMapper, never()).requestRun(anyLong(), any(), anyBoolean());
+        verifyNoInteractions(displayRunService);
     }
 
     @Test
@@ -288,6 +323,34 @@ class DramaCatalogSyncServiceTest {
         service.processDueBatch();
 
         verify(contentSyncService).requestAutomatic(21L);
+    }
+
+    @Test
+    @DisplayName("已有短剧第三方字段完全一致时更新数为零")
+    void unchangedDramaDoesNotIncreaseUpdatedCount() {
+        LocalDateTime remoteUpdatedAt = LocalDateTime.of(2025, 8, 28, 11, 0);
+        ProviderDrama existing = matchingStoredDrama(remoteUpdatedAt);
+        prepareSingleRecordPage(existing, remoteUpdatedAt);
+        when(dramaMapper.needsContentSync(21L)).thenReturn(false);
+
+        service.processDueBatch();
+
+        verify(checkpointMapper).updateProgress(11L, "worker-test", 2, null,
+                1, 1, 0, 0, 0, 0);
+    }
+
+    @Test
+    @DisplayName("已有短剧第三方标题变化时更新数为一")
+    void changedRemoteTitleIncreasesUpdatedCount() {
+        LocalDateTime remoteUpdatedAt = LocalDateTime.of(2025, 8, 28, 11, 0);
+        ProviderDrama existing = matchingStoredDrama(remoteUpdatedAt);
+        existing.setTitle("Old title");
+        prepareSingleRecordPage(existing, remoteUpdatedAt);
+
+        service.processDueBatch();
+
+        verify(checkpointMapper).updateProgress(11L, "worker-test", 2, null,
+                1, 1, 0, 1, 0, 0);
     }
 
     @Test
@@ -461,6 +524,26 @@ class DramaCatalogSyncServiceTest {
     private ProviderDrama storedDrama() {
         ProviderDrama drama = new ProviderDrama();
         drama.setId(21L);
+        return drama;
+    }
+
+    private ProviderDrama matchingStoredDrama(LocalDateTime remoteUpdatedAt) {
+        ProviderDrama drama = storedDrama();
+        drama.setTitle("Title");
+        drama.setOriginalTitle(null);
+        drama.setTitleZh(null);
+        drama.setDescription(null);
+        drama.setCoverUrl(null);
+        drama.setLabelNames("[]");
+        drama.setCategoryName(null);
+        drama.setLanguage("ENGLISH");
+        drama.setRemoteRank(null);
+        drama.setDramaType(null);
+        drama.setNovelType(null);
+        drama.setNovelSubType(null);
+        drama.setRemoteShowStatus("ONLINE");
+        drama.setRemoteCreatedAt(null);
+        drama.setRemoteUpdatedAt(remoteUpdatedAt);
         return drama;
     }
 }

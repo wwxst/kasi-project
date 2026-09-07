@@ -102,19 +102,34 @@ public class GoodShortAdapter implements AccountFilingProviderAdapter, DramaCata
     private final GoodShortSigner signer;
     private final Clock clock;
     private final tools.jackson.databind.ObjectMapper objectMapper;
+    private final GoodShortCatalogRateLimiter catalogRateLimiter;
 
     @Autowired
     public GoodShortAdapter(@Qualifier("goodShortRestClient") RestClient restClient,
                             GoodShortSigner signer, Clock clock,
                             tools.jackson.databind.ObjectMapper objectMapper) {
+        this(restClient, signer, clock, objectMapper, new GoodShortCatalogRateLimiter());
+    }
+
+    GoodShortAdapter(RestClient restClient, GoodShortSigner signer, Clock clock,
+                     tools.jackson.databind.ObjectMapper objectMapper,
+                     GoodShortCatalogRateLimiter catalogRateLimiter) {
         this.restClient = restClient;
         this.signer = signer;
         this.clock = clock;
         this.objectMapper = objectMapper;
+        this.catalogRateLimiter = catalogRateLimiter;
     }
 
     GoodShortAdapter(RestClient restClient, GoodShortSigner signer, Clock clock) {
-        this(restClient, signer, clock, tools.jackson.databind.json.JsonMapper.builder().build());
+        this(restClient, signer, clock, tools.jackson.databind.json.JsonMapper.builder().build(),
+                new GoodShortCatalogRateLimiter());
+    }
+
+    GoodShortAdapter(RestClient restClient, GoodShortSigner signer, Clock clock,
+                     GoodShortCatalogRateLimiter catalogRateLimiter) {
+        this(restClient, signer, clock, tools.jackson.databind.json.JsonMapper.builder().build(),
+                catalogRateLimiter);
     }
 
     @Override
@@ -448,6 +463,9 @@ public class GoodShortAdapter implements AccountFilingProviderAdapter, DramaCata
                                           DramaCatalogFetchRequest request,
                                           String path,
                                           boolean incremental) {
+        if (request.pageSize() < 1 || request.pageSize() > 50) {
+            throw new ProviderRemoteRejectedException("GoodShort catalog pageSize must be between 1 and 50");
+        }
         Map<String, Object> parameters = new LinkedHashMap<>();
         parameters.put("pageNo", request.pageNo());
         parameters.put("pageSize", request.pageSize());
@@ -493,6 +511,7 @@ public class GoodShortAdapter implements AccountFilingProviderAdapter, DramaCata
                                                   String path,
                                                   Map<String, Object> parameters) {
         String signature = signer.sign(parameters, connection.getApiKey());
+        catalogRateLimiter.acquire(connection.getBaseUrl() + "|" + connection.getPartnerId());
         try {
             return restClient.mutate().baseUrl(connection.getBaseUrl()).build().post().uri(path)
                     .contentType(org.springframework.http.MediaType.APPLICATION_JSON).header("sign", signature)
@@ -517,7 +536,8 @@ public class GoodShortAdapter implements AccountFilingProviderAdapter, DramaCata
         return new ProviderDramaRecord(book.getBookId(), book.getBookName(), book.getOriginalBookName(),
                 book.getBookNameZh(), book.getIntroduction(), book.getCover(), book.getLabelNames(),
                 book.getTypeTwoName(), firstNonBlank(book.getLanguage(), requestedLanguage), book.getRank(),
-                book.getType(), book.getNovelType(), book.getNovelSubType(), book.getShowStatus(),
+                book.getType(), book.getNovelType(), book.getNovelSubType(),
+                book.getShowStatus() == null ? null : String.valueOf(book.getShowStatus()),
                 parseRemoteTimeFlexible(book.getCtime()),
                 parseRemoteTimeFlexible(firstNonBlank(book.getUtime(), book.getUpdateTime())),
                 episodes.stream().map(this::mapEpisode).toList());

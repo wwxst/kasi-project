@@ -318,7 +318,7 @@ CREATE TABLE `provider_sync_checkpoint`
     `language`           VARCHAR(32)     NOT NULL COMMENT '同步语言',
     `status`             VARCHAR(16)     NOT NULL DEFAULT 'IDLE' COMMENT '同步状态',
     `page_no`            INT             NOT NULL DEFAULT 1 COMMENT '当前页码',
-    `page_size`          INT             NOT NULL DEFAULT 100 COMMENT '分页大小',
+    `page_size`          INT             NOT NULL DEFAULT 50 COMMENT '分页大小',
     `update_time`        BIGINT                   DEFAULT NULL COMMENT '增量游标',
     `last_success_at`    DATETIME                 DEFAULT NULL COMMENT '最近成功时间',
     `requested_at`       DATETIME                 DEFAULT NULL COMMENT '请求时间',

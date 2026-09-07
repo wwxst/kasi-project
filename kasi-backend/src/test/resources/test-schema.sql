@@ -314,7 +314,7 @@ CREATE TABLE IF NOT EXISTS provider_sync_checkpoint (
     language VARCHAR(32) NOT NULL,
     status VARCHAR(16) NOT NULL DEFAULT 'IDLE',
     page_no INT NOT NULL DEFAULT 1,
-    page_size INT NOT NULL DEFAULT 100,
+    page_size INT NOT NULL DEFAULT 50,
     update_time BIGINT,
     last_success_at TIMESTAMP,
     requested_at TIMESTAMP,
