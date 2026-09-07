@@ -2,12 +2,15 @@ package com.kasi.backend.provider.goodshort;
 
 import com.kasi.backend.common.exception.BusinessException;
 import com.kasi.backend.provider.enums.ProviderCapability;
+import com.kasi.backend.provider.exception.ProviderRemoteRejectedException;
+import com.kasi.backend.provider.exception.ProviderTransientException;
 import com.kasi.backend.provider.spi.ProviderConnectionSecret;
 import com.kasi.backend.provider.spi.FreeContentResult;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.HttpMethod;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.client.MockRestServiceServer;
 import org.springframework.test.json.JsonCompareMode;
@@ -15,10 +18,12 @@ import org.springframework.web.client.RestClient;
 
 import java.io.IOException;
 import java.time.Clock;
+import java.time.Duration;
 import java.time.Instant;
 import java.time.ZoneOffset;
 import java.util.LinkedHashMap;
 import java.util.Map;
+import java.util.concurrent.atomic.AtomicLong;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -29,6 +34,7 @@ import static org.springframework.test.web.client.match.MockRestRequestMatchers.
 import static org.springframework.test.web.client.match.MockRestRequestMatchers.requestTo;
 import static org.springframework.test.web.client.response.MockRestResponseCreators.withException;
 import static org.springframework.test.web.client.response.MockRestResponseCreators.withServerError;
+import static org.springframework.test.web.client.response.MockRestResponseCreators.withStatus;
 import static org.springframework.test.web.client.response.MockRestResponseCreators.withSuccess;
 
 @DisplayName("GoodShort平台适配器")
@@ -150,6 +156,92 @@ class GoodShortAdapterTest {
                 .fetchFreeContent(CONNECTION, "book-1");
 
         assertThat(result).containsExactly(new FreeContentResult("Chapter 1", "https://cdn.test/1.m3u8"));
+        server.verify();
+    }
+
+    @Test
+    @DisplayName("连续免费内容请求经过专属限流后才发送")
+    void freeContentRequestsUseDedicatedRateLimiter() {
+        RestClient.Builder builder = RestClient.builder().baseUrl("https://goodshort.test");
+        server = MockRestServiceServer.bindTo(builder).build();
+        AtomicLong now = new AtomicLong(0);
+        AtomicLong slept = new AtomicLong();
+        GoodShortFreeContentRateLimiter limiter = new GoodShortFreeContentRateLimiter(
+                Duration.ofMillis(650), now::get, nanos -> {
+                    slept.addAndGet(nanos);
+                    now.addAndGet(nanos);
+                });
+        adapter = new GoodShortAdapter(builder.build(), signer,
+                Clock.fixed(Instant.ofEpochMilli(TIMESTAMP), ZoneOffset.UTC), limiter);
+        String response = """
+                {"status":0,"success":true,"data":[
+                  {"chapterName":"Chapter 1","content":"https://cdn.test/1.m3u8"}
+                ]}
+                """;
+        server.expect(once(), requestTo("https://goodshort.test/creek/open/book/freeContent"))
+                .andRespond(withSuccess(response, MediaType.APPLICATION_JSON));
+        server.expect(once(), requestTo("https://goodshort.test/creek/open/book/freeContent"))
+                .andRespond(withSuccess(response, MediaType.APPLICATION_JSON));
+
+        adapter.fetchFreeContent(CONNECTION, "book-1");
+        adapter.fetchFreeContent(CONNECTION, "book-1");
+
+        assertThat(slept).hasValue(Duration.ofMillis(650).toNanos());
+        server.verify();
+    }
+
+    @Test
+    @DisplayName("免费内容请求收到429时仍按临时错误处理")
+    void freeContentRateLimitResponseRemainsTransient() {
+        server.expect(once(), requestTo("https://goodshort.test/creek/open/book/freeContent"))
+                .andRespond(withStatus(HttpStatus.TOO_MANY_REQUESTS));
+
+        assertThatThrownBy(() -> adapter.fetchFreeContent(CONNECTION, "book-1"))
+                .isInstanceOf(ProviderTransientException.class);
+        server.verify();
+    }
+
+    @Test
+    @DisplayName("免费内容包含空白地址时拒绝整次响应")
+    void freeContentRejectsBlankContent() {
+        server.expect(once(), requestTo("https://goodshort.test/creek/open/book/freeContent"))
+                .andRespond(withSuccess("""
+                        {"status":0,"success":true,"data":[
+                          {"chapterName":"Chapter 1","content":"https://cdn.test/1.m3u8"},
+                          {"chapterName":"Chapter 2","content":"  "}
+                        ]}
+                        """, MediaType.APPLICATION_JSON));
+
+        assertThatThrownBy(() -> adapter.fetchFreeContent(CONNECTION, "book-1"))
+                .isInstanceOf(ProviderRemoteRejectedException.class);
+        server.verify();
+    }
+
+    @Test
+    @DisplayName("免费内容包含null记录时拒绝整次响应")
+    void freeContentRejectsNullItem() {
+        server.expect(once(), requestTo("https://goodshort.test/creek/open/book/freeContent"))
+                .andRespond(withSuccess("""
+                        {"status":0,"success":true,"data":[
+                          {"chapterName":"Chapter 1","content":"https://cdn.test/1.m3u8"},
+                          null
+                        ]}
+                        """, MediaType.APPLICATION_JSON));
+
+        assertThatThrownBy(() -> adapter.fetchFreeContent(CONNECTION, "book-1"))
+                .isInstanceOf(ProviderRemoteRejectedException.class);
+        server.verify();
+    }
+
+    @Test
+    @DisplayName("免费内容空数组保持有效")
+    void freeContentAllowsEmptyData() {
+        server.expect(once(), requestTo("https://goodshort.test/creek/open/book/freeContent"))
+                .andRespond(withSuccess("""
+                        {"status":0,"success":true,"data":[]}
+                        """, MediaType.APPLICATION_JSON));
+
+        assertThat(adapter.fetchFreeContent(CONNECTION, "book-1")).isEmpty();
         server.verify();
     }
 

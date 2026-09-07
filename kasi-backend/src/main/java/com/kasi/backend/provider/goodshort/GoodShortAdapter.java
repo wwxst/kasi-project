@@ -83,8 +83,6 @@ public class GoodShortAdapter implements AccountFilingProviderAdapter, DramaCata
             ProviderCapability.FULL_DRAMA_SYNC,
             ProviderCapability.INCREMENTAL_DRAMA_SYNC,
             ProviderCapability.FREE_CONTENT_PREVIEW,
-            ProviderCapability.SINGLE_DOWNLOAD,
-            ProviderCapability.BATCH_DOWNLOAD,
             ProviderCapability.ACCOUNT_FILING,
             ProviderCapability.FILING_STATUS_QUERY,
             ProviderCapability.PROMOTION_LINK,
@@ -103,33 +101,50 @@ public class GoodShortAdapter implements AccountFilingProviderAdapter, DramaCata
     private final Clock clock;
     private final tools.jackson.databind.ObjectMapper objectMapper;
     private final GoodShortCatalogRateLimiter catalogRateLimiter;
+    private final GoodShortFreeContentRateLimiter freeContentRateLimiter;
 
     @Autowired
     public GoodShortAdapter(@Qualifier("goodShortRestClient") RestClient restClient,
                             GoodShortSigner signer, Clock clock,
                             tools.jackson.databind.ObjectMapper objectMapper) {
-        this(restClient, signer, clock, objectMapper, new GoodShortCatalogRateLimiter());
+        this(restClient, signer, clock, objectMapper, new GoodShortCatalogRateLimiter(),
+                new GoodShortFreeContentRateLimiter());
     }
 
     GoodShortAdapter(RestClient restClient, GoodShortSigner signer, Clock clock,
                      tools.jackson.databind.ObjectMapper objectMapper,
                      GoodShortCatalogRateLimiter catalogRateLimiter) {
+        this(restClient, signer, clock, objectMapper, catalogRateLimiter,
+                new GoodShortFreeContentRateLimiter());
+    }
+
+    GoodShortAdapter(RestClient restClient, GoodShortSigner signer, Clock clock,
+                     tools.jackson.databind.ObjectMapper objectMapper,
+                     GoodShortCatalogRateLimiter catalogRateLimiter,
+                     GoodShortFreeContentRateLimiter freeContentRateLimiter) {
         this.restClient = restClient;
         this.signer = signer;
         this.clock = clock;
         this.objectMapper = objectMapper;
         this.catalogRateLimiter = catalogRateLimiter;
+        this.freeContentRateLimiter = freeContentRateLimiter;
     }
 
     GoodShortAdapter(RestClient restClient, GoodShortSigner signer, Clock clock) {
         this(restClient, signer, clock, tools.jackson.databind.json.JsonMapper.builder().build(),
-                new GoodShortCatalogRateLimiter());
+                new GoodShortCatalogRateLimiter(), new GoodShortFreeContentRateLimiter());
     }
 
     GoodShortAdapter(RestClient restClient, GoodShortSigner signer, Clock clock,
                      GoodShortCatalogRateLimiter catalogRateLimiter) {
         this(restClient, signer, clock, tools.jackson.databind.json.JsonMapper.builder().build(),
                 catalogRateLimiter);
+    }
+
+    GoodShortAdapter(RestClient restClient, GoodShortSigner signer, Clock clock,
+                     GoodShortFreeContentRateLimiter freeContentRateLimiter) {
+        this(restClient, signer, clock, tools.jackson.databind.json.JsonMapper.builder().build(),
+                new GoodShortCatalogRateLimiter(), freeContentRateLimiter);
     }
 
     @Override
@@ -236,6 +251,7 @@ public class GoodShortAdapter implements AccountFilingProviderAdapter, DramaCata
         parameters.put("timestamp", clock.millis());
         parameters.put("bookId", externalDramaId);
         String signature = signer.sign(parameters, connection.getApiKey());
+        freeContentRateLimiter.acquire(connection.getBaseUrl() + "|" + connection.getPartnerId());
         GoodShortFreeContentResponse response;
         try {
             response = restClient.mutate().baseUrl(connection.getBaseUrl()).build().post()
@@ -255,8 +271,11 @@ public class GoodShortAdapter implements AccountFilingProviderAdapter, DramaCata
                 || !Boolean.TRUE.equals(response.getSuccess()) || response.getData() == null) {
             throw new ProviderRemoteRejectedException("GoodShort免费内容请求被拒绝");
         }
+        if (response.getData().stream().anyMatch(item -> item == null
+                || item.getContent() == null || item.getContent().isBlank())) {
+            throw new ProviderRemoteRejectedException("GoodShort免费内容响应包含无效剧集");
+        }
         return response.getData().stream()
-                .filter(item -> item != null && item.getContent() != null && !item.getContent().isBlank())
                 .map(item -> new FreeContentResult(item.getChapterName(), item.getContent()))
                 .toList();
     }

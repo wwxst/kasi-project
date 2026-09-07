@@ -12,6 +12,7 @@ import com.kasi.backend.drama.mapper.ProviderDramaMapper;
 import com.kasi.backend.drama.service.impl.DramaContentSyncServiceImpl;
 import com.kasi.backend.provider.entity.ShortDramaConnection;
 import com.kasi.backend.provider.enums.ProviderCapability;
+import com.kasi.backend.provider.exception.ProviderRemoteRejectedException;
 import com.kasi.backend.provider.exception.ProviderTransientException;
 import com.kasi.backend.provider.mapper.ShortDramaConnectionMapper;
 import com.kasi.backend.provider.service.ProviderRuntimeConnectionService;
@@ -110,6 +111,55 @@ class DramaContentSyncServiceTest {
     }
 
     @Test
+    @DisplayName("远端剧集字段完全一致时不计入更新数")
+    void unchangedRemoteFieldsAreNotCountedAsUpdated() {
+        prepareClaimedTask(0);
+        ProviderDramaContent existing = existingContent(
+                "Chapter 1", "https://v-koc.novelopen.com/1.m3u8");
+        when(dramaMapper.findContents(3L)).thenReturn(List.of(existing));
+        when(adapter.fetchFreeContent(any(), eq("book-1"))).thenReturn(List.of(
+                new FreeContentResult("Chapter 1", "https://v-koc.novelopen.com/1.m3u8")));
+        when(taskMapper.markSuccess(11L, "content-worker-test", 1, 0, 0)).thenReturn(1);
+
+        service.processDueBatch();
+
+        verify(dramaMapper).upsertContent(any());
+        verify(taskMapper).markSuccess(11L, "content-worker-test", 1, 0, 0);
+    }
+
+    @Test
+    @DisplayName("远端剧集标题变化时计入更新数")
+    void changedTitleIsCountedAsUpdated() {
+        prepareClaimedTask(0);
+        ProviderDramaContent existing = existingContent(
+                "Old title", "https://v-koc.novelopen.com/1.m3u8");
+        when(dramaMapper.findContents(3L)).thenReturn(List.of(existing));
+        when(adapter.fetchFreeContent(any(), eq("book-1"))).thenReturn(List.of(
+                new FreeContentResult("Chapter 1", "https://v-koc.novelopen.com/1.m3u8")));
+        when(taskMapper.markSuccess(11L, "content-worker-test", 1, 0, 1)).thenReturn(1);
+
+        service.processDueBatch();
+
+        verify(taskMapper).markSuccess(11L, "content-worker-test", 1, 0, 1);
+    }
+
+    @Test
+    @DisplayName("远端剧集地址变化时计入更新数")
+    void changedContentUrlIsCountedAsUpdated() {
+        prepareClaimedTask(0);
+        ProviderDramaContent existing = existingContent(
+                "Chapter 1", "https://v-koc.novelopen.com/old.m3u8");
+        when(dramaMapper.findContents(3L)).thenReturn(List.of(existing));
+        when(adapter.fetchFreeContent(any(), eq("book-1"))).thenReturn(List.of(
+                new FreeContentResult("Chapter 1", "https://v-koc.novelopen.com/new.m3u8")));
+        when(taskMapper.markSuccess(11L, "content-worker-test", 1, 0, 1)).thenReturn(1);
+
+        service.processDueBatch();
+
+        verify(taskMapper).markSuccess(11L, "content-worker-test", 1, 0, 1);
+    }
+
+    @Test
     @DisplayName("平台返回非法视频地址时任务失败且不写入剧集")
     void invalidMediaUrlFailsWithoutPersistence() {
         prepareClaimedTask(0);
@@ -123,6 +173,23 @@ class DramaContentSyncServiceTest {
         verify(dramaMapper, never()).upsertContent(any());
         verify(taskMapper).markFailed(11L, "content-worker-test", 1,
                 "INVALID_MEDIA_URL", "GoodShort returned an invalid media URL");
+    }
+
+    @Test
+    @DisplayName("平台响应包含异常剧集时整次失败且不保存部分结果")
+    void malformedProviderResponseFailsWithoutPartialPersistence() {
+        prepareClaimedTask(0);
+        when(adapter.fetchFreeContent(any(), eq("book-1")))
+                .thenThrow(new ProviderRemoteRejectedException("GoodShort免费内容响应包含无效剧集"));
+        when(taskMapper.markFailed(11L, "content-worker-test", 1,
+                "REMOTE_REJECTED", "GoodShort免费内容响应包含无效剧集")).thenReturn(1);
+
+        service.processDueBatch();
+
+        verify(dramaMapper, never()).upsertContent(any());
+        verify(taskMapper, never()).markSuccess(anyLong(), any(), anyInt(), anyInt(), anyInt());
+        verify(taskMapper).markFailed(11L, "content-worker-test", 1,
+                "REMOTE_REJECTED", "GoodShort免费内容响应包含无效剧集");
     }
 
     @Test
@@ -295,6 +362,15 @@ class DramaContentSyncServiceTest {
                 "https://goodshort.test", "partner-1", "key", "USD");
         when(runtimeService.resolve(7L, ProviderCapability.FREE_CONTENT_PREVIEW))
                 .thenReturn(new ProviderRuntimeConnection(4L, 7L, "GOODSHORT", "GoodShort", secret, adapter));
+    }
+
+    private ProviderDramaContent existingContent(String title, String contentUrl) {
+        ProviderDramaContent content = new ProviderDramaContent();
+        content.setDramaId(3L);
+        content.setSequenceNo(1);
+        content.setTitle(title);
+        content.setContentUrl(contentUrl);
+        return content;
     }
 
     private ProviderDrama drama(Long id) {

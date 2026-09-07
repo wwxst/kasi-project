@@ -49,7 +49,6 @@ export interface DramaContentResource {
   title: string | null
   free: boolean
   playUrl: string | null
-  downloadUrl: string | null
 }
 
 export interface DramaDetail extends DramaListItem {

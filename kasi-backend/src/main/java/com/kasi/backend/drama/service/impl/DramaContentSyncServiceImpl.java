@@ -49,6 +49,7 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -286,7 +287,7 @@ public class DramaContentSyncServiceImpl implements DramaContentSyncService {
                     content.setExternalContentId(old.getExternalContentId());
                     content.setDurationSeconds(old.getDurationSeconds());
                     content.setRemoteUpdatedAt(old.getRemoteUpdatedAt());
-                    updated++;
+                    if (remoteFieldsChanged(old, content)) updated++;
                 } else {
                     inserted++;
                 }
@@ -296,6 +297,11 @@ public class DramaContentSyncServiceImpl implements DramaContentSyncService {
                 throw new LeaseLostException();
             }
         });
+    }
+
+    private boolean remoteFieldsChanged(ProviderDramaContent existing, ProviderDramaContent incoming) {
+        return !Objects.equals(existing.getTitle(), incoming.getTitle())
+                || !Objects.equals(existing.getContentUrl(), incoming.getContentUrl());
     }
 
     private int sequence(String title, int fallback, Set<Integer> used) {

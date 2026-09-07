@@ -15,6 +15,8 @@ Object.defineProperty(HTMLMediaElement.prototype, 'load', {
   value: vi.fn(),
 })
 
+const { navigateMock } = vi.hoisted(() => ({ navigateMock: vi.fn() }))
+
 vi.mock('hls.js', () => {
   class MockHls {
     static Events = { ERROR: 'error' }
@@ -30,8 +32,6 @@ vi.mock('hls.js', () => {
 
   return { default: MockHls }
 })
-
-const { navigateMock } = vi.hoisted(() => ({ navigateMock: vi.fn() }))
 
 vi.mock('react-router-dom', async (importOriginal) => ({
   ...(await importOriginal<typeof import('react-router-dom')>()),
@@ -277,7 +277,6 @@ describe('DramaPage', () => {
         title: '第1集',
         free: true,
         playUrl: 'https://cdn.example.com/episode-1.m3u8',
-        downloadUrl: 'https://cdn.example.com/episode-1.m3u8',
       },
     ])
 
@@ -343,15 +342,13 @@ describe('DramaPage', () => {
         title: '第1集',
         free: true,
         playUrl: 'https://cdn.example.com/episode-1.mp4',
-        downloadUrl: 'https://cdn.example.com/episode-1.mp4',
       },
       {
         id: 102,
         sequenceNo: 2,
         title: '第2集',
         free: true,
-        playUrl: 'https://cdn.example.com/episode-2.mp4',
-        downloadUrl: 'https://cdn.example.com/episode-2.mp4',
+        playUrl: 'https://cdn.example.com/episode-2.m3u8?token=abc',
       },
     ])
     const anchors: HTMLAnchorElement[] = []
@@ -401,7 +398,7 @@ describe('DramaPage', () => {
     ])
     expect(anchors.map((anchor) => anchor.download)).toEqual([
       '故事-第01集.mp4',
-      '故事-第02集.mp4',
+      '故事-第02集.m3u8',
     ])
   })
 })

@@ -11,5 +11,4 @@ public class DramaContentResourceVO {
     private String title;
     private boolean free;
     private String playUrl;
-    private String downloadUrl;
 }

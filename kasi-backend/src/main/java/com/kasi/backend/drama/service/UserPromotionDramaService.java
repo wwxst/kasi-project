@@ -11,5 +11,4 @@ public interface UserPromotionDramaService {
     DramaPageVO getPublished(DramaPageQueryDTO query);
     DramaDetailVO getPublishedDetail(Long id);
     List<DramaContentResourceVO> getFreeContent(Long id);
-    List<DramaContentResourceVO> getFreeContent(Long id, boolean refresh);
 }

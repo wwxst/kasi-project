@@ -101,12 +101,6 @@ public class UserPromotionDramaServiceImpl implements UserPromotionDramaService 
 
     @Override
     public List<DramaContentResourceVO> getFreeContent(Long id) {
-        return getFreeContent(id, false);
-    }
-
-    @Override
-    @Transactional(readOnly = true)
-    public List<DramaContentResourceVO> getFreeContent(Long id, boolean refresh) {
         ProviderDrama drama = requirePublishedDrama(id);
         ShortDramaConnection connection = connectionMapper.findById(drama.getConnectionId());
         String mediaRootDomain = connection == null ? null : connection.getMediaRootDomain();
@@ -116,7 +110,7 @@ public class UserPromotionDramaServiceImpl implements UserPromotionDramaService 
                     ? content.getContentUrl() : null;
             return DramaContentResourceVO.builder().id(content.getId()).sequenceNo(content.getSequenceNo())
                     .title(content.getTitle()).free(Boolean.TRUE.equals(content.getFree()))
-                    .playUrl(url).downloadUrl(url).build();
+                    .playUrl(url).build();
         }).toList();
     }
 

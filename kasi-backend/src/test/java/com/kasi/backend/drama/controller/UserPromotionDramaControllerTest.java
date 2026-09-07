@@ -174,19 +174,13 @@ class UserPromotionDramaControllerTest extends BaseAuthTest {
                 .andExpect(jsonPath("$.code").value(0))
                 .andExpect(jsonPath("$.data[0].sequenceNo").value(1))
                 .andExpect(jsonPath("$.data[0].playUrl").value("https://v-koc.novelopen.com/episode-1.m3u8"))
-                .andExpect(jsonPath("$.data[0].downloadUrl").value("https://v-koc.novelopen.com/episode-1.m3u8"))
                 .andExpect(jsonPath("$.data[1].playUrl").doesNotExist())
-                .andExpect(jsonPath("$.data[1].downloadUrl").doesNotExist());
+                .andExpect(jsonPath("$.data[1].playUrl").doesNotExist());
 
         mockMvc.perform(get("/api/user/promotion/dramas/" + dramaId + "/free-content")
                         .header("Authorization", "Bearer " + loginAsUser()))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data[0].playUrl").value("https://v-koc.novelopen.com/episode-1.m3u8"));
 
-        mockMvc.perform(get("/api/user/promotion/dramas/" + dramaId + "/free-content")
-                        .param("refresh", "true")
-                        .header("Authorization", "Bearer " + loginAsUser()))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.data[0].downloadUrl").value("https://v-koc.novelopen.com/episode-1.m3u8"));
     }
 }

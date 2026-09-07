@@ -57,11 +57,23 @@ async function triggerNativeDownload(url: string, filename: string) {
   URL.revokeObjectURL(objectUrl)
 }
 
-function episodeFilename(drama: DramaListItem, sequenceNo: number) {
+function episodeFilename(
+  drama: DramaListItem,
+  sequenceNo: number,
+  resourceUrl: string,
+) {
   const title = (drama.titleZh || drama.title || `drama-${drama.id}`)
     .replace(/[\\/:*?"<>|]/g, '_')
     .trim()
-  return `${title}-第${String(sequenceNo).padStart(2, '0')}集.mp4`
+  let extension = ''
+  try {
+    const pathname = new URL(resourceUrl).pathname.toLowerCase()
+    if (pathname.endsWith('.mp4')) extension = '.mp4'
+    if (pathname.endsWith('.m3u8')) extension = '.m3u8'
+  } catch {
+    // Keep an unknown resource extension honest instead of claiming MP4.
+  }
+  return `${title}-第${String(sequenceNo).padStart(2, '0')}集${extension}`
 }
 
 export default function DramaPage({ title: _title }: { title: string }) {
@@ -77,7 +89,6 @@ export default function DramaPage({ title: _title }: { title: string }) {
   const [createDialogVisible, setCreateDialogVisible] = useState(false)
   const [creatingPromotion, setCreatingPromotion] = useState(false)
   const videoRef = useRef<HTMLVideoElement | null>(null)
-  const playbackRefreshAttempted = useRef(false)
   const promotionFormRef = useRef<FormInstanceFunctions | null>(null)
   const query = useQuery({
     queryKey: ['user', 'dramas', page, pageSize, filters],
@@ -120,23 +131,7 @@ export default function DramaPage({ title: _title }: { title: string }) {
     hls.attachMedia(video)
     hls.on(Hls.Events.ERROR, (_event, data) => {
       if (!data.fatal) return
-      if (playbackRefreshAttempted.current || !viewDrama) {
-        setPlaybackError('视频加载失败，请稍后重试')
-        return
-      }
-      playbackRefreshAttempted.current = true
-      void getPublishedDramaFreeContent(viewDrama.id, true)
-        .then((resources) => {
-          const refreshed = resources.find(
-            (resource) => resource.id === playingEpisode.id,
-          )
-          if (!refreshed?.playUrl || refreshed.playUrl === source) {
-            setPlaybackError('视频加载失败，请稍后重试')
-            return
-          }
-          setPlayingEpisode(refreshed)
-        })
-        .catch(() => setPlaybackError('视频加载失败，请稍后重试'))
+      setPlaybackError('视频加载失败，请稍后重试')
     })
     return () => {
       hls.destroy()
@@ -151,7 +146,6 @@ export default function DramaPage({ title: _title }: { title: string }) {
       if (event.key !== 'Escape') return
       setPlayingEpisode(null)
       setPlaybackError(null)
-      playbackRefreshAttempted.current = false
     }
     window.addEventListener('keydown', handleKeyDown)
     return () => window.removeEventListener('keydown', handleKeyDown)
@@ -167,15 +161,15 @@ export default function DramaPage({ title: _title }: { title: string }) {
   const downloadEpisodes = async (episodes: DramaContentResource[]) => {
     if (!viewDrama) return
     const availableEpisodes = episodes
-      .filter((episode) => episode.free && episode.downloadUrl)
+      .filter((episode) => episode.free && episode.playUrl)
       .sort((left, right) => left.sequenceNo - right.sequenceNo)
 
     let startedCount = 0
     for (const episode of availableEpisodes) {
       try {
         await triggerNativeDownload(
-          episode.downloadUrl!,
-          episodeFilename(viewDrama, episode.sequenceNo),
+          episode.playUrl!,
+          episodeFilename(viewDrama, episode.sequenceNo, episode.playUrl!),
         )
         startedCount += 1
       } catch {
@@ -322,7 +316,6 @@ export default function DramaPage({ title: _title }: { title: string }) {
                 setViewDrama(row)
                 setPlayingEpisode(null)
                 setPlaybackError(null)
-                playbackRefreshAttempted.current = false
               }}
             >
               创建推广任务
@@ -376,7 +369,6 @@ export default function DramaPage({ title: _title }: { title: string }) {
           setViewDrama(null)
           setPlayingEpisode(null)
           setPlaybackError(null)
-          playbackRefreshAttempted.current = false
         }}
       >
         <div className={Style.viewer}>
@@ -400,7 +392,7 @@ export default function DramaPage({ title: _title }: { title: string }) {
               theme="primary"
               disabled={
                 (freeContentQuery.data ?? []).filter(
-                  (episode) => episode.free && episode.downloadUrl,
+                  (episode) => episode.free && episode.playUrl,
                 ).length === 0
               }
               onClick={() => void downloadEpisodes(freeContentQuery.data ?? [])}
@@ -444,7 +436,6 @@ export default function DramaPage({ title: _title }: { title: string }) {
                       variant="text"
                       disabled={!episode.playUrl}
                       onClick={() => {
-                        playbackRefreshAttempted.current = false
                         setPlayingEpisode(episode)
                       }}
                     >
@@ -453,7 +444,7 @@ export default function DramaPage({ title: _title }: { title: string }) {
                     <Button
                       theme="primary"
                       variant="text"
-                      disabled={!episode.downloadUrl}
+                      disabled={!episode.playUrl}
                       onClick={() => void downloadEpisodes([episode])}
                     >
                       下载
@@ -479,7 +470,6 @@ export default function DramaPage({ title: _title }: { title: string }) {
         onClose={() => {
           setPlayingEpisode(null)
           setPlaybackError(null)
-          playbackRefreshAttempted.current = false
         }}
       >
         <div className={Style.videoLayout}>
@@ -498,7 +488,6 @@ export default function DramaPage({ title: _title }: { title: string }) {
                     episode.id === playingEpisode?.id ? 'base' : 'outline'
                   }
                   onClick={() => {
-                    playbackRefreshAttempted.current = false
                     setPlaybackError(null)
                     setPlayingEpisode(episode)
                   }}

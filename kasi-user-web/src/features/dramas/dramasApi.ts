@@ -39,13 +39,9 @@ export async function getPublishedDramaDetail(id: number) {
   return unwrap(response)
 }
 
-export async function getPublishedDramaFreeContent(
-  id: number,
-  refresh = false,
-) {
+export async function getPublishedDramaFreeContent(id: number) {
   const response = await httpClient.get<ApiResponse<DramaContentResource[]>>(
     `/api/user/promotion/dramas/${id}/free-content`,
-    refresh ? { params: { refresh: true } } : undefined,
   )
   return unwrap(response)
 }
