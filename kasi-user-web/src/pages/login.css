@@ -61,7 +61,7 @@
 .starter-login-container {
   position: absolute;
   top: 22%;
-  left: 5%;
+  right: 5%;
   min-height: 500px;
   line-height: 22px;
 }
@@ -146,6 +146,7 @@
 .starter-login-switches {
   display: flex;
   flex-wrap: wrap;
+  justify-content: flex-end;
   gap: 0 14px;
   margin-top: 24px;
 }
@@ -180,9 +181,12 @@
 .starter-login-copyright {
   position: absolute;
   bottom: 64px;
-  left: 5%;
+  left: 50%;
+  transform: translateX(-50%);
   color: var(--td-text-color-secondary);
   font-size: 14px;
+  text-align: center;
+  white-space: nowrap;
 }
 
 @media screen and (max-height: 762px) {
@@ -208,7 +212,7 @@
   .starter-login-container {
     position: relative;
     top: auto;
-    left: auto;
+    right: auto;
     min-height: 0;
     padding: 72px 24px 120px;
   }
@@ -226,6 +230,8 @@
     right: 24px;
     bottom: 24px;
     left: 24px;
+    transform: none;
+    white-space: normal;
   }
 }
 

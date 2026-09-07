@@ -282,7 +282,6 @@ function LoginForm({ onForgotPassword }: { onForgotPassword: () => void }) {
             使用账号密码登录
           </button>
         ) : null}
-        <span className="starter-login-unavailable">微信登录暂未开放</span>
         {loginType !== 'phone' ? (
           <button
             type="button"
@@ -292,6 +291,7 @@ function LoginForm({ onForgotPassword }: { onForgotPassword: () => void }) {
             使用验证码登录
           </button>
         ) : null}
+        <span className="starter-login-unavailable">微信登录暂未开放</span>
       </div>
     </Form>
   )
