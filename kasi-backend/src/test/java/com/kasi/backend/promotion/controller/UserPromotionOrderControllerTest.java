@@ -31,7 +31,7 @@ class UserPromotionOrderControllerTest extends BaseAuthTest {
     void userCanReadOwnMonthlyCommission() throws Exception {
         when(userService.getPage(anyLong(), any())).thenReturn(UserPromotionOrderPageVO.builder()
                 .list(List.of(UserPromotionOrderVO.builder().externalOrderId("own-order")
-                        .currency("USD").build()))
+                        .currency("USD").trackingNo("tracking-own-order").build()))
                 .page(1).size(20).total(1).build());
         when(userService.getMonthly(anyLong(), any())).thenReturn(PromotionMonthlyCommissionVO.builder()
                 .month("2025-07").paidOrderCount(2)
@@ -44,6 +44,7 @@ class UserPromotionOrderControllerTest extends BaseAuthTest {
                         .header("Authorization", "Bearer " + token))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.list[0].externalOrderId").value("own-order"))
+                .andExpect(jsonPath("$.data.list[0].trackingNo").value("tracking-own-order"))
                 .andExpect(jsonPath("$.data.list[0].id").doesNotExist())
                 .andExpect(jsonPath("$.data.list[0].orderAmount").doesNotExist())
                 .andExpect(jsonPath("$.data.list[0].commissionStatus").doesNotExist())

@@ -89,6 +89,20 @@ describe('PromotionOrderPage', () => {
                 commissionStatus: 'CALCULATED',
                 lastSyncedAt: '2026-08-24T12:00:00',
               },
+              {
+                id: 8,
+                providerId: 1,
+                externalOrderId: 'order-8',
+                orderAmount: 19.98,
+                currency: 'USD',
+                status: 'REFUNDED',
+                paidAt: '2025-07-01T11:00:00',
+                trackingNo: 'tracking-8',
+                attributionStatus: 'ATTRIBUTED',
+                commissionAmount: 0,
+                commissionStatus: 'REVERSED',
+                lastSyncedAt: '2026-08-24T12:00:00',
+              },
             ],
             page: 1,
             size: 20,
@@ -123,8 +137,10 @@ describe('PromotionOrderPage', () => {
     ).toBeInTheDocument()
     expect(await screen.findByText('order-7')).toBeInTheDocument()
     expect(screen.getByText('tracking-7')).toBeInTheDocument()
-    expect(screen.getByText('$19.98')).toBeInTheDocument()
+    expect(screen.getAllByText('$19.98').length).toBeGreaterThanOrEqual(1)
     expect(screen.getByText('$9.59')).toBeInTheDocument()
+    expect(screen.getByText('tracking-8')).toBeInTheDocument()
+    expect(screen.getByText('$0.00')).toBeInTheDocument()
 
     await user.type(
       screen.getByLabelText('支付开始时间'),

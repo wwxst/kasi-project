@@ -19,6 +19,7 @@ import com.kasi.backend.provider.spi.ProviderRuntimeConnection;
 import com.kasi.backend.user.entity.PromotionUser;
 import com.kasi.backend.user.mapper.PromotionUserMapper;
 import lombok.RequiredArgsConstructor;
+import org.springframework.dao.DuplicateKeyException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
@@ -111,8 +112,29 @@ public class PromotionLinkPersistenceServiceImpl implements PromotionLinkPersist
     @Transactional(propagation = Propagation.REQUIRES_NEW)
     public PromotionLink markSuccess(Long linkId, String externalCode, String shareUrl,
                                      Long userId, String requestKey, String mediaType, String linkVariant) {
-        if (linkMapper.markSuccess(linkId, externalCode, shareUrl) != 1) {
-            throw new IllegalStateException("推广链接成功状态更新未生效");
+        PromotionLink pending = linkMapper.findByUserAndRequestKey(userId, requestKey, mediaType, linkVariant);
+        PromotionLink existing = linkMapper.findSuccessfulByIdentity(
+                pending.getConnectionId(), pending.getDramaId(), pending.getUserId(), externalCode);
+        if (existing != null && !existing.getId().equals(linkId)) {
+            if (linkMapper.deleteById(linkId) != 1) {
+                throw new IllegalStateException("重复推广链接清理未生效");
+            }
+            return existing;
+        }
+        try {
+            if (linkMapper.markSuccess(linkId, externalCode, shareUrl) != 1) {
+                throw new IllegalStateException("推广链接成功状态更新未生效");
+            }
+        } catch (DuplicateKeyException exception) {
+            PromotionLink concurrent = linkMapper.findSuccessfulByIdentity(
+                    pending.getConnectionId(), pending.getDramaId(), pending.getUserId(), externalCode);
+            if (concurrent == null) {
+                throw exception;
+            }
+            if (linkMapper.deleteById(linkId) != 1) {
+                throw new IllegalStateException("重复推广链接清理未生效");
+            }
+            return concurrent;
         }
         return linkMapper.findByUserAndRequestKey(userId, requestKey, mediaType, linkVariant);
     }

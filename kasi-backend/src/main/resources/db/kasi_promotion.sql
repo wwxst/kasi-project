@@ -402,6 +402,7 @@ CREATE TABLE `promotion_link` (
     PRIMARY KEY (`id`),
     UNIQUE KEY `uk_promotion_link_tracking_no` (`tracking_no`),
     UNIQUE KEY `uk_promotion_link_variant` (`user_id`, `request_key`, `media_type`, `link_variant`),
+    UNIQUE KEY `uk_promotion_link_external_identity` (`connection_id`, `drama_id`, `user_id`, `external_code`),
     KEY `idx_promotion_link_user_created` (`user_id`, `created_at`),
     KEY `idx_promotion_link_batch` (`user_id`, `batch_no`)) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='推广用户生成的推广链接';
 

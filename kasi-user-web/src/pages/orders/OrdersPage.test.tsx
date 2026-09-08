@@ -46,10 +46,10 @@ describe('OrdersPage', () => {
         {
           externalOrderId: 'GS-202608-002',
           currency: 'USD',
-          status: 'UNPAID',
-          paidAt: null,
+          status: 'REFUNDED',
+          paidAt: '2026-08-29T12:00:00',
           trackingNo: 'tracking-002',
-          commissionAmount: null,
+          commissionAmount: 0,
         },
       ],
       page: 1,
@@ -62,11 +62,12 @@ describe('OrdersPage', () => {
     expect(await screen.findByText('GS-202608-001')).toBeTruthy()
     expect(fetchPromotionOrders).toHaveBeenCalledWith(month, 1, 20)
     expect(screen.getByText('已支付')).toBeTruthy()
-    expect(screen.getByText('未支付')).toBeTruthy()
+    expect(screen.getByText('已退款')).toBeTruthy()
     expect(screen.queryByText('已计算')).toBeNull()
     expect(screen.queryByText('佣金状态')).toBeNull()
     expect(screen.queryByText('$19.98')).toBeNull()
     expect(screen.getByText('$4.79')).toBeTruthy()
+    expect(screen.getByText('$0.00')).toBeTruthy()
     expect(screen.getByText('我的收益')).toBeTruthy()
     expect(screen.getByText('2026-08-30 12:34:56')).toBeTruthy()
     expect(screen.getByText('tracking-001')).toBeTruthy()

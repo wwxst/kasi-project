@@ -3,6 +3,7 @@ package com.kasi.backend.promotion.service.impl;
 import com.kasi.backend.promotion.dto.PromotionOrderMonthQueryDTO;
 import com.kasi.backend.promotion.entity.PromotionOrder;
 import com.kasi.backend.promotion.enums.PromotionAttributionStatus;
+import com.kasi.backend.promotion.enums.PromotionOrderStatus;
 import com.kasi.backend.promotion.mapper.PromotionOrderMapper;
 import com.kasi.backend.promotion.service.PromotionOrderUserService;
 import com.kasi.backend.promotion.vo.PromotionMonthlyCommissionVO;
@@ -46,13 +47,19 @@ public class PromotionOrderUserServiceImpl implements PromotionOrderUserService 
         return PromotionMonthlyCommissionVO.builder().month(query.getMonth())
                 .paidOrderCount(summary.getPaidOrderCount() == null ? 0 : summary.getPaidOrderCount())
                 .calculatedCommission(calculated)
-                .reversedCommission(reversed).netCommission(calculated.subtract(reversed)).build();
+                .reversedCommission(reversed).netCommission(calculated).build();
     }
 
     private static UserPromotionOrderVO toUserVO(PromotionOrder order) {
         return UserPromotionOrderVO.builder().externalOrderId(order.getExternalOrderId())
                 .currency(order.getCurrency()).status(order.getStatus()).paidAt(order.getPaidAt())
-                .commissionAmount(order.getCommissionAmount()).build();
+                .trackingNo(order.getTrackingNo())
+                .commissionAmount(effectiveCommission(order)).build();
+    }
+
+    private static BigDecimal effectiveCommission(PromotionOrder order) {
+        return order.getStatus() == PromotionOrderStatus.REFUNDED
+                ? BigDecimal.ZERO.setScale(2) : order.getCommissionAmount();
     }
 
     private BigDecimal zero(BigDecimal value) {

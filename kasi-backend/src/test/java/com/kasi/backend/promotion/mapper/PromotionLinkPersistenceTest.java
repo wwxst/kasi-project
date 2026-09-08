@@ -10,6 +10,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import java.time.LocalDate;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 class PromotionLinkPersistenceTest extends BaseAuthTest {
     @Autowired
@@ -112,6 +113,66 @@ class PromotionLinkPersistenceTest extends BaseAuthTest {
         assertThat(stored.getNewMemberUserCount()).isEqualTo(55);
         assertThat(stored.getPaidUserCount()).isEqualTo(66);
         assertThat(stored.getOrderCount()).isEqualTo(77);
+    }
+
+    @Test
+    @DisplayName("订单归因同时核对连接PID短剧用户编号和外部口令")
+    void orderAttributionMatchesAllProviderDimensions() {
+        Long userId = jdbcTemplate.queryForObject(
+                "SELECT id FROM promotion_user WHERE user_no=?", Long.class, PRIMARY_USER_NO);
+        Long providerId = jdbcTemplate.queryForObject(
+                "SELECT id FROM short_drama_provider WHERE provider_code='GOODSHORT'", Long.class);
+        jdbcTemplate.update("INSERT INTO short_drama_connection "
+                        + "(provider_id,connection_name,partner_id,currency) VALUES (?,?,?,?)",
+                providerId, "GoodShort", "partner-1", "USD");
+        Long connectionId = jdbcTemplate.queryForObject(
+                "SELECT id FROM short_drama_connection WHERE provider_id=?", Long.class, providerId);
+        jdbcTemplate.update("INSERT INTO provider_drama "
+                        + "(connection_id,external_drama_id,title,language) VALUES (?,?,?,?)",
+                connectionId, "book-1", "Drama", "ENGLISH");
+        Long dramaId = jdbcTemplate.queryForObject(
+                "SELECT id FROM provider_drama WHERE external_drama_id='book-1'", Long.class);
+        insertLink(userId, providerId, connectionId, dramaId, "request-order", "SUCCESS",
+                "CODE-1", "https://example.test/link");
+
+        PromotionLink matched = linkMapper.findForOrderAttribution(
+                connectionId, "partner-1", "book-1", PRIMARY_USER_NO, "CODE-1");
+
+        assertThat(matched).isNotNull();
+        assertThat(matched.getTrackingNo()).isEqualTo("tracking-request-order");
+        assertThat(linkMapper.findForOrderAttribution(
+                connectionId, "other-partner", "book-1", PRIMARY_USER_NO, "CODE-1")).isNull();
+        assertThat(linkMapper.findForOrderAttribution(
+                connectionId, "partner-1", "other-book", PRIMARY_USER_NO, "CODE-1")).isNull();
+        assertThat(linkMapper.findForOrderAttribution(
+                connectionId, "partner-1", "book-1", MOBILE_USER_NO, "CODE-1")).isNull();
+        assertThat(linkMapper.findForOrderAttribution(
+                connectionId, "partner-1", "book-1", PRIMARY_USER_NO, "OTHER-CODE")).isNull();
+    }
+
+    @Test
+    @DisplayName("同一连接短剧用户和外部口令只能保存一条推广链接")
+    void duplicateExternalCodeIdentityIsRejected() {
+        Long userId = jdbcTemplate.queryForObject(
+                "SELECT id FROM promotion_user WHERE user_no=?", Long.class, PRIMARY_USER_NO);
+        Long providerId = jdbcTemplate.queryForObject(
+                "SELECT id FROM short_drama_provider WHERE provider_code='GOODSHORT'", Long.class);
+        jdbcTemplate.update("INSERT INTO short_drama_connection "
+                        + "(provider_id,connection_name,partner_id,currency) VALUES (?,?,?,?)",
+                providerId, "GoodShort", "partner-1", "USD");
+        Long connectionId = jdbcTemplate.queryForObject(
+                "SELECT id FROM short_drama_connection WHERE provider_id=?", Long.class, providerId);
+        jdbcTemplate.update("INSERT INTO provider_drama "
+                        + "(connection_id,external_drama_id,title,language) VALUES (?,?,?,?)",
+                connectionId, "book-1", "Drama", "ENGLISH");
+        Long dramaId = jdbcTemplate.queryForObject(
+                "SELECT id FROM provider_drama WHERE external_drama_id='book-1'", Long.class);
+        insertLink(userId, providerId, connectionId, dramaId, "request-1", "SUCCESS",
+                "CODE-1", "https://example.test/link");
+
+        assertThatThrownBy(() -> insertLink(userId, providerId, connectionId, dramaId, "request-2", "SUCCESS",
+                "CODE-1", "https://example.test/link"))
+                .isInstanceOf(org.springframework.dao.DataIntegrityViolationException.class);
     }
 
     private void insertReport(LocalDate date, String pid, String customParams, String bookId, String code,

@@ -245,6 +245,7 @@ CREATE TABLE IF NOT EXISTS promotion_link (
     updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     UNIQUE (tracking_no),
     UNIQUE (user_id, request_key, media_type, link_variant),
+    UNIQUE (connection_id, drama_id, user_id, external_code),
     INDEX idx_promotion_link_user_created (user_id, created_at),
     INDEX idx_promotion_link_batch (user_id, batch_no));
 

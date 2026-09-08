@@ -30,10 +30,14 @@ class PromotionOrderPersistenceTest extends BaseAuthTest {
         order.setDownstreamCommissionRate(new BigDecimal("0.7000000000"));
         order.setCommissionAmount(new BigDecimal("4.79"));
         order.setCommissionStatus(PromotionCommissionStatus.CALCULATED);
+        order.setTrackingNo("tracking-1");
+        order.setPromotionLinkId(41L);
 
         assertThat(orderMapper.insert(order)).isEqualTo(1);
         PromotionOrder stored = orderMapper.findBySource(order.getConnectionId(), "external-order-1");
         assertThat(stored.getCommissionAmount()).isEqualByComparingTo("4.79");
+        assertThat(stored.getTrackingNo()).isEqualTo("tracking-1");
+        assertThat(stored.getPromotionLinkId()).isEqualTo(41L);
 
         stored.setStatus(PromotionOrderStatus.REFUNDED);
         stored.setRawStatus("3");

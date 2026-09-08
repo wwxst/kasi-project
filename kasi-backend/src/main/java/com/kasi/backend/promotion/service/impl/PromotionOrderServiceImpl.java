@@ -7,13 +7,13 @@ import com.kasi.backend.promotion.entity.PromotionOrder;
 import com.kasi.backend.promotion.enums.PromotionAttributionStatus;
 import com.kasi.backend.promotion.enums.PromotionCommissionStatus;
 import com.kasi.backend.promotion.enums.PromotionOrderStatus;
+import com.kasi.backend.promotion.mapper.PromotionLinkMapper;
 import com.kasi.backend.promotion.mapper.PromotionOrderMapper;
 import com.kasi.backend.promotion.service.PromotionOrderService;
 import com.kasi.backend.promotion.service.PromotionOrderUpsertResult;
 import com.kasi.backend.provider.spi.ProviderOrderRecord;
 import com.kasi.backend.provider.spi.ProviderOrderStatus;
 import com.kasi.backend.provider.spi.ProviderRuntimeConnection;
-import com.kasi.backend.user.mapper.PromotionUserMapper;
 import lombok.RequiredArgsConstructor;
 import org.springframework.dao.DuplicateKeyException;
 import org.springframework.stereotype.Service;
@@ -27,7 +27,7 @@ import java.time.LocalDateTime;
 @RequiredArgsConstructor
 public class PromotionOrderServiceImpl implements PromotionOrderService {
     private final PromotionOrderMapper orderMapper;
-    private final PromotionUserMapper userMapper;
+    private final PromotionLinkMapper linkMapper;
     private final ProviderCommissionRuleHistoryMapper historyMapper;
     private final ProviderCommissionCalculator commissionCalculator;
     private final Clock clock;
@@ -107,16 +107,21 @@ public class PromotionOrderServiceImpl implements PromotionOrderService {
     }
 
     private void applyAttributionAndCommission(PromotionOrder order) {
-        var user = order.getCustomParams() == null ? null : userMapper.findByUserNo(order.getCustomParams());
-        if (user == null) {
+        var link = linkMapper.findForOrderAttribution(order.getConnectionId(), order.getPartnerId(),
+                order.getExternalDramaId(), order.getCustomParams(), order.getSearchCode());
+        if (link == null) {
             order.setAttributionStatus(PromotionAttributionStatus.UNATTRIBUTED);
             order.setCommissionStatus(PromotionCommissionStatus.NOT_APPLICABLE);
             return;
         }
 
-        order.setUserId(user.getId());
+        order.setTrackingNo(link.getTrackingNo());
+        order.setPromotionLinkId(link.getId());
+        order.setUserId(link.getUserId());
+        order.setDramaId(link.getDramaId());
         order.setAttributionStatus(PromotionAttributionStatus.ATTRIBUTED);
-        if (order.getStatus() != PromotionOrderStatus.PAID) {
+        if (order.getStatus() != PromotionOrderStatus.PAID
+                && order.getStatus() != PromotionOrderStatus.REFUNDED) {
             order.setCommissionStatus(PromotionCommissionStatus.NOT_APPLICABLE);
             return;
         }
@@ -137,7 +142,9 @@ public class PromotionOrderServiceImpl implements PromotionOrderService {
                 history.getChannelFeeRate(), history.getPrincipalFeeRate(),
                 history.getPrincipalCommissionRate(), history.getDownstreamFeeRate(),
                 history.getDownstreamCommissionRate()));
-        order.setCommissionStatus(PromotionCommissionStatus.CALCULATED);
+        order.setCommissionStatus(order.getStatus() == PromotionOrderStatus.REFUNDED
+                ? PromotionCommissionStatus.REVERSED
+                : PromotionCommissionStatus.CALCULATED);
         order.setLastErrorMessage(null);
     }
 

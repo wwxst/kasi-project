@@ -3,6 +3,7 @@ package com.kasi.backend.promotion.service.impl;
 import com.kasi.backend.promotion.dto.PromotionOrderPageQueryDTO;
 import com.kasi.backend.promotion.dto.PromotionOrderSyncDTO;
 import com.kasi.backend.promotion.entity.PromotionOrder;
+import com.kasi.backend.promotion.enums.PromotionOrderStatus;
 import com.kasi.backend.promotion.mapper.PromotionOrderMapper;
 import com.kasi.backend.promotion.service.PromotionOrderAdminService;
 import com.kasi.backend.promotion.service.PromotionOrderSyncService;
@@ -13,6 +14,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.math.BigDecimal;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
@@ -61,13 +63,15 @@ public class PromotionOrderAdminServiceImpl implements PromotionOrderAdminServic
                 .searchCode(order.getSearchCode()).channelCode(order.getChannelCode())
                 .orderAmount(order.getOrderAmount()).currency(order.getCurrency()).status(order.getStatus())
                 .paidAt(order.getPaidAt()).customParams(order.getCustomParams())
+                .trackingNo(order.getTrackingNo()).promotionLinkId(order.getPromotionLinkId())
                 .userId(order.getUserId()).dramaId(order.getDramaId())
                 .attributionStatus(order.getAttributionStatus()).channelFeeRate(order.getChannelFeeRate())
                 .principalFeeRate(order.getPrincipalFeeRate())
                 .principalCommissionRate(order.getPrincipalCommissionRate())
                 .downstreamFeeRate(order.getDownstreamFeeRate())
                 .downstreamCommissionRate(order.getDownstreamCommissionRate())
-                .commissionAmount(order.getCommissionAmount()).commissionStatus(order.getCommissionStatus())
+                .commissionAmount(effectiveCommission(order))
+                .commissionStatus(order.getCommissionStatus())
                 .lastSyncedAt(order.getLastSyncedAt()).build();
     }
 
@@ -78,10 +82,15 @@ public class PromotionOrderAdminServiceImpl implements PromotionOrderAdminServic
             rows.add(String.join(",", escape(order.getExternalOrderId()), value(order.getProviderId()),
                     value(order.getOrderAmount()), escape(order.getCurrency()), value(order.getStatus()),
                     value(order.getPaidAt()), value(order.getUserId()),
-                    value(order.getAttributionStatus()), value(order.getCommissionAmount()),
+                    value(order.getAttributionStatus()), value(effectiveCommission(order)),
                     value(order.getCommissionStatus())));
         }
         return "\uFEFF" + String.join("\r\n", rows) + "\r\n";
+    }
+
+    private static BigDecimal effectiveCommission(PromotionOrder order) {
+        return order.getStatus() == PromotionOrderStatus.REFUNDED
+                ? BigDecimal.ZERO.setScale(2) : order.getCommissionAmount();
     }
 
     private static String value(Object value) {

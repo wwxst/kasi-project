@@ -3,17 +3,17 @@ package com.kasi.backend.promotion.service;
 import com.kasi.backend.drama.calculator.ProviderCommissionCalculator;
 import com.kasi.backend.drama.entity.ProviderCommissionRuleHistory;
 import com.kasi.backend.drama.mapper.ProviderCommissionRuleHistoryMapper;
+import com.kasi.backend.promotion.entity.PromotionLink;
 import com.kasi.backend.promotion.entity.PromotionOrder;
 import com.kasi.backend.promotion.enums.PromotionAttributionStatus;
 import com.kasi.backend.promotion.enums.PromotionCommissionStatus;
 import com.kasi.backend.promotion.enums.PromotionOrderStatus;
+import com.kasi.backend.promotion.mapper.PromotionLinkMapper;
 import com.kasi.backend.promotion.mapper.PromotionOrderMapper;
 import com.kasi.backend.promotion.service.impl.PromotionOrderServiceImpl;
 import com.kasi.backend.provider.spi.ProviderOrderRecord;
 import com.kasi.backend.provider.spi.ProviderOrderStatus;
 import com.kasi.backend.provider.spi.ProviderRuntimeConnection;
-import com.kasi.backend.user.entity.PromotionUser;
-import com.kasi.backend.user.mapper.PromotionUserMapper;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -32,7 +32,7 @@ import static org.mockito.Mockito.*;
 
 class PromotionOrderServiceTest {
     private PromotionOrderMapper orderMapper;
-    private PromotionUserMapper userMapper;
+    private PromotionLinkMapper linkMapper;
     private ProviderCommissionRuleHistoryMapper historyMapper;
     private PromotionOrderService service;
     private ProviderRuntimeConnection runtime;
@@ -40,9 +40,9 @@ class PromotionOrderServiceTest {
     @BeforeEach
     void setUp() {
         orderMapper = mock(PromotionOrderMapper.class);
-        userMapper = mock(PromotionUserMapper.class);
+        linkMapper = mock(PromotionLinkMapper.class);
         historyMapper = mock(ProviderCommissionRuleHistoryMapper.class);
-        service = new PromotionOrderServiceImpl(orderMapper, userMapper, historyMapper,
+        service = new PromotionOrderServiceImpl(orderMapper, linkMapper, historyMapper,
                 new ProviderCommissionCalculator(),
                 Clock.fixed(Instant.parse("2025-07-02T08:00:00Z"), ZoneOffset.UTC));
         runtime = new ProviderRuntimeConnection(3L, 7L, "GOODSHORT", "GoodShort", null, null);
@@ -59,9 +59,8 @@ class PromotionOrderServiceTest {
     @Test
     @DisplayName("首次已支付订单通过用户编号归因并保存费率和佣金快照")
     void paidOrderIsAttributedAndSnapshotted() {
-        PromotionUser user = new PromotionUser();
-        user.setId(11L);
-        when(userMapper.findByUserNo("583729104628")).thenReturn(user);
+        when(linkMapper.findForOrderAttribution(3L, "partner-1", "book-1",
+                "583729104628", "21302")).thenReturn(link());
         when(historyMapper.findLatestByProviderId(7L)).thenReturn(history());
         doAnswer(invocation -> {
             PromotionOrder order = invocation.getArgument(0);
@@ -80,6 +79,8 @@ class PromotionOrderServiceTest {
         assertThat(result.attributed()).isTrue();
         assertThat(order.getUserId()).isEqualTo(11L);
         assertThat(order.getAttributionStatus()).isEqualTo(PromotionAttributionStatus.ATTRIBUTED);
+        assertThat(order).extracting("promotionLinkId", "trackingNo", "dramaId")
+                .containsExactly(41L, "tracking-41", 23L);
         assertThat(order.getRuleHistoryId()).isEqualTo(31L);
         assertThat(order.getCommissionAmount()).isEqualByComparingTo("4.79");
         assertThat(order.getCommissionStatus()).isEqualTo(PromotionCommissionStatus.CALCULATED);
@@ -103,7 +104,7 @@ class PromotionOrderServiceTest {
 
         assertThat(result.inserted()).isFalse();
         verify(orderMapper).updateSourceFields(existing);
-        verifyNoInteractions(userMapper, historyMapper);
+        verifyNoInteractions(linkMapper, historyMapper);
         verify(orderMapper, never()).applyAttributionAndCommission(any());
     }
 
@@ -127,10 +128,26 @@ class PromotionOrderServiceTest {
     }
 
     @Test
+    @DisplayName("首次同步已退款订单仍保留佣金快照并标记为冲销")
+    void firstSyncedRefundedOrderIsSnapshottedAndReversed() {
+        when(linkMapper.findForOrderAttribution(3L, "partner-1", "book-1",
+                "583729104628", "21302")).thenReturn(link());
+        when(historyMapper.findLatestByProviderId(7L)).thenReturn(history());
+
+        service.upsert(runtime, record(ProviderOrderStatus.REFUNDED),
+                LocalDateTime.of(2025, 7, 1, 0, 0),
+                LocalDateTime.of(2025, 7, 1, 23, 59, 59));
+
+        ArgumentCaptor<PromotionOrder> captor = ArgumentCaptor.forClass(PromotionOrder.class);
+        verify(orderMapper).insert(captor.capture());
+        PromotionOrder order = captor.getValue();
+        assertThat(order.getCommissionAmount()).isEqualByComparingTo("4.79");
+        assertThat(order.getCommissionStatus()).isEqualTo(PromotionCommissionStatus.REVERSED);
+    }
+
+    @Test
     @DisplayName("无法匹配用户编号的订单保存为未归因且不猜测用户")
     void unknownUserNoRemainsUnattributed() {
-        when(userMapper.findByUserNo("583729104628")).thenReturn(null);
-
         PromotionOrderUpsertResult result = service.upsert(runtime, record(ProviderOrderStatus.PAID),
                 LocalDateTime.of(2025, 7, 1, 0, 0),
                 LocalDateTime.of(2025, 7, 1, 23, 59, 59));
@@ -143,6 +160,21 @@ class PromotionOrderServiceTest {
         assertThat(captor.getValue().getCommissionStatus())
                 .isEqualTo(PromotionCommissionStatus.NOT_APPLICABLE);
         assertThat(captor.getValue().getUserId()).isNull();
+        verifyNoInteractions(historyMapper);
+    }
+
+    @Test
+    @DisplayName("订单口令与推广链接不匹配时即使用户编号存在也保持未归因")
+    void unmatchedSearchCodeRemainsUnattributed() {
+        PromotionOrderUpsertResult result = service.upsert(runtime, record(ProviderOrderStatus.PAID),
+                LocalDateTime.of(2025, 7, 1, 0, 0),
+                LocalDateTime.of(2025, 7, 1, 23, 59, 59));
+
+        ArgumentCaptor<PromotionOrder> captor = ArgumentCaptor.forClass(PromotionOrder.class);
+        verify(orderMapper).insert(captor.capture());
+        assertThat(result.attributed()).isFalse();
+        assertThat(captor.getValue().getAttributionStatus())
+                .isEqualTo(PromotionAttributionStatus.UNATTRIBUTED);
         verifyNoInteractions(historyMapper);
     }
 
@@ -175,6 +207,15 @@ class PromotionOrderServiceTest {
         history.setDownstreamFeeRate(new BigDecimal("0.0300000000"));
         history.setDownstreamCommissionRate(new BigDecimal("0.7000000000"));
         return history;
+    }
+
+    private PromotionLink link() {
+        PromotionLink link = new PromotionLink();
+        link.setId(41L);
+        link.setUserId(11L);
+        link.setDramaId(23L);
+        link.setTrackingNo("tracking-41");
+        return link;
     }
 
     private ProviderOrderRecord record(ProviderOrderStatus status) {

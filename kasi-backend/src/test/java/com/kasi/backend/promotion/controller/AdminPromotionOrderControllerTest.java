@@ -5,6 +5,7 @@ import com.kasi.backend.promotion.service.PromotionOrderAdminService;
 import com.kasi.backend.promotion.service.PromotionOrderUserService;
 import com.kasi.backend.promotion.vo.PromotionOrderPageVO;
 import com.kasi.backend.promotion.vo.PromotionOrderSyncResultVO;
+import com.kasi.backend.promotion.vo.PromotionOrderVO;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.MediaType;
@@ -67,12 +68,15 @@ class AdminPromotionOrderControllerTest extends BaseAuthTest {
     @DisplayName("管理员订单接口拒绝推广用户并提供CSV下载")
     void orderEndpointsEnforceAdminRole() throws Exception {
         when(adminService.getPage(any())).thenReturn(PromotionOrderPageVO.builder()
-                .list(List.of()).page(1).size(20).total(0).build());
+                .list(List.of(PromotionOrderVO.builder().id(1L)
+                        .trackingNo("tracking-admin-order").build()))
+                .page(1).size(20).total(1).build());
         when(adminService.exportCsv(any())).thenReturn("\uFEFF订单ID\n".getBytes(java.nio.charset.StandardCharsets.UTF_8));
 
         mockMvc.perform(get("/api/admin/promotion/orders")
                         .header("Authorization", "Bearer " + loginAsAdmin("operator", ADMIN_PASSWORD)))
-                .andExpect(status().isOk()).andExpect(jsonPath("$.data.list").isArray());
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.list[0].trackingNo").value("tracking-admin-order"));
         mockMvc.perform(get("/api/admin/promotion/orders")
                         .header("Authorization", "Bearer " + loginAsUser()))
                 .andExpect(status().isForbidden());
