@@ -32,3 +32,9 @@ GoodShort `POST /creek/open/promotion/analyticalReport` 返回 `code`、`bookId`
 ## 验证
 
 后端覆盖转化聚合与用户隔离、requestKey 内容冲突、重复媒体校验、2 秒维度限流和现有 GoodShort HTTP 请求；用户端覆盖完整字段、无状态/失败/操作/充值金额，以及 `complete=false` 不跳转不提示成功。
+
+## 成功记录展示与日报滚动补拉
+
+- 用户推广任务分页和总数只包含 `promotion_link.status = 'SUCCESS'` 的记录；`PENDING` 和 `FAILED` 继续保留在数据库，不提供用户端状态、失败原因或重试入口。
+- `GOODSHORT_ANALYTICAL_REPORT_SYNC` 每日 08:00 使用一次日期范围请求，同步最近 3 个已经结束的自然日，即昨天以及之前两天。
+- 日报继续按现有唯一维度 upsert，同一天的数据覆盖更新；用户任务查询继续对每日数据求和，不增加补偿任务、重试框架或数据库变更。

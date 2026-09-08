@@ -156,6 +156,7 @@ public class ScheduledTaskDispatchServiceImpl implements ScheduledTaskDispatchSe
             return;
         }
         java.time.LocalDate yesterday = LocalDateTime.now(clock).toLocalDate().minusDays(1);
-        analyticalReportSyncService.sync(provider.getId(), yesterday, yesterday, null, null, null);
+        analyticalReportSyncService.sync(provider.getId(), yesterday.minusDays(2), yesterday,
+                null, null, null);
     }
 }

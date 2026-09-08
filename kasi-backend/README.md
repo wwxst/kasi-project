@@ -4,7 +4,7 @@
 
 后端通过 GoodShort `POST /creek/open/promotion/analyticalReport` 拉取每日汇总，数据独立保存于 `promotion_analytical_report`，不写入 `promotion_order`。同步请求固定 `pageSize=500`，按 `reportDate` 使用 `yyyy-MM-dd`，单次日期范围最多 30 个自然日。用户推广任务查询以 `code -> promotion_link.external_code` 为主，并同时核对 PID、bookId 和 `customParams -> promotion_user.user_no`，按链接累计自然日指标；`orderAmount` 只在后端保存和管理端使用，不通过用户推广任务接口返回。
 
-管理接口：`POST /api/admin/promotion/analytical-reports/sync` 手动补拉（日期范围及可选 `code`、`bookId`、`customParams`），`GET /api/admin/promotion/analytical-reports` 分页查询（日期范围、达人 `customParams/user_no`、短剧 `bookId`、口令 `code`）。系统任务 `GOODSHORT_ANALYTICAL_REPORT_SYNC` 使用 `Asia/Shanghai` 每日 08:00 同步前一天。
+管理接口：`POST /api/admin/promotion/analytical-reports/sync` 手动补拉（日期范围及可选 `code`、`bookId`、`customParams`），`GET /api/admin/promotion/analytical-reports` 分页查询（日期范围、达人 `customParams/user_no`、短剧 `bookId`、口令 `code`）。系统任务 `GOODSHORT_ANALYTICAL_REPORT_SYNC` 使用 `Asia/Shanghai` 每日 08:00 滚动同步最近 3 个已经结束的自然日。
 
 生产库通过 Flyway 独立执行 `src/main/resources/db/migration/V2__promotion_analytical_report.sql`；已部署 Docker 数据库不要重新执行 `kasi_promotion.sql` 或删库重建。
 
@@ -258,7 +258,7 @@ mysql --host=127.0.0.1 --user=$env:SPRING_DATASOURCE_USERNAME --password --datab
 
 `promotion_task` 任务壳及 `/api/user/promotion/tasks` 接口已删除，推广入口统一使用 `PromotionLink`。
 
-用户端 `GET /api/user/promotion/links` 按本人链接分页，返回创建时间、推广名称、短剧、媒体平台、口令、推广链接，以及累计点击数、归因用户数、新注册人数、新充值人数、新会员人数、充值用户数和订单数。页面不展示状态、失败原因、操作列或充值金额，也不提供重试、修改和重新提交能力。
+用户端 `GET /api/user/promotion/links` 只按本人生成成功的链接分页，返回创建时间、推广名称、短剧、媒体平台、口令、推广链接，以及累计点击数、归因用户数、新注册人数、新充值人数、新会员人数、充值用户数和订单数。`PENDING` 和 `FAILED` 记录继续在后端保留，不进入用户列表；页面不展示状态、失败原因、操作列或充值金额，也不提供重试、修改和重新提交能力。
 
 `provider_drama` 包含 `commission_scope` 和 `promotion_description` 两个本地维护字段。管理员通过 `PUT /api/admin/drama/catalog/{id}/promotion-metadata` 更新分佣范围（`ORDER`/`AD`）和推广说明；用户端 `GET /api/user/promotion/dramas` 只返回已上架且甲方在线的短剧，并返回简介、分佣范围、推广说明和甲方发布时间，按 `remote_created_at DESC, id DESC` 倒序分页。只有“创建推广”页面展示这些字段；“推广任务”页面不使用这组元数据。目录同步只更新远端字段，不覆盖本地推广元数据。
 

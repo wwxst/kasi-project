@@ -21,7 +21,7 @@ import org.springframework.transaction.TransactionStatus;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.LocalDateTime;
-import java.time.ZoneOffset;
+import java.time.ZoneId;
 import java.util.List;
 
 import static org.mockito.ArgumentMatchers.any;
@@ -29,15 +29,15 @@ import static org.mockito.Mockito.*;
 
 class AnalyticalReportScheduledTaskTest {
     @Test
-    @DisplayName("每日转化日报任务同步Asia/Shanghai昨日")
-    void dispatchesYesterdayReport() {
+    @DisplayName("每日转化日报任务按Asia/Shanghai同步最近三个完整自然日")
+    void dispatchesLastThreeCompletedDates() {
         SystemScheduledTaskMapper taskMapper = mock(SystemScheduledTaskMapper.class);
         ShortDramaProviderMapper providerMapper = mock(ShortDramaProviderMapper.class);
         PromotionAnalyticalReportSyncService reportSync = mock(PromotionAnalyticalReportSyncService.class);
         PlatformTransactionManager tx = mock(PlatformTransactionManager.class);
         when(tx.getTransaction(any())).thenReturn(mock(TransactionStatus.class));
         LocalDateTime now = LocalDateTime.of(2026, 8, 20, 8, 0);
-        Clock clock = Clock.fixed(Instant.parse("2026-08-20T08:00:00Z"), ZoneOffset.UTC);
+        Clock clock = Clock.fixed(Instant.parse("2026-08-20T00:00:00Z"), ZoneId.of("Asia/Shanghai"));
         SystemScheduledTask task = new SystemScheduledTask();
         task.setTaskCode(ScheduledTaskCode.GOODSHORT_ANALYTICAL_REPORT_SYNC);
         task.setCycleType(ScheduledTaskCycleType.DAILY);
@@ -57,6 +57,7 @@ class AnalyticalReportScheduledTaskTest {
 
         service.processDueBatch();
 
-        verify(reportSync).sync(7L, now.toLocalDate().minusDays(1), now.toLocalDate().minusDays(1), null, null, null);
+        verify(reportSync).sync(7L, now.toLocalDate().minusDays(3), now.toLocalDate().minusDays(1),
+                null, null, null);
     }
 }

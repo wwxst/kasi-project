@@ -68,3 +68,18 @@
 - [ ] Replace stale module-four and analytical-report boundaries with the verified current chain.
 - [ ] Run backend `mvnw.cmd verify`, user-web `pnpm check`, and root `git diff --check`.
 - [ ] Inspect the final diff and confirm module-three working changes were preserved and not expanded.
+
+### Task 5: Hide incomplete links and roll analytical sync over three days
+
+**Files:**
+- Modify: `kasi-backend/src/test/java/com/kasi/backend/promotion/mapper/PromotionLinkPersistenceTest.java`
+- Modify: `kasi-backend/src/main/resources/mapper/PromotionLinkMapper.xml`
+- Modify: `kasi-backend/src/test/java/com/kasi/backend/scheduledtask/service/AnalyticalReportScheduledTaskTest.java`
+- Modify: `kasi-backend/src/main/java/com/kasi/backend/scheduledtask/service/impl/ScheduledTaskDispatchServiceImpl.java`
+- Modify: `kasi-backend/README.md`
+
+- [ ] Add and run a failing mapper test proving user pagination and totals exclude `PENDING` and `FAILED` links.
+- [ ] Add `SUCCESS` filters to both user list and total SQL, then rerun the mapper test.
+- [ ] Change the scheduled-task test to expect one range covering the last three completed natural days and verify it fails.
+- [ ] Pass `yesterday.minusDays(2)` through `yesterday` to the existing analytical sync service.
+- [ ] Update the current backend documentation and run focused tests, backend `mvnw.cmd verify`, and root `git diff --check`.

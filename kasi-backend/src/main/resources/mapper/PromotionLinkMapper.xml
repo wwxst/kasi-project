@@ -32,7 +32,9 @@
     <select id="findBatchByUserAndRequestKey" resultMap="PromotionLinkMap">
         SELECT * FROM promotion_link WHERE user_id = #{userId} AND request_key = #{requestKey} ORDER BY id
     </select>
-    <select id="countByUserId" resultType="long">SELECT COUNT(*) FROM promotion_link WHERE user_id = #{userId}</select>
+    <select id="countByUserId" resultType="long">
+        SELECT COUNT(*) FROM promotion_link WHERE user_id = #{userId} AND status = 'SUCCESS'
+    </select>
     <select id="findPageByUserId" resultMap="PromotionLinkMap">
         SELECT l.*, p.provider_name, d.title AS drama_title,
                COALESCE(r.click_count, 0) AS click_count,
@@ -62,7 +64,8 @@
             AND r.pid = c.partner_id
             AND r.book_id = d.external_drama_id
             AND r.custom_params = u.user_no
-        WHERE l.user_id = #{userId} ORDER BY l.id DESC LIMIT #{offset}, #{size}
+        WHERE l.user_id = #{userId} AND l.status = 'SUCCESS'
+        ORDER BY l.id DESC LIMIT #{offset}, #{size}
     </select>
     <insert id="insert" useGeneratedKeys="true" keyProperty="id">
         INSERT INTO promotion_link

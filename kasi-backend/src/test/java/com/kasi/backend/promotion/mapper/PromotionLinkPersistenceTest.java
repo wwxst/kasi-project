@@ -39,6 +39,35 @@ class PromotionLinkPersistenceTest extends BaseAuthTest {
     }
 
     @Test
+    @DisplayName("用户推广任务分页和总数只包含生成成功的链接")
+    void userPageOnlyReturnsSuccessfulLinks() {
+        Long userId = jdbcTemplate.queryForObject(
+                "SELECT id FROM promotion_user WHERE user_no=?", Long.class, PRIMARY_USER_NO);
+        Long providerId = jdbcTemplate.queryForObject(
+                "SELECT id FROM short_drama_provider WHERE provider_code='GOODSHORT'", Long.class);
+        jdbcTemplate.update("INSERT INTO short_drama_connection "
+                        + "(provider_id,connection_name,partner_id,currency) VALUES (?,?,?,?)",
+                providerId, "GoodShort", "partner-1", "USD");
+        Long connectionId = jdbcTemplate.queryForObject(
+                "SELECT id FROM short_drama_connection WHERE provider_id=?", Long.class, providerId);
+        jdbcTemplate.update("INSERT INTO provider_drama "
+                        + "(connection_id,external_drama_id,title,language) VALUES (?,?,?,?)",
+                connectionId, "book-1", "Drama", "ENGLISH");
+        Long dramaId = jdbcTemplate.queryForObject(
+                "SELECT id FROM provider_drama WHERE external_drama_id='book-1'", Long.class);
+
+        insertLink(userId, providerId, connectionId, dramaId, "request-success", "SUCCESS",
+                "CODE-1", "https://example.test/success");
+        insertLink(userId, providerId, connectionId, dramaId, "request-pending", "PENDING", null, null);
+        insertLink(userId, providerId, connectionId, dramaId, "request-failed", "FAILED", null, null);
+
+        assertThat(linkMapper.findPageByUserId(userId, 0, 20))
+                .extracting(PromotionLink::getRequestKey)
+                .containsExactly("request-success");
+        assertThat(linkMapper.countByUserId(userId)).isEqualTo(1);
+    }
+
+    @Test
     @DisplayName("推广任务只聚合口令、PID、短剧和用户均匹配的转化日报")
     void userPageAggregatesMatchingAnalyticalReports() {
         jdbcTemplate.execute("DELETE FROM promotion_analytical_report");
@@ -94,5 +123,15 @@ class PromotionLinkPersistenceTest extends BaseAuthTest {
                         + "order_count,order_amount) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)",
                 date, pid, customParams, bookId, code, clicks, attributed, registered, newPaid,
                 newMembers, paidUsers, orders, "999.99");
+    }
+
+    private void insertLink(Long userId, Long providerId, Long connectionId, Long dramaId,
+                            String requestKey, String status, String externalCode, String shareUrl) {
+        jdbcTemplate.update("INSERT INTO promotion_link "
+                        + "(user_id,provider_id,connection_id,drama_id,batch_no,media_type,link_variant,"
+                        + "request_key,tracking_no,external_code,share_url,status) "
+                        + "VALUES (?,?,?,?,?,?,?,?,?,?,?,?)",
+                userId, providerId, connectionId, dramaId, "batch-1", "TIKTOK", "LANDING",
+                requestKey, "tracking-" + requestKey, externalCode, shareUrl, status);
     }
 }
