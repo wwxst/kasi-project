@@ -82,12 +82,6 @@ export default function PromotionLinksPage({
       cell: ({ row }) => mediaLabels[row.mediaType],
     },
     {
-      title: '链接类型',
-      colKey: 'linkVariant',
-      width: 120,
-      cell: ({ row }) => (row.linkVariant === 'ONELINK' ? 'OneLink' : '落地页'),
-    },
-    {
       title: '口令',
       colKey: 'externalCode',
       width: 180,
@@ -101,7 +95,7 @@ export default function PromotionLinksPage({
       ),
     },
     {
-      title: '分享链接',
+      title: '推广链接',
       colKey: 'shareUrl',
       width: 280,
       cell: ({ row }) => (
@@ -112,6 +106,41 @@ export default function PromotionLinksPage({
           onCopy={copy}
         />
       ),
+    },
+    {
+      title: '点击数',
+      colKey: 'clickCount',
+      width: 100,
+    },
+    {
+      title: '归因用户数',
+      colKey: 'attributedUserCount',
+      width: 120,
+    },
+    {
+      title: '新注册人数',
+      colKey: 'newRegisteredUserCount',
+      width: 120,
+    },
+    {
+      title: '新充值人数',
+      colKey: 'newPaidUserCount',
+      width: 120,
+    },
+    {
+      title: '新会员人数',
+      colKey: 'newMemberUserCount',
+      width: 120,
+    },
+    {
+      title: '充值用户数',
+      colKey: 'paidUserCount',
+      width: 120,
+    },
+    {
+      title: '订单数',
+      colKey: 'orderCount',
+      width: 100,
     },
   ]
 

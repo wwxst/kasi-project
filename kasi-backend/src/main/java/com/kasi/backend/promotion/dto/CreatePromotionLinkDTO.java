@@ -6,6 +6,7 @@ import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
 import lombok.Data;
+import org.hibernate.validator.constraints.UniqueElements;
 
 import java.util.List;
 
@@ -17,6 +18,7 @@ public class CreatePromotionLinkDTO {
     private Long dramaId;
     @NotEmpty
     @Size(max = 4)
+    @UniqueElements
     private List<@Pattern(regexp = "TIKTOK|YOUTUBE|FACEBOOK|INSTAGRAM") String> mediaTypes;
     @Pattern(regexp = "LANDING|ONELINK")
     private String linkVariant;

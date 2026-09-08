@@ -13,6 +13,13 @@
         <result column="status" property="status"/><result column="last_error_code" property="lastErrorCode"/>
         <result column="last_error_message" property="lastErrorMessage"/><result column="created_at" property="createdAt"/>
         <result column="updated_at" property="updatedAt"/>
+        <result column="click_count" property="clickCount"/>
+        <result column="attributed_user_count" property="attributedUserCount"/>
+        <result column="new_registered_user_count" property="newRegisteredUserCount"/>
+        <result column="new_paid_user_count" property="newPaidUserCount"/>
+        <result column="new_member_user_count" property="newMemberUserCount"/>
+        <result column="paid_user_count" property="paidUserCount"/>
+        <result column="order_count" property="orderCount"/>
     </resultMap>
     <select id="findByUserAndRequestKey" resultMap="PromotionLinkMap">
         SELECT * FROM promotion_link WHERE user_id = #{userId} AND request_key = #{requestKey}
@@ -27,10 +34,34 @@
     </select>
     <select id="countByUserId" resultType="long">SELECT COUNT(*) FROM promotion_link WHERE user_id = #{userId}</select>
     <select id="findPageByUserId" resultMap="PromotionLinkMap">
-        SELECT l.*, p.provider_name, d.title AS drama_title
+        SELECT l.*, p.provider_name, d.title AS drama_title,
+               COALESCE(r.click_count, 0) AS click_count,
+               COALESCE(r.attributed_user_count, 0) AS attributed_user_count,
+               COALESCE(r.new_registered_user_count, 0) AS new_registered_user_count,
+               COALESCE(r.new_paid_user_count, 0) AS new_paid_user_count,
+               COALESCE(r.new_member_user_count, 0) AS new_member_user_count,
+               COALESCE(r.paid_user_count, 0) AS paid_user_count,
+               COALESCE(r.order_count, 0) AS order_count
         FROM promotion_link l
         LEFT JOIN short_drama_provider p ON p.id = l.provider_id
         LEFT JOIN provider_drama d ON d.id = l.drama_id
+        LEFT JOIN short_drama_connection c ON c.id = l.connection_id
+        LEFT JOIN promotion_user u ON u.id = l.user_id
+        LEFT JOIN (
+            SELECT pid, custom_params, book_id, code,
+                   SUM(click_count) AS click_count,
+                   SUM(attributed_user_count) AS attributed_user_count,
+                   SUM(new_registered_user_count) AS new_registered_user_count,
+                   SUM(new_paid_user_count) AS new_paid_user_count,
+                   SUM(new_member_user_count) AS new_member_user_count,
+                   SUM(paid_user_count) AS paid_user_count,
+                   SUM(order_count) AS order_count
+            FROM promotion_analytical_report
+            GROUP BY pid, custom_params, book_id, code
+        ) r ON r.code = l.external_code
+            AND r.pid = c.partner_id
+            AND r.book_id = d.external_drama_id
+            AND r.custom_params = u.user_no
         WHERE l.user_id = #{userId} ORDER BY l.id DESC LIMIT #{offset}, #{size}
     </select>
     <insert id="insert" useGeneratedKeys="true" keyProperty="id">

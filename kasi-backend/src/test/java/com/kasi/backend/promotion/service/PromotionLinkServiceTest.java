@@ -31,7 +31,7 @@ class PromotionLinkServiceTest {
     @InjectMocks PromotionLinkServiceImpl service;
 
     @Test
-    @DisplayName("一个媒体平台一次生成落地页和OneLink两条链接")
+    @DisplayName("一个媒体平台只生成用户选择的链接类型")
     void createsSelectedVariantForOnePlatform() {
         CreatePromotionLinkDTO request = request(List.of("TIKTOK"));
         ProviderRuntimeConnection runtime = runtime();

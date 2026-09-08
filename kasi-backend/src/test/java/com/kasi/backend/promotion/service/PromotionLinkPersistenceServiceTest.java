@@ -1,5 +1,6 @@
 package com.kasi.backend.promotion.service;
 
+import com.kasi.backend.common.exception.BusinessException;
 import com.kasi.backend.drama.entity.ProviderDrama;
 import com.kasi.backend.drama.enums.DramaLocalStatus;
 import com.kasi.backend.drama.mapper.ProviderDramaMapper;
@@ -21,9 +22,11 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.verifyNoInteractions;
 
 @ExtendWith(MockitoExtension.class)
 class PromotionLinkPersistenceServiceTest {
@@ -82,6 +85,10 @@ class PromotionLinkPersistenceServiceTest {
         drama.setRemoteShowStatus("1");
         PromotionLink failed = new PromotionLink();
         failed.setId(41L);
+        failed.setProviderId(1L);
+        failed.setDramaId(23L);
+        failed.setMediaType("TIKTOK");
+        failed.setLinkVariant("LANDING");
         failed.setStatus(com.kasi.backend.promotion.enums.PromotionLinkStatus.FAILED);
         failed.setTrackingNo("old-tracking");
         when(userMapper.findById(7L)).thenReturn(user);
@@ -102,5 +109,70 @@ class PromotionLinkPersistenceServiceTest {
                 linkMapper, userMapper, dramaMapper, runtimeService).prepareBatchPending(7L, request);
 
         assertThat(result.getFirst().providerRequest().userNo()).isEqualTo("583729104628");
+    }
+
+    @Test
+    @DisplayName("相同requestKey不能变更原推广任务的请求内容")
+    void reusedRequestKeyRejectsDifferentTaskIdentity() {
+        PromotionUser user = new PromotionUser();
+        user.setStatus(1);
+        user.setUserNo("583729104628");
+        PromotionLink failed = new PromotionLink();
+        failed.setId(41L);
+        failed.setProviderId(1L);
+        failed.setDramaId(23L);
+        failed.setMediaType("TIKTOK");
+        failed.setLinkVariant("LANDING");
+        failed.setStatus(com.kasi.backend.promotion.enums.PromotionLinkStatus.FAILED);
+        when(userMapper.findById(7L)).thenReturn(user);
+        when(linkMapper.findBatchByUserAndRequestKey(7L, "request")).thenReturn(List.of(failed));
+
+        CreatePromotionLinkDTO request = new CreatePromotionLinkDTO();
+        request.setProviderId(1L);
+        request.setDramaId(24L);
+        request.setMediaTypes(List.of("TIKTOK"));
+        request.setLinkVariant("LANDING");
+        request.setRequestKey("request");
+
+        assertThatThrownBy(() -> new PromotionLinkPersistenceServiceImpl(
+                linkMapper, userMapper, dramaMapper, runtimeService).prepareBatchPending(7L, request))
+                .isInstanceOf(BusinessException.class)
+                .extracting("code").isEqualTo(7014);
+        verifyNoInteractions(dramaMapper, runtimeService);
+    }
+
+    @Test
+    @DisplayName("相同requestKey不能增加媒体平台或变更链接类型")
+    void reusedRequestKeyRejectsDifferentMediaSetOrVariant() {
+        PromotionUser user = new PromotionUser();
+        user.setStatus(1);
+        PromotionLink failed = new PromotionLink();
+        failed.setProviderId(1L);
+        failed.setDramaId(23L);
+        failed.setMediaType("TIKTOK");
+        failed.setLinkVariant("LANDING");
+        when(userMapper.findById(7L)).thenReturn(user);
+        when(linkMapper.findBatchByUserAndRequestKey(7L, "request")).thenReturn(List.of(failed));
+        PromotionLinkPersistenceServiceImpl service = new PromotionLinkPersistenceServiceImpl(
+                linkMapper, userMapper, dramaMapper, runtimeService);
+
+        CreatePromotionLinkDTO changedMedia = request(1L, 23L, List.of("TIKTOK", "YOUTUBE"), "LANDING");
+        CreatePromotionLinkDTO changedVariant = request(1L, 23L, List.of("TIKTOK"), "ONELINK");
+
+        assertThatThrownBy(() -> service.prepareBatchPending(7L, changedMedia))
+                .isInstanceOf(BusinessException.class).extracting("code").isEqualTo(7014);
+        assertThatThrownBy(() -> service.prepareBatchPending(7L, changedVariant))
+                .isInstanceOf(BusinessException.class).extracting("code").isEqualTo(7014);
+    }
+
+    private CreatePromotionLinkDTO request(Long providerId, Long dramaId,
+                                           List<String> mediaTypes, String linkVariant) {
+        CreatePromotionLinkDTO request = new CreatePromotionLinkDTO();
+        request.setProviderId(providerId);
+        request.setDramaId(dramaId);
+        request.setMediaTypes(mediaTypes);
+        request.setLinkVariant(linkVariant);
+        request.setRequestKey("request");
+        return request;
     }
 }

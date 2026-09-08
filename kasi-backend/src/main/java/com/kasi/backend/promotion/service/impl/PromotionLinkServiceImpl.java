@@ -74,6 +74,17 @@ public class PromotionLinkServiceImpl implements PromotionLinkService {
                 .trackingNo(link.getTrackingNo()).externalCode(link.getExternalCode()).shareUrl(link.getShareUrl())
                 .status(link.getStatus())
                 .lastErrorCode(link.getLastErrorCode()).lastErrorMessage(link.getLastErrorMessage())
+                .clickCount(orZero(link.getClickCount()))
+                .attributedUserCount(orZero(link.getAttributedUserCount()))
+                .newRegisteredUserCount(orZero(link.getNewRegisteredUserCount()))
+                .newPaidUserCount(orZero(link.getNewPaidUserCount()))
+                .newMemberUserCount(orZero(link.getNewMemberUserCount()))
+                .paidUserCount(orZero(link.getPaidUserCount()))
+                .orderCount(orZero(link.getOrderCount()))
                 .createdAt(link.getCreatedAt()).updatedAt(link.getUpdatedAt()).build();
+    }
+
+    private long orZero(Long value) {
+        return value == null ? 0L : value;
     }
 }

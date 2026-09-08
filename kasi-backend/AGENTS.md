@@ -45,7 +45,7 @@
   - `admin/` — 管理员认证、本人资料与密码维护，以及超级管理员管理普通管理员账号
   - `user/` — 推广用户注册、登录、获取和修改本人资料、上传本人头像、退出登录、修改密码、忘记密码流程，以及管理员可用的推广用户管理 CRUD
   - `provider/` — 短剧平台定义、接入账号持久层、AES-GCM 密钥加密、GoodShort 签名/连接探测，以及管理员平台接入管理 API
-  - `promotion/` — 推广用户媒体账号绑定、GoodShort 账号报备、推广链接、订单归因、CPS 佣金快照、订单共享同步服务、管理员手动补拉及管理员/用户查询导出 API
+- `promotion/` — 推广用户媒体账号绑定、GoodShort 账号报备、推广链接、转化日报归因、订单归因、CPS 佣金快照、订单共享同步服务、管理员手动补拉及管理员/用户查询导出 API
   - `drama/` — GoodShort 短剧目录与免费剧集持久层、全量/增量同步、检查点与租约、平台级分佣规则，以及经过域名校验的永久媒体 URL
   - `auth/` — 可复用的验证码服务和密码重置 Token 机制（Redis 存储，Lua 原子消费/预占，TTL 自动过期）
 - 生产数据库结构由 `src/main/resources/db/migration/V*.sql` 不可变 Flyway 链管理，Flyway 只通过 Maven `migration` profile 作为独立发布步骤执行；`src/main/resources/db/kasi_promotion.sql` 保留为开发空库最终结构重建脚本。两条路径必须保持最终结构和固定数据一致；所有 `*_id` 仅作为逻辑关联，由 Service 校验存在性与归属，不使用物理外键或数据库级联，也不植入平台接入密钥。
@@ -64,7 +64,7 @@
 - 推广用户不使用独立 `username`，只用手机号或邮箱登录；`user_no` 是后端生成的 12 位随机数字展示编号，内部关联继续使用自增 `id`。普通用户登录和本人信息 JSON 不返回内部 `id`，JWT `sub` 仍按现有认证契约保存内部 `id`。超级管理员和普通管理员均可通过 `/api/user/management/**` 分页、搜索、新增、编辑、启禁用、重置密码和物理删除推广用户。
 - 普通用户自助注册时，后端在创建账号时生成并持久化默认昵称 `卡司用户` 加 5 位数字后缀；后缀取本次 12 位随机 `user_no` 的末 5 位并保留前导零。管理员创建或编辑推广用户时继续使用请求中的昵称。
 - 推广用户联系方式、状态、密码和删除等敏感管理操作先进入 Redis `MUTATING` 状态；Redis 失败时不得写 MySQL。绑定媒体账号的推广用户删除会返回 `USER_MEDIA_ACCOUNT_BOUND(3014)`，只能禁用；未绑定媒体账号的用户仍可物理删除。
-- 推广链接生成的 GoodShort HTTP 调用必须在数据库事务之外；`PENDING`、`SUCCESS`、`FAILED` 状态分别通过独立短事务持久化。订单 upsert 使用 `READ_COMMITTED`，遇到 `(connection_id, external_order_id)` 唯一键并发冲突时回读已有订单，不重写同步流程；不得改回会对不存在行产生 gap lock 竞争的默认 `REPEATABLE_READ`。
+- 推广链接生成的 GoodShort HTTP 调用必须在数据库事务之外，并按 `pid + bookId + customParams + codeMedia` 保证至少 2 秒间隔；`PENDING`、`SUCCESS`、`FAILED` 状态分别通过独立短事务持久化。创建请求的 `mediaTypes` 不得重复，同一 `requestKey` 不得改变平台、短剧、媒体集合或链接类型。订单 upsert 使用 `READ_COMMITTED`，遇到 `(connection_id, external_order_id)` 唯一键并发冲突时回读已有订单，不重写同步流程；不得改回会对不存在行产生 gap lock 竞争的默认 `REPEATABLE_READ`。
 - 管理后台 Dashboard 当前只显示当前管理员欢迎语，不展示静态 Demo 卡片；侧边栏、品牌链接、搜索回车和兜底路由统一使用 `/user-management`，真实数据大屏仍未实现。
 - `sys_admin_user`、`promotion_user` 和媒体账号表均不保留 `deleted_at`。用户端不能删除媒体账号；管理端仅能物理删除技术提交失败或甲方已拒绝的媒体账号，并在同一事务中先删除全部报白记录。
 - 媒体账号用户 API 位于 `/api/user/promotion/media-accounts`，管理员 API 位于 `/api/admin/promotion/media-accounts`；媒体账号创建后两端均不可编辑，同一媒体平台和账号 ID 全局唯一。API 报白在本地事务提交后立即调用 `/filing/report`，成功只表示进入审核中；提交失败保存错误且不自动重试，用户端无重试入口，管理端仅允许技术提交失败记录重新提交。后台 Worker 只查询已成功提交且仍在审核中的记录：甲方状态 `0` 继续查询，`1` 已加白和 `2` 已拒绝均停止；连续 5 次查询技术失败后标记“查询失败”并停止。平台接入仅保留 API 自动报白，不提供 MANUAL 配置或人工修改状态。响应不暴露平台连接 ID、PID、密钥或任务租约字段。
@@ -75,7 +75,7 @@
 - 用户端短剧素材下载由浏览器直接读取免费剧集资源接口返回的 `downloadUrl`；后端不创建下载任务、不运行 FFmpeg、不生成 ZIP，也不保存或清理用户下载文件。
 - GoodShort 目录响应的 `bookId`、`bookName`、`bookNameZh`、`bookCover`、`labelNames`、`introduce`、`typeTwoName`、`language`、`rank`、`showStatus`、`novelType`、`novelSubType`、`ctime`、`utime` 全部转换为本地领域字段并保存；`labelNames` 使用 JSON 文本保存，管理端和用户端目录 VO 返回对应的 `titleZh`、`coverUrl`、`labelNames`、`categoryName`、`remoteRank`、`novelType`、`novelSubType`、`remoteCreatedAt`、`remoteUpdatedAt` 字段。增量请求按文档发送 `utimeStart`/`utimeEnd`。
 - 短剧平台分佣规则 API 位于 `/api/admin/drama/providers/{providerId}/commission-rules`：普通管理员和超级管理员均可 `GET`，只有超级管理员可 `POST` 首次设置和 `PUT` 覆盖。每个平台一条当前规则、无时间段/状态/删除；每次写入同步产生不可变 `provider_commission_rule_history` 快照。API 使用 `0..100` 百分比，数据库和订单快照使用 `0..1` 高精度比例；计算器最终金额保留两位并按 `HALF_UP` 四舍五入。
-- 推广链接和订单级 CPS 最小闭环已实现：用户通过 `/api/user/promotion/links` 生成 GoodShort 链接/口令，`requestKey` 幂等并保存 `trackingNo`；生成链接/口令不要求平台预先配置分佣规则，分佣规则只在已支付订单计算佣金时读取。`GOODSHORT_ORDER_SYNC` 每分钟自动同步最近 3 天，管理员仍可通过 `POST /api/admin/promotion/orders/sync` 手动补拉指定范围，订单以 `(connection_id, external_order_id)` 幂等，仅按 `customParams -> tracking_no -> user_id` 归因并保存原始 JSON 和五费率快照。本地订单状态只有 `PAID`/`REFUNDED`，未支付或未知甲方状态不落库。管理员可查询/CSV 导出完整核对字段；用户可按 `paid_at` 查询/导出本人订单，但只返回甲方订单号、支付状态、支付时间、跟踪号和本人收益，不返回本地主键、完整订单金额或内部佣金状态。退款保留原佣金并标记 `REVERSED`。正式账单、钱包、提现和转化分析仍未实现。
+- 推广链接、转化日报和订单级 CPS 最小闭环已实现：用户通过 `/api/user/promotion/links` 生成 GoodShort 链接/口令，`requestKey` 约束同一请求内容并保存内部 `trackingNo`；只有整批生成成功时前端才跳转并提示成功。`GOODSHORT_ANALYTICAL_REPORT_SYNC` 每日同步前一天日报，用户任务查询以 `code -> external_code` 为主并核对 PID、bookId 和 `customParams -> user_no`，返回七项累计次数/人数，不返回 `orderAmount`。生成链接/口令不要求平台预先配置分佣规则，分佣规则只在已支付订单计算佣金时读取。`GOODSHORT_ORDER_SYNC` 每分钟自动同步最近 3 天，管理员仍可通过 `POST /api/admin/promotion/orders/sync` 手动补拉指定范围，订单以 `(connection_id, external_order_id)` 幂等，按 `customParams -> user_no -> user_id` 归因并保存原始 JSON 和五费率快照。本地订单状态只有 `PAID`/`REFUNDED`，未支付或未知甲方状态不落库。管理员可查询/CSV 导出完整核对字段；用户只读取本人订单规定字段。退款保留原佣金并标记 `REVERSED`。正式账单、钱包和提现仍未实现。
 - 推广任务壳已删除；用户端以真实 `PromotionLink` 为推广入口。
 - 定时任务管理 API 位于 `/api/admin/system/scheduled-tasks`；固定任务 `GOODSHORT_DRAMA_INCREMENTAL_SYNC` 默认每 60 分钟入队，`GOODSHORT_DRAMA_CONTENT_SYNC` 默认每 1 分钟处理免费剧集队列，`GOODSHORT_ORDER_SYNC` 默认每 1 分钟同步最近 3 天；首次全量同步必须手动完成且成功基线存在后才会自动创建增量任务。周期支持 `INTERVAL_SECONDS/MINUTES/HOURS/DAYS`、`DAILY`、`WEEKLY`、`MONTHLY`、`YEARLY`，`INTERVAL_HOURS` 使用小时数和 `interval_minutes_part` 分钟余量，`INTERVAL_DAYS` 使用天数、`interval_hours_part` 小时余量和 `interval_minutes_part` 分钟余量；日历型周期同时保存执行时间及对应星期/日期字段。每分钟调度器扫描并执行到期任务，订单、目录和免费剧集任务复用同一分发器和数据库租约；普通管理员只读，超级管理员可编辑周期、说明和启停状态。
 - Git 根仓库：`https://github.com/wwxst/kasi-project.git`，远程 `origin`，分支 `master`；所有 Git 操作从根目录执行。
@@ -228,4 +228,4 @@ java -version
 # 当前分佣规则覆盖说明（2026-08-22）
 
 平台分佣规则采用默认配置：每个平台一条记录、无时间限制、无状态、不可删除；POST 首次设置，PUT 直接覆盖五项费率。普通管理员只读，超级管理员可设置和编辑。
-- 推广链接当前按批次、媒体平台和用户选择的 `LANDING/ONELINK` 变体生成，不绑定媒体账号或报白状态；每个平台只生成一条所选类型记录，使用独立 `tracking_no/customParams`，失败记录可单独重试。未传变体时兼容旧客户端默认 `LANDING`。
+- 推广链接当前按批次、媒体平台和用户选择的 `LANDING/ONELINK` 变体生成，不绑定媒体账号或报白状态；每个平台只生成一条所选类型记录，内部 `tracking_no` 与发送甲方的稳定 `customParams=user_no` 分工明确。用户端任务页不展示状态、失败原因或操作，也不提供重试、修改或重新提交；用户重新发起推广时创建新任务。未传变体时兼容旧客户端默认 `LANDING`。

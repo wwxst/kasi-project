@@ -25,6 +25,13 @@ public class PromotionLink {
     private PromotionLinkStatus status;
     private String lastErrorCode;
     private String lastErrorMessage;
+    private Long clickCount;
+    private Long attributedUserCount;
+    private Long newRegisteredUserCount;
+    private Long newPaidUserCount;
+    private Long newMemberUserCount;
+    private Long paidUserCount;
+    private Long orderCount;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
 }

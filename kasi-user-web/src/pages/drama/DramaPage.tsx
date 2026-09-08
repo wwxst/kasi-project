@@ -218,13 +218,17 @@ export default function DramaPage({ title: _title }: { title: string }) {
     if (!values.mediaTypes?.length) return
     setCreatingPromotion(true)
     try {
-      await createPromotionLinks({
+      const result = await createPromotionLinks({
         providerId: viewDrama.providerId,
         dramaId: viewDrama.id,
         mediaTypes: values.mediaTypes,
         linkVariant: values.linkVariant ?? 'LANDING',
         campaignName: values.campaignName,
       })
+      if (!result.complete) {
+        void MessagePlugin.error('部分推广链接或口令生成失败，请重新发起推广')
+        return
+      }
       setCreateDialogVisible(false)
       promotionFormRef.current?.reset()
       void queryClient.invalidateQueries({

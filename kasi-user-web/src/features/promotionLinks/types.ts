@@ -16,10 +16,16 @@ export interface PromotionLink {
   trackingNo: string | null
   externalCode: string | null
   shareUrl: string | null
-  customParams: string | null
   status: PromotionLinkStatus
   lastErrorCode: string | null
   lastErrorMessage: string | null
+  clickCount: number
+  attributedUserCount: number
+  newRegisteredUserCount: number
+  newPaidUserCount: number
+  newMemberUserCount: number
+  paidUserCount: number
+  orderCount: number
   createdAt: string
   updatedAt: string
 }

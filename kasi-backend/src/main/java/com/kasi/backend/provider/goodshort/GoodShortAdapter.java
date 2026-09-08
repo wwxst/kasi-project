@@ -103,20 +103,23 @@ public class GoodShortAdapter implements AccountFilingProviderAdapter, DramaCata
     private final GoodShortCatalogRateLimiter catalogRateLimiter;
     private final GoodShortFreeContentRateLimiter freeContentRateLimiter;
     private final GoodShortFilingRateLimiter filingRateLimiter;
+    private final GoodShortPromotionLinkRateLimiter promotionLinkRateLimiter;
 
     @Autowired
     public GoodShortAdapter(@Qualifier("goodShortRestClient") RestClient restClient,
                             GoodShortSigner signer, Clock clock,
                             tools.jackson.databind.ObjectMapper objectMapper) {
         this(restClient, signer, clock, objectMapper, new GoodShortCatalogRateLimiter(),
-                new GoodShortFreeContentRateLimiter(), new GoodShortFilingRateLimiter());
+                new GoodShortFreeContentRateLimiter(), new GoodShortFilingRateLimiter(),
+                new GoodShortPromotionLinkRateLimiter());
     }
 
     GoodShortAdapter(RestClient restClient, GoodShortSigner signer, Clock clock,
                      tools.jackson.databind.ObjectMapper objectMapper,
                      GoodShortCatalogRateLimiter catalogRateLimiter) {
         this(restClient, signer, clock, objectMapper, catalogRateLimiter,
-                new GoodShortFreeContentRateLimiter(), new GoodShortFilingRateLimiter());
+                new GoodShortFreeContentRateLimiter(), new GoodShortFilingRateLimiter(),
+                new GoodShortPromotionLinkRateLimiter());
     }
 
     GoodShortAdapter(RestClient restClient, GoodShortSigner signer, Clock clock,
@@ -124,14 +127,15 @@ public class GoodShortAdapter implements AccountFilingProviderAdapter, DramaCata
                      GoodShortCatalogRateLimiter catalogRateLimiter,
                      GoodShortFreeContentRateLimiter freeContentRateLimiter) {
         this(restClient, signer, clock, objectMapper, catalogRateLimiter, freeContentRateLimiter,
-                new GoodShortFilingRateLimiter());
+                new GoodShortFilingRateLimiter(), new GoodShortPromotionLinkRateLimiter());
     }
 
     GoodShortAdapter(RestClient restClient, GoodShortSigner signer, Clock clock,
                      tools.jackson.databind.ObjectMapper objectMapper,
                      GoodShortCatalogRateLimiter catalogRateLimiter,
                      GoodShortFreeContentRateLimiter freeContentRateLimiter,
-                     GoodShortFilingRateLimiter filingRateLimiter) {
+                     GoodShortFilingRateLimiter filingRateLimiter,
+                     GoodShortPromotionLinkRateLimiter promotionLinkRateLimiter) {
         this.restClient = restClient;
         this.signer = signer;
         this.clock = clock;
@@ -139,23 +143,33 @@ public class GoodShortAdapter implements AccountFilingProviderAdapter, DramaCata
         this.catalogRateLimiter = catalogRateLimiter;
         this.freeContentRateLimiter = freeContentRateLimiter;
         this.filingRateLimiter = filingRateLimiter;
+        this.promotionLinkRateLimiter = promotionLinkRateLimiter;
     }
 
     GoodShortAdapter(RestClient restClient, GoodShortSigner signer, Clock clock) {
         this(restClient, signer, clock, tools.jackson.databind.json.JsonMapper.builder().build(),
-                new GoodShortCatalogRateLimiter(), new GoodShortFreeContentRateLimiter(), new GoodShortFilingRateLimiter());
+                new GoodShortCatalogRateLimiter(), new GoodShortFreeContentRateLimiter(),
+                new GoodShortFilingRateLimiter(), new GoodShortPromotionLinkRateLimiter());
     }
 
     GoodShortAdapter(RestClient restClient, GoodShortSigner signer, Clock clock,
                      GoodShortCatalogRateLimiter catalogRateLimiter) {
         this(restClient, signer, clock, tools.jackson.databind.json.JsonMapper.builder().build(),
-                catalogRateLimiter, new GoodShortFreeContentRateLimiter(), new GoodShortFilingRateLimiter());
+                catalogRateLimiter, new GoodShortFreeContentRateLimiter(), new GoodShortFilingRateLimiter(),
+                new GoodShortPromotionLinkRateLimiter());
     }
 
     GoodShortAdapter(RestClient restClient, GoodShortSigner signer, Clock clock,
                      GoodShortFreeContentRateLimiter freeContentRateLimiter) {
         this(restClient, signer, clock, tools.jackson.databind.json.JsonMapper.builder().build(),
                 new GoodShortCatalogRateLimiter(), freeContentRateLimiter);
+    }
+
+    GoodShortAdapter(RestClient restClient, GoodShortSigner signer, Clock clock,
+                     GoodShortPromotionLinkRateLimiter promotionLinkRateLimiter) {
+        this(restClient, signer, clock, tools.jackson.databind.json.JsonMapper.builder().build(),
+                new GoodShortCatalogRateLimiter(), new GoodShortFreeContentRateLimiter(),
+                new GoodShortFilingRateLimiter(), promotionLinkRateLimiter);
     }
 
     @Override
@@ -242,12 +256,15 @@ public class GoodShortAdapter implements AccountFilingProviderAdapter, DramaCata
     @Override
     public PromotionLinkResult generatePromotionLink(ProviderConnectionSecret connection,
                                                       PromotionLinkRequest request) {
+        String codeMedia = mapCodeMedia(request.mediaType());
+        promotionLinkRateLimiter.acquire(connection.getPartnerId() + "|" + request.externalDramaId()
+                + "|" + request.userNo() + "|" + codeMedia);
         Map<String, Object> parameters = new LinkedHashMap<>();
         parameters.put("pid", connection.getPartnerId());
         parameters.put("bookId", request.externalDramaId());
         parameters.put("customParams", request.userNo());
         parameters.put("shareUrlType", "ONELINK".equalsIgnoreCase(request.linkVariant()) ? 2 : 1);
-        parameters.put("codeMedia", mapCodeMedia(request.mediaType()));
+        parameters.put("codeMedia", codeMedia);
         parameters.put("timestamp", clock.millis());
         GoodShortPromotionLinkResponse response = postPromotionLink(connection, PROMOTION_LINK_PATH, parameters);
         if (!successful(response) || response.getData() == null

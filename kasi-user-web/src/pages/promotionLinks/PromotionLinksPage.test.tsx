@@ -40,7 +40,7 @@ function renderPage() {
 }
 
 describe('PromotionLinksPage', () => {
-  it('shows created codes and links without generation or status controls', async () => {
+  it('shows links and conversion metrics without state, actions, or order amount', async () => {
     vi.mocked(promotionLinksApi.getPromotionLinks).mockResolvedValue({
       list: [
         {
@@ -57,10 +57,16 @@ describe('PromotionLinksPage', () => {
           trackingNo: 'track-1',
           externalCode: 'CODE-123',
           shareUrl: 'https://example.com/share',
-          customParams: null,
           status: 'SUCCESS',
           lastErrorCode: null,
           lastErrorMessage: null,
+          clickCount: 11,
+          attributedUserCount: 12,
+          newRegisteredUserCount: 13,
+          newPaidUserCount: 14,
+          newMemberUserCount: 15,
+          paidUserCount: 16,
+          orderCount: 17,
           createdAt: '2026-08-27T10:00:00',
           updatedAt: '2026-08-27T10:00:00',
         },
@@ -96,6 +102,20 @@ describe('PromotionLinksPage', () => {
     expect(dramasApi.getPublishedDramaFreeContent).not.toHaveBeenCalled()
     expect(screen.queryByText('状态')).toBeNull()
     expect(screen.queryByText('已完成')).toBeNull()
+    expect(screen.queryByText('链接类型')).toBeNull()
+    expect(screen.getByText('推广链接')).toBeTruthy()
+    expect(screen.getByText('点击数')).toBeTruthy()
+    expect(screen.getByText('归因用户数')).toBeTruthy()
+    expect(screen.getByText('新注册人数')).toBeTruthy()
+    expect(screen.getByText('新充值人数')).toBeTruthy()
+    expect(screen.getByText('新会员人数')).toBeTruthy()
+    expect(screen.getByText('充值用户数')).toBeTruthy()
+    expect(screen.getByText('订单数')).toBeTruthy()
+    expect(screen.queryByText('充值金额')).toBeNull()
+    expect(screen.queryByText('操作')).toBeNull()
+    for (const value of ['11', '12', '13', '14', '15', '16', '17']) {
+      expect(screen.getByText(value)).toBeTruthy()
+    }
   })
 })
 

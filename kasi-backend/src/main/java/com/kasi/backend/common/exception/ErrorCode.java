@@ -89,6 +89,7 @@ public enum ErrorCode {
     MEDIA_ACCOUNT_DELETE_NOT_ALLOWED(7013, "当前报白状态不允许删除"),
     PROMOTION_LINK_DRAMA_UNAVAILABLE(7010, "短剧当前不可推广"),
     PROMOTION_LINK_MEDIA_NOT_APPROVED(7011, "媒体账号尚未在该平台加白"),
+    PROMOTION_LINK_REQUEST_CONFLICT(7014, "requestKey与原推广任务不一致"),
 
     ;
 

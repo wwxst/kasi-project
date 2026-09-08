@@ -26,7 +26,10 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.LocalDateTime;
 import java.util.UUID;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Objects;
+import java.util.Set;
 
 @Service
 @RequiredArgsConstructor
@@ -43,6 +46,10 @@ public class PromotionLinkPersistenceServiceImpl implements PromotionLinkPersist
         if (user == null || !Integer.valueOf(1).equals(user.getStatus())) {
             throw new BusinessException(ErrorCode.USER_DISABLED);
         }
+        String linkVariant = request.getLinkVariant() == null ? "LANDING" : request.getLinkVariant();
+        List<PromotionLink> existingBatch =
+                linkMapper.findBatchByUserAndRequestKey(userId, request.getRequestKey());
+        validateExistingBatch(existingBatch, request, linkVariant);
         ProviderDrama drama = dramaMapper.findById(request.getDramaId());
         if (drama == null || drama.getLocalStatus() != DramaLocalStatus.PUBLISHED
                 || !"1".equals(drama.getRemoteShowStatus())) {
@@ -53,10 +60,9 @@ public class PromotionLinkPersistenceServiceImpl implements PromotionLinkPersist
             throw new BusinessException(ErrorCode.PROMOTION_LINK_DRAMA_UNAVAILABLE);
         }
         List<PromotionLinkPreparation> result = new ArrayList<>();
-        String batchNo = linkMapper.findBatchByUserAndRequestKey(userId, request.getRequestKey()).stream()
+        String batchNo = existingBatch.stream()
                 .findFirst().map(PromotionLink::getBatchNo)
                 .orElseGet(() -> UUID.randomUUID().toString().replace("-", ""));
-        String linkVariant = request.getLinkVariant() == null ? "LANDING" : request.getLinkVariant();
         for (String mediaTypeValue : request.getMediaTypes()) {
             MediaType mediaType = MediaType.valueOf(mediaTypeValue);
             PromotionLink link = linkMapper.findByUserAndRequestKeyForUpdate(userId, request.getRequestKey(), mediaType.name(), linkVariant);
@@ -81,6 +87,24 @@ public class PromotionLinkPersistenceServiceImpl implements PromotionLinkPersist
                     new PromotionLinkRequest(drama.getExternalDramaId(), user.getUserNo(), mediaType, linkVariant)));
         }
         return result;
+    }
+
+    private void validateExistingBatch(List<PromotionLink> existingBatch,
+                                       CreatePromotionLinkDTO request, String linkVariant) {
+        if (existingBatch.isEmpty()) {
+            return;
+        }
+        Set<String> requestedMediaTypes = new HashSet<>(request.getMediaTypes());
+        Set<String> existingMediaTypes = existingBatch.stream()
+                .map(PromotionLink::getMediaType).collect(java.util.stream.Collectors.toSet());
+        boolean sameTask = existingBatch.stream().allMatch(link ->
+                Objects.equals(link.getProviderId(), request.getProviderId())
+                        && Objects.equals(link.getDramaId(), request.getDramaId())
+                        && Objects.equals(link.getLinkVariant(), linkVariant))
+                && existingMediaTypes.equals(requestedMediaTypes);
+        if (!sameTask) {
+            throw new BusinessException(ErrorCode.PROMOTION_LINK_REQUEST_CONFLICT);
+        }
     }
 
     @Override

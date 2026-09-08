@@ -2,13 +2,13 @@
 
 ## GoodShort 推广转化日报
 
-后端通过 GoodShort `POST /creek/open/promotion/analyticalReport` 拉取每日汇总，数据独立保存于 `promotion_analytical_report`，不写入 `promotion_order`。同步请求固定 `pageSize=500`，按 `reportDate` 使用 `yyyy-MM-dd`，单次日期范围最多 30 个自然日；`customParams` 原样保存并按 `promotion_user.user_no` 查询归属。
+后端通过 GoodShort `POST /creek/open/promotion/analyticalReport` 拉取每日汇总，数据独立保存于 `promotion_analytical_report`，不写入 `promotion_order`。同步请求固定 `pageSize=500`，按 `reportDate` 使用 `yyyy-MM-dd`，单次日期范围最多 30 个自然日。用户推广任务查询以 `code -> promotion_link.external_code` 为主，并同时核对 PID、bookId 和 `customParams -> promotion_user.user_no`，按链接累计自然日指标；`orderAmount` 只在后端保存和管理端使用，不通过用户推广任务接口返回。
 
 管理接口：`POST /api/admin/promotion/analytical-reports/sync` 手动补拉（日期范围及可选 `code`、`bookId`、`customParams`），`GET /api/admin/promotion/analytical-reports` 分页查询（日期范围、达人 `customParams/user_no`、短剧 `bookId`、口令 `code`）。系统任务 `GOODSHORT_ANALYTICAL_REPORT_SYNC` 使用 `Asia/Shanghai` 每日 08:00 同步前一天。
 
 生产库通过 Flyway 独立执行 `src/main/resources/db/migration/V2__promotion_analytical_report.sql`；已部署 Docker 数据库不要重新执行 `kasi_promotion.sql` 或删库重建。
 
-最后核对时间：2026-09-05
+最后核对时间：2026-09-08
 
 跨项目工程规则、CI 和 Real Verification 语义以根级 [DEVELOPMENT.md](../DEVELOPMENT.md) 与 [测试规范](../docs/development/testing.md) 为准；本文只维护后端业务和运行边界。
 
@@ -248,15 +248,17 @@ mysql --host=127.0.0.1 --user=$env:SPRING_DATASOURCE_USERNAME --password --datab
 
 当前已实现 GoodShort 短剧目录全量 `initBooks`、增量 `incrementBooks`、断点恢复、数据库租约、定时/手动触发、固定定时任务入队、管理员查询详情和本地上下架；首次全量同步仍由管理员手动发起，只有成功全量基线存在时才自动创建增量任务。新同步的甲方在线短剧默认上架，甲方下架会同步我方下架，甲方恢复在线后需管理员手动重新上架。平台分佣规则按平台保存一条默认配置，POST 首次设置、PUT 直接覆盖；每次写入都会产生不可变 `provider_commission_rule_history` 快照，订单同时保存当次五费率和计算结果。规则计算器使用 `BigDecimal`，最终金额保留两位并按 `HALF_UP` 四舍五入。
 
-推广用户可查询已上架短剧、查看剧集并生成 GoodShort 推广链接/口令。用户前端直接下载免费剧集资源接口返回的媒体文件；后端不创建下载任务、不运行 FFmpeg、不生成 ZIP，也不保存下载文件。Chrome 使用 `hls.js` 播放 HLS。当前只同步 GoodShort 免费剧集；GoodShort 文档没有提供收费剧集列表或收费资源接口，因此不创建收费剧集占位记录。正式账单、钱包、提现和转化分析仍未实现。
+推广用户可查询已上架短剧、查看剧集并生成 GoodShort 推广链接/口令。用户前端直接下载免费剧集资源接口返回的媒体文件；后端不创建下载任务、不运行 FFmpeg、不生成 ZIP，也不保存下载文件。Chrome 使用 `hls.js` 播放 HLS。当前只同步 GoodShort 免费剧集；GoodShort 文档没有提供收费剧集列表或收费资源接口，因此不创建收费剧集占位记录。推广任务页已接入 GoodShort 转化日报的七项人数/次数指标；正式账单、钱包和提现仍未实现。
 
-推广链接生成采用短事务保存或重置 `PENDING`，事务外调用 GoodShort，随后用独立短事务写入 `SUCCESS` 或 `FAILED`；远程失败状态不会随外层业务异常回滚。生成链接/口令不以平台分佣规则为前置条件；分佣规则只在已支付订单计算佣金时读取。订单同步遇到 `(connection_id, external_order_id)` 唯一键并发冲突时回读已存在订单并按重复记录处理。
+推广链接生成采用短事务保存或重置 `PENDING`，事务外调用 GoodShort，随后用独立短事务写入 `SUCCESS` 或 `FAILED`；远程失败状态不会随外层业务异常回滚。GoodShort 生成调用按 `pid + bookId + customParams + codeMedia` 保证至少 2 秒间隔；创建请求拒绝重复媒体平台，同一 `requestKey` 重复请求不得改变平台、短剧、媒体集合或链接类型。只有整批全部成功时用户端才跳转并提示成功。生成链接/口令不以平台分佣规则为前置条件；分佣规则只在已支付订单计算佣金时读取。订单同步遇到 `(connection_id, external_order_id)` 唯一键并发冲突时回读已存在订单并按重复记录处理。
 
 > **说明**：`sys_sequence` 表已移除，`user_no` 由后端在插入前随机生成；`promotion_user.id` 继续作为自增内部主键。`auth_verification_code` 和 `auth_password_reset_token` 表已移除，改用 Redis 存储（更高效、自动过期）。
 
 ### 5.4 推广创建与任务查询
 
 `promotion_task` 任务壳及 `/api/user/promotion/tasks` 接口已删除，推广入口统一使用 `PromotionLink`。
+
+用户端 `GET /api/user/promotion/links` 按本人链接分页，返回创建时间、推广名称、短剧、媒体平台、口令、推广链接，以及累计点击数、归因用户数、新注册人数、新充值人数、新会员人数、充值用户数和订单数。页面不展示状态、失败原因、操作列或充值金额，也不提供重试、修改和重新提交能力。
 
 `provider_drama` 包含 `commission_scope` 和 `promotion_description` 两个本地维护字段。管理员通过 `PUT /api/admin/drama/catalog/{id}/promotion-metadata` 更新分佣范围（`ORDER`/`AD`）和推广说明；用户端 `GET /api/user/promotion/dramas` 只返回已上架且甲方在线的短剧，并返回简介、分佣范围、推广说明和甲方发布时间，按 `remote_created_at DESC, id DESC` 倒序分页。只有“创建推广”页面展示这些字段；“推广任务”页面不使用这组元数据。目录同步只更新远端字段，不覆盖本地推广元数据。
 
@@ -568,7 +570,7 @@ Unit/Integration 的 JaCoCo HTML/XML 报告分别位于 `target/site/jacoco-unit
 平台分佣规则采用默认配置：每个平台一条当前记录、无时间限制、无状态、不可删除；首次使用 POST，后续由超级管理员使用 PUT 直接覆盖五项费率。每次写入会生成不可变历史快照，但不提供规则时间线或按支付时间自动匹配历史版本；旧文档中的 PENDING/ACTIVE/ENDED 和提前结束不再是当前契约。
 ## 推广链接当前边界
 
-用户通过 `/api/user/promotion/links` 提交 `providerId`、`dramaId`、`mediaTypes`、可选 `linkVariant` 和 `requestKey`。`linkVariant` 只允许 `LANDING`（落地页）或 `ONELINK`（OneLink），每个选中的媒体平台只生成用户选择的一条链接和一个口令；未传时兼容旧客户端默认生成 `LANDING`。每条记录保留独立的内部 `trackingNo`；发送 GoodShort 时 `customParams` 固定使用该推广用户的稳定 `user_no`，订单同步再按 `customParams -> user_no -> user_id` 直接归因，不通过推广链接追踪号反查。部分媒体平台失败时保留成功结果，失败记录可重试，重试不会改变 `customParams`。
+用户通过 `/api/user/promotion/links` 提交 `providerId`、`dramaId`、不重复的 `mediaTypes`、可选 `linkVariant` 和 `requestKey`。`linkVariant` 只允许 `LANDING`（落地页）或 `ONELINK`（OneLink），每个选中的媒体平台只生成用户选择的一条链接和一个口令；未传时兼容旧客户端默认生成 `LANDING`。每条记录保留独立的内部 `trackingNo`；发送 GoodShort 时 `customParams` 固定使用该推广用户的稳定 `user_no`，订单同步再按 `customParams -> user_no -> user_id` 直接归因，不通过推广链接追踪号反查。同一 `requestKey` 只代表同一组平台、短剧、媒体和链接类型，内容变化返回业务冲突。用户重新发起推广时使用新的 `requestKey` 创建新任务。
 # 手机验证码（阿里云短信）
 
 超级管理员通过 `PUT/GET /api/admin/system/sms-config` 配置阿里云 AccessKey、签名和注册/登录/找回密码模板；AccessKey 仅以 AES-GCM 密文保存，响应不返回密钥。用户端手机号验证码接口为注册发码、验证码登录发码/校验和找回密码发码/校验，发送失败返回 HTTP 503。邮箱密码登录保持可用，邮箱验证码流程暂未开放。

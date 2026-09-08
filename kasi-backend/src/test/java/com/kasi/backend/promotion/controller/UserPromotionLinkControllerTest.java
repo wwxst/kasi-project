@@ -4,6 +4,7 @@ import com.kasi.backend.BaseAuthTest;
 import com.kasi.backend.promotion.service.PromotionLinkService;
 import com.kasi.backend.promotion.vo.PromotionLinkBatchVO;
 import com.kasi.backend.promotion.vo.PromotionLinkPageVO;
+import com.kasi.backend.promotion.vo.PromotionLinkVO;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -48,6 +49,31 @@ class UserPromotionLinkControllerTest extends BaseAuthTest {
     }
 
     @Test
+    @DisplayName("推广任务接口返回七项转化指标且不返回充值金额")
+    void userLinkPageReturnsConversionMetricsWithoutOrderAmount() throws Exception {
+        PromotionLinkVO link = PromotionLinkVO.builder()
+                .id(1L).clickCount(11L).attributedUserCount(12L).newRegisteredUserCount(13L)
+                .newPaidUserCount(14L).newMemberUserCount(15L).paidUserCount(16L).orderCount(17L)
+                .build();
+        org.mockito.Mockito.when(promotionLinkService.getMine(
+                        org.mockito.ArgumentMatchers.anyLong(), org.mockito.ArgumentMatchers.any()))
+                .thenReturn(PromotionLinkPageVO.builder().list(java.util.List.of(link))
+                        .page(1).size(20).total(1).build());
+
+        mockMvc.perform(get("/api/user/promotion/links")
+                        .header("Authorization", "Bearer " + loginAsUser()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.list[0].clickCount").value(11))
+                .andExpect(jsonPath("$.data.list[0].attributedUserCount").value(12))
+                .andExpect(jsonPath("$.data.list[0].newRegisteredUserCount").value(13))
+                .andExpect(jsonPath("$.data.list[0].newPaidUserCount").value(14))
+                .andExpect(jsonPath("$.data.list[0].newMemberUserCount").value(15))
+                .andExpect(jsonPath("$.data.list[0].paidUserCount").value(16))
+                .andExpect(jsonPath("$.data.list[0].orderCount").value(17))
+                .andExpect(jsonPath("$.data.list[0].orderAmount").doesNotExist());
+    }
+
+    @Test
     @DisplayName("无效推广链接请求返回统一校验错误")
     void invalidCreateReturnsValidationError() throws Exception {
         mockMvc.perform(post("/api/user/promotion/links")
@@ -86,6 +112,21 @@ class UserPromotionLinkControllerTest extends BaseAuthTest {
                                 {"providerId":1,"dramaId":1,"mediaTypes":["GOOGLE"],
                                  "mediaAccountId":8,
                                  "requestKey":"123e4567-e89b-12d3-a456-426614174001"}
+                                """))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(1006));
+    }
+
+    @Test
+    @DisplayName("创建请求拒绝重复的媒体平台")
+    void createRejectsDuplicateMediaTypes() throws Exception {
+        mockMvc.perform(post("/api/user/promotion/links")
+                        .header("Authorization", "Bearer " + loginAsUser())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"providerId":1,"dramaId":1,
+                                 "mediaTypes":["TIKTOK","TIKTOK"],
+                                 "requestKey":"123e4567-e89b-12d3-a456-426614174003"}
                                 """))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.code").value(1006));

@@ -11,8 +11,10 @@ import org.springframework.test.json.JsonCompareMode;
 import org.springframework.web.client.RestClient;
 
 import java.time.Clock;
+import java.time.Duration;
 import java.time.Instant;
 import java.time.ZoneOffset;
+import java.util.concurrent.atomic.AtomicLong;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.client.match.MockRestRequestMatchers.content;
@@ -83,6 +85,37 @@ class GoodShortPromotionLinkAdapterTest {
                 new PromotionLinkRequest("book-1", "583729104628",
                         com.kasi.backend.promotion.enums.MediaType.YOUTUBE, "ONELINK"));
         assertThat(result.externalCode()).isEqualTo("54786");
+        server.verify();
+    }
+
+    @Test
+    @DisplayName("连续生成同一甲方唯一组合时使用两秒专用限流")
+    void generationUsesPromotionLinkRateLimiter() {
+        AtomicLong now = new AtomicLong(0);
+        AtomicLong slept = new AtomicLong();
+        GoodShortPromotionLinkRateLimiter limiter = new GoodShortPromotionLinkRateLimiter(
+                Duration.ofSeconds(2), now::get, nanos -> {
+                    slept.addAndGet(nanos);
+                    now.addAndGet(nanos);
+                });
+        RestClient.Builder builder = RestClient.builder().baseUrl("https://goodshort.test");
+        server = MockRestServiceServer.bindTo(builder).build();
+        adapter = new GoodShortAdapter(builder.build(), signer,
+                Clock.fixed(Instant.ofEpochMilli(1681810530092L), ZoneOffset.UTC), limiter);
+        String response = """
+                {"status":0,"success":true,"data":{"code":"54788","customParams":"583729104628",
+                 "shareUrl":"https://demo.com/koc/54788"}}""";
+        server.expect(requestTo("https://goodshort.test/creek/open/inviteCode/generate/partner/code"))
+                .andRespond(withSuccess(response, MediaType.APPLICATION_JSON));
+        server.expect(requestTo("https://goodshort.test/creek/open/inviteCode/generate/partner/code"))
+                .andRespond(withSuccess(response, MediaType.APPLICATION_JSON));
+        PromotionLinkRequest request = new PromotionLinkRequest("book-1", "583729104628",
+                com.kasi.backend.promotion.enums.MediaType.TIKTOK, "LANDING");
+
+        adapter.generatePromotionLink(CONNECTION, request);
+        adapter.generatePromotionLink(CONNECTION, request);
+
+        assertThat(slept).hasValue(Duration.ofSeconds(2).toNanos());
         server.verify();
     }
 }

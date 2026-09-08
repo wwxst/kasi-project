@@ -239,6 +239,48 @@ describe('DramaPage', () => {
     expect(navigateMock).not.toHaveBeenCalled()
   })
 
+  it('does not report success or navigate when the batch is incomplete', async () => {
+    const user = userEvent.setup()
+    vi.mocked(getPublishedDramas).mockResolvedValueOnce({
+      list: [promotionDrama()],
+      page: 1,
+      size: 20,
+      total: 1,
+    })
+    vi.mocked(getPublishedDramaFreeContent).mockResolvedValueOnce([])
+    vi.mocked(createPromotionLinks).mockResolvedValueOnce({
+      batchNo: 'batch-1',
+      requestKey: 'request-1',
+      links: [],
+      complete: false,
+    })
+    const success = vi
+      .spyOn(MessagePlugin, 'success')
+      .mockResolvedValue({} as never)
+    const error = vi
+      .spyOn(MessagePlugin, 'error')
+      .mockResolvedValue({} as never)
+
+    renderDramaPage()
+
+    await user.click(
+      await screen.findByRole('button', { name: '创建推广任务' }),
+    )
+    await user.click(
+      await screen.findByRole('button', { name: '创建链接和口令' }),
+    )
+    await user.click(screen.getByPlaceholderText('请选择媒体平台'))
+    await user.click(await screen.findByText('TikTok'))
+    await user.click(screen.getByRole('button', { name: '生成链接' }))
+
+    await waitFor(() => expect(createPromotionLinks).toHaveBeenCalledTimes(1))
+    expect(success).not.toHaveBeenCalled()
+    expect(error).toHaveBeenCalledWith(
+      '部分推广链接或口令生成失败，请重新发起推广',
+    )
+    expect(navigateMock).not.toHaveBeenCalled()
+  })
+
   it('opens an episode viewer and loads an HLS resource', async () => {
     const user = userEvent.setup()
     vi.spyOn(HTMLMediaElement.prototype, 'canPlayType').mockReturnValue('')
