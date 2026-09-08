@@ -53,6 +53,12 @@ function getRequestError(error: unknown, fallback: string) {
   return error instanceof Error ? error.message : fallback
 }
 
+function showRequestError(error: unknown, fallback: string) {
+  if (!isHandledRequestError(error)) {
+    void MessagePlugin.error(getRequestError(error, fallback))
+  }
+}
+
 function useCountDown(duration: number) {
   const [countdown, setCountdown] = useState(0)
 
@@ -170,7 +176,6 @@ function LoginForm({ onForgotPassword }: { onForgotPassword: () => void }) {
   const formRef = useRef<FormInstanceFunctions | null>(null)
   const navigate = useNavigate()
   const setSession = useAuthStore((store) => store.setSession)
-  const [loginError, setLoginError] = useState<string | null>(null)
   const [sendingCode, setSendingCode] = useState(false)
   const [submitting, setSubmitting] = useState(false)
 
@@ -181,7 +186,6 @@ function LoginForm({ onForgotPassword }: { onForgotPassword: () => void }) {
 
   const submit = async (event: SubmitContext) => {
     if (event.validateResult === true) {
-      setLoginError(null)
       setSubmitting(true)
       try {
         const result =
@@ -197,9 +201,7 @@ function LoginForm({ onForgotPassword }: { onForgotPassword: () => void }) {
         setSession(result.accessToken)
         navigate('/workspace')
       } catch (error) {
-        if (!isHandledRequestError(error)) {
-          setLoginError(getRequestError(error, '登录失败'))
-        }
+        showRequestError(error, '登录失败')
       } finally {
         setSubmitting(false)
       }
@@ -212,16 +214,13 @@ function LoginForm({ onForgotPassword }: { onForgotPassword: () => void }) {
     })
     if (validateResult !== true) return
     const phone = String(formRef.current?.getFieldValue('phone') ?? '').trim()
-    setLoginError(null)
     setSendingCode(true)
     try {
       await sendLoginCode(phone)
       setupCountdown()
       void MessagePlugin.success('验证码已发送')
     } catch (error) {
-      if (!isHandledRequestError(error)) {
-        setLoginError(getRequestError(error, '验证码发送失败'))
-      }
+      showRequestError(error, '验证码发送失败')
     } finally {
       setSendingCode(false)
     }
@@ -258,12 +257,6 @@ function LoginForm({ onForgotPassword }: { onForgotPassword: () => void }) {
             onSend={() => void sendVerificationCode()}
           />
         </>
-      ) : null}
-
-      {loginError ? (
-        <div className="starter-login-error" role="alert">
-          {loginError}
-        </div>
       ) : null}
 
       <Form.FormItem className="starter-login-submit">
@@ -303,7 +296,6 @@ function RegisterForm({ onSuccess }: { onSuccess: () => void }) {
   const formRef = useRef<FormInstanceFunctions | null>(null)
   const [sendingCode, setSendingCode] = useState(false)
   const [submitting, setSubmitting] = useState(false)
-  const [registerError, setRegisterError] = useState<string | null>(null)
 
   const sendVerificationCode = async () => {
     const validateResult = await formRef.current?.validate({
@@ -311,16 +303,13 @@ function RegisterForm({ onSuccess }: { onSuccess: () => void }) {
     })
     if (validateResult !== true) return
     const phone = String(formRef.current?.getFieldValue('account') ?? '').trim()
-    setRegisterError(null)
     setSendingCode(true)
     try {
       await sendRegisterCode(phone)
       setupCountdown()
       void MessagePlugin.success('验证码已发送')
     } catch (error) {
-      if (!isHandledRequestError(error)) {
-        setRegisterError(getRequestError(error, '验证码发送失败'))
-      }
+      showRequestError(error, '验证码发送失败')
     } finally {
       setSendingCode(false)
     }
@@ -328,7 +317,6 @@ function RegisterForm({ onSuccess }: { onSuccess: () => void }) {
 
   const submit = async (event: SubmitContext) => {
     if (event.validateResult !== true) return
-    setRegisterError(null)
     setSubmitting(true)
     try {
       await registerUser({
@@ -340,9 +328,7 @@ function RegisterForm({ onSuccess }: { onSuccess: () => void }) {
       onSuccess()
       void MessagePlugin.success('注册成功，请登录')
     } catch (error) {
-      if (!isHandledRequestError(error)) {
-        setRegisterError(getRequestError(error, '注册失败'))
-      }
+      showRequestError(error, '注册失败')
     } finally {
       setSubmitting(false)
     }
@@ -422,11 +408,6 @@ function RegisterForm({ onSuccess }: { onSuccess: () => void }) {
           卡司隐私声明
         </button>
       </Form.FormItem>
-      {registerError ? (
-        <div className="starter-login-error" role="alert">
-          {registerError}
-        </div>
-      ) : null}
       <Form.FormItem>
         <Button block size="large" type="submit" loading={submitting}>
           注册
@@ -449,7 +430,6 @@ function ForgotPasswordForm({
   const [showPassword, setShowPassword] = useState(false)
   const [sendingCode, setSendingCode] = useState(false)
   const [submitting, setSubmitting] = useState(false)
-  const [resetError, setResetError] = useState<string | null>(null)
 
   const sendVerificationCode = async () => {
     const validateResult = await formRef.current?.validate({
@@ -457,16 +437,13 @@ function ForgotPasswordForm({
     })
     if (validateResult !== true) return
     const phone = String(formRef.current?.getFieldValue('target') ?? '').trim()
-    setResetError(null)
     setSendingCode(true)
     try {
       await sendForgotPasswordCode(phone)
       setupCountdown()
       void MessagePlugin.success('验证码已发送')
     } catch (error) {
-      if (!isHandledRequestError(error)) {
-        setResetError(getRequestError(error, '验证码发送失败'))
-      }
+      showRequestError(error, '验证码发送失败')
     } finally {
       setSendingCode(false)
     }
@@ -474,7 +451,6 @@ function ForgotPasswordForm({
 
   const submit = async (event: SubmitContext) => {
     if (event.validateResult !== true) return
-    setResetError(null)
     setSubmitting(true)
     try {
       if (!resetToken) {
@@ -493,9 +469,7 @@ function ForgotPasswordForm({
       onSuccess()
       void MessagePlugin.success('密码重置成功，请重新登录')
     } catch (error) {
-      if (!isHandledRequestError(error)) {
-        setResetError(getRequestError(error, '密码重置失败'))
-      }
+      showRequestError(error, '密码重置失败')
     } finally {
       setSubmitting(false)
     }
@@ -570,12 +544,6 @@ function ForgotPasswordForm({
           </Form.FormItem>
         </>
       )}
-
-      {resetError ? (
-        <div className="starter-login-error" role="alert">
-          {resetError}
-        </div>
-      ) : null}
 
       <Form.FormItem className="starter-login-submit starter-forgot-password-submit">
         <Button block size="large" type="submit" loading={submitting}>

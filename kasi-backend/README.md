@@ -4,7 +4,7 @@
 
 后端通过 GoodShort `POST /creek/open/promotion/analyticalReport` 拉取每日汇总，数据独立保存于 `promotion_analytical_report`，不写入 `promotion_order`。同步请求固定 `pageSize=500`，按 `reportDate` 使用 `yyyy-MM-dd`，单次日期范围最多 30 个自然日。用户推广任务查询以 `code -> promotion_link.external_code` 为主，并同时核对 PID、bookId 和 `customParams -> promotion_user.user_no`，按链接累计自然日指标；`orderAmount` 只在后端保存和管理端使用，不通过用户推广任务接口返回。
 
-管理接口：`POST /api/admin/promotion/analytical-reports/sync` 手动补拉（日期范围及可选 `code`、`bookId`、`customParams`），`GET /api/admin/promotion/analytical-reports` 分页查询（日期范围、达人 `customParams/user_no`、短剧 `bookId`、口令 `code`）。系统任务 `GOODSHORT_ANALYTICAL_REPORT_SYNC` 使用 `Asia/Shanghai` 每日 08:00 滚动同步最近 3 个已经结束的自然日。
+管理端通过 `GET /api/admin/promotion/links` 按已成功生成的推广链接查看任务级转化，支持用户编号、短剧平台、口令和 `trackingNo` 筛选，并返回用户、短剧、推广名称、媒体、口令、推广链接及七项累计指标，不返回 `orderAmount`。该查询与用户端使用相同的 PID、bookId、用户编号和口令四维匹配。原始日报接口继续保留：`POST /api/admin/promotion/analytical-reports/sync` 手动补拉（日期范围及可选 `code`、`bookId`、`customParams`），`GET /api/admin/promotion/analytical-reports` 分页查询（日期范围、达人 `customParams/user_no`、短剧 `bookId`、口令 `code`）。系统任务 `GOODSHORT_ANALYTICAL_REPORT_SYNC` 使用 `Asia/Shanghai` 每日 08:00 滚动同步最近 3 个已经结束的自然日。
 
 生产库通过 Flyway 独立执行 `src/main/resources/db/migration/V2__promotion_analytical_report.sql`；已部署 Docker 数据库不要重新执行 `kasi_promotion.sql` 或删库重建。
 
@@ -144,10 +144,10 @@ $env:Path = "$env:JAVA_HOME\bin;$env:Path"
 | 验证码发送器 | `local` profile 使用 Console sender；`test` profile 使用测试 sender；生产环境需提供真实实现 |
 | 平台密钥主密钥 | 必须通过 `PROVIDER_CREDENTIAL_MASTER_KEY` 注入 Base64 编码的 32 字节密钥；不得提交到仓库或写入日志 |
 | GoodShort 探测 | 接口 URL 从平台接入配置读取，连接超时 3 秒、读取超时 10 秒；平台密钥从数据库密文解密后仅在适配器调用链内使用 |
-| 短剧目录同步 | 留空时覆盖 GoodShort 全部 13 种支持语言、每页 100 条、每 5 分钟兜底执行已入队任务；支持指定语言、批量、分页、租约和调度开关 |
+| 短剧目录同步 | 留空时覆盖 GoodShort 全部 13 种支持语言、每页最多 50 条、每 5 分钟兜底执行已入队任务；支持指定语言、批量、分页、租约和调度开关 |
 | 免费剧集同步 | 手动同步创建任务后立即异步唤醒现有 worker，并在批次未消费完时继续后台处理；定时任务每 1 分钟兜底处理；每批 50 部、候选分页 500 部、租约 2 分钟、最多失败 5 次；视频 URL 永久保存到 MySQL |
 | 同步记录展示 | 管理端短剧同步与剧集同步保持两个独立页面；展示层按一次触发聚合多语言/多短剧子任务，统一展示创建时间、触发方式、任务类型、状态、新增数、更新数、总处理数和操作，详情查看子任务并支持失败重试；不改变 checkpoint、worker、租约或任务执行模型 |
-| 固定定时任务 | `GOODSHORT_DRAMA_INCREMENTAL_SYNC` 默认每 60 分钟入队；`GOODSHORT_DRAMA_CONTENT_SYNC` 每 1 分钟处理免费剧集队列；`GOODSHORT_ORDER_SYNC` 每 1 分钟同步最近 3 天 |
+| 固定定时任务 | `GOODSHORT_DRAMA_INCREMENTAL_SYNC` 默认每 60 分钟入队；`GOODSHORT_DRAMA_CONTENT_SYNC` 每 1 分钟处理免费剧集队列；GoodShort 订单拆分为 `GOODSHORT_ORDER_TODAY_SYNC` 每 5 分钟同步今天、`GOODSHORT_ORDER_SYNC` 每 60 分钟同步昨天加今天、`GOODSHORT_ORDER_RECENT_SYNC` 每 3 天补偿最近 7 天 |
 | 账户头像 | JPG/PNG/WebP，最大 2 MB；管理员和推广用户头像分别保存到 `./data/uploads/admin-avatars`、`./data/uploads/user-avatars`，可通过 `APP_UPLOAD_DIR` 修改根目录 |
 
 应用要连接 MySQL，至少需要提供：
@@ -244,7 +244,7 @@ mysql --host=127.0.0.1 --user=$env:SPRING_DATASOURCE_USERNAME --password --datab
 
 `kasi_promotion.sql` 和生产 `V1` 均按当前完整结构一次建库，并在建表后直接插入 `admin` 超级管理员和一个启用的初始推广用户。管理员固定写入 `status=1`、`is_super_admin=1`；推广用户使用邮箱登录，密码和管理员密码均只以 BCrypt 哈希保存。两条路径都不会在应用启动时自动执行，也不植入任何平台接入密钥。
 
-当前已完成平台定义与接入账号持久层、AES-GCM 密钥加密、不暴露密钥的管理服务和管理员 API，以及 GoodShort 签名和连接探测适配器。GoodShort 接入配置同时保存一个媒体根域名，未知域名不会自动加入白名单；官方文档未保证媒体资源固定属于 `novelopen.com`，`novelopen.com` 是当前实际配置值而非官方契约。媒体账号绑定与通用报白模块也已完成闭环：推广用户可创建多个媒体账号，同一媒体平台和账号 ID 全局唯一，创建后用户端和管理端均不可编辑。系统为所有已启用、接入配置完整且适配器声明支持账号报白的平台分别建立记录，并在本地事务提交后立即调用 GoodShort `/creek/open/filing/report`；成功只表示进入审核中，提交失败保存错误且不自动重试，只有管理员可以重试技术提交失败。后台任务只查询已成功提交且仍在审核中的记录：甲方状态 `0` 继续查询，`1` 记为已加白并停止，`2` 记为已拒绝并停止；连续 5 次查询技术失败后显示“查询失败”并停止。管理端可删除技术提交失败或甲方已拒绝的账号；存在多个报白记录时必须全部可删，删除会同时清理报白记录并释放全局唯一账号。平台接入仅保留 API 自动报白，必须填写接口 URL、媒体根域名、PID 和 KEY。
+当前已完成平台定义与接入账号持久层、AES-GCM 密钥加密、不暴露密钥的管理服务和管理员 API，以及 GoodShort 签名和连接探测适配器。GoodShort 接入配置同时保存一个媒体根域名，未知域名不会自动加入白名单；官方文档未保证媒体资源固定属于 `novelopen.com`，`novelopen.com` 是当前实际配置值而非官方契约。媒体账号绑定与通用报白模块也已完成闭环：推广用户可创建多个媒体账号，同一媒体平台和账号 ID 全局唯一，创建后用户端和管理端均不可编辑。系统为所有已启用、接入配置完整且适配器声明支持账号报白的平台分别建立记录，并在本地事务提交后立即调用 GoodShort `/creek/open/filing/report`；成功只表示进入审核中，提交失败保存错误且不自动重试，只有管理员可以重试技术提交失败。后台任务只查询已成功提交且仍在审核中的记录：甲方状态 `0` 继续查询，`1` 记为已加白并停止，`2` 记为已拒绝并停止；连续 5 次查询技术失败后显示“查询失败”并停止。管理端可删除技术提交失败或甲方已拒绝的账号；存在多个报白记录时必须全部可删，删除会同时清理报白记录并释放全局唯一账号。平台接入仅保留 API 自动报白；停用配置允许不填写接入资料，启用配置必须具备接口 URL、媒体根域名、PID 和 KEY。
 
 当前已实现 GoodShort 短剧目录全量 `initBooks`、增量 `incrementBooks`、断点恢复、数据库租约、定时/手动触发、固定定时任务入队、管理员查询详情和本地上下架；首次全量同步仍由管理员手动发起，只有成功全量基线存在时才自动创建增量任务。新同步的甲方在线短剧默认上架，甲方下架会同步我方下架，甲方恢复在线后需管理员手动重新上架。平台分佣规则按平台保存一条默认配置，POST 首次设置、PUT 直接覆盖；每次写入都会产生不可变 `provider_commission_rule_history` 快照，订单同时保存当次五费率和计算结果。规则计算器使用 `BigDecimal`，最终金额保留两位并按 `HALF_UP` 四舍五入。
 
@@ -361,7 +361,7 @@ mysql --host=127.0.0.1 --user=$env:SPRING_DATASOURCE_USERNAME --password --datab
 | 方法 | 路径 | 权限 | 说明 |
 |------|------|------|------|
 | GET | `/api/admin/drama/providers` | ADMIN | 查询平台、能力声明和接入账号非敏感资料 |
-| PUT | `/api/admin/drama/providers/{providerId}/connection` | SUPER_ADMIN | 新增或更新平台 URL、PID、KEY 和启用状态；更新时可省略 KEY 以保留原密文 |
+| PUT | `/api/admin/drama/providers/{providerId}/connection` | SUPER_ADMIN | 新增或更新平台 URL、PID、KEY 和启用状态；停用时接入资料可空，启用时必须完整；更新时可省略 KEY 以保留原密文 |
 | POST | `/api/admin/drama/providers/{providerId}/connection/test` | SUPER_ADMIN | 解密现有凭据并执行 GoodShort 最小连接探测，不保存返回短剧 |
 
 ### 6.7 短剧目录管理 API
@@ -426,7 +426,7 @@ GoodShort 订单同步只按甲方订单字段接收数据：`orderId`、`userId
 | GET | `/api/admin/system/scheduled-tasks` | ADMIN | 查询后端固定任务配置 |
 | PUT | `/api/admin/system/scheduled-tasks/{taskCode}` | SUPER_ADMIN | 修改执行周期、任务说明和启停状态 |
 
-当前固定任务为 `GOODSHORT_DRAMA_INCREMENTAL_SYNC`、`GOODSHORT_DRAMA_CONTENT_SYNC` 和 `GOODSHORT_ORDER_SYNC`。页面可编辑周期类型、间隔值及小时/分钟余量、执行时间、星期/日期、说明和是否开启，不能新增、删除、修改标题、任务编码或执行程序。普通管理员只读；首次全量同步不由目录任务自动完成。订单任务的有效周期由 `cycle_type=INTERVAL_MINUTES`、`interval_value=1` 驱动。`INTERVAL_HOURS` 使用小时数加分钟余量，`INTERVAL_DAYS` 使用天数加小时和分钟余量。
+当前固定任务为 `GOODSHORT_DRAMA_INCREMENTAL_SYNC`、`GOODSHORT_DRAMA_CONTENT_SYNC`、`GOODSHORT_ORDER_TODAY_SYNC`、`GOODSHORT_ORDER_SYNC`、`GOODSHORT_ORDER_RECENT_SYNC` 和 `GOODSHORT_ANALYTICAL_REPORT_SYNC`。页面可编辑周期类型、间隔值及小时/分钟余量、执行时间、星期/日期、说明和是否开启，不能新增、删除、修改标题、任务编码或执行程序。普通管理员只读；首次全量同步不由目录任务自动完成。订单任务分别按 5 分钟今日、60 分钟昨日加今天、3 天最近 7 天补偿执行。`INTERVAL_HOURS` 使用小时数加分钟余量，`INTERVAL_DAYS` 使用天数加小时和分钟余量。
 
 ### 6.11 统一响应格式
 
@@ -574,3 +574,5 @@ Unit/Integration 的 JaCoCo HTML/XML 报告分别位于 `target/site/jacoco-unit
 # 手机验证码（阿里云短信）
 
 超级管理员通过 `PUT/GET /api/admin/system/sms-config` 配置阿里云 AccessKey、签名和注册/登录/找回密码模板；AccessKey 仅以 AES-GCM 密文保存，响应不返回密钥。用户端手机号验证码接口为注册发码、验证码登录发码/校验和找回密码发码/校验，发送失败返回 HTTP 503。邮箱密码登录保持可用，邮箱验证码流程暂未开放。
+
+\n

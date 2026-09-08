@@ -39,7 +39,7 @@ class PromotionOrderUserServiceTest extends BaseAuthTest {
         assertThat(monthly.getPaidOrderCount()).isEqualTo(1);
         assertThat(monthly.getCalculatedCommission()).isEqualByComparingTo("4.79");
         assertThat(monthly.getReversedCommission()).isEqualByComparingTo("4.79");
-        assertThat(monthly.getNetCommission()).isEqualByComparingTo("4.79");
+        assertThat(monthly.getNetCommission()).isEqualByComparingTo("0.00");
     }
 
     private SeedIds seedDependencies() {

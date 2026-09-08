@@ -92,6 +92,7 @@ class PromotionOrderServiceTest {
         PromotionOrder existing = new PromotionOrder();
         existing.setId(99L);
         existing.setConnectionId(3L);
+        existing.setProviderId(7L);
         existing.setExternalOrderId("order-1");
         existing.setRuleHistoryId(31L);
         existing.setCommissionAmount(new BigDecimal("4.79"));
@@ -114,6 +115,7 @@ class PromotionOrderServiceTest {
         PromotionOrder existing = new PromotionOrder();
         existing.setId(99L);
         existing.setConnectionId(3L);
+        existing.setProviderId(7L);
         existing.setExternalOrderId("order-1");
         existing.setRuleHistoryId(31L);
         existing.setCommissionAmount(new BigDecimal("4.79"));

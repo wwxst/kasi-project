@@ -1,26 +1,106 @@
 .workspace-page {
   width: 100%;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
 }
-
 .workspace-page__welcome {
   display: grid;
-  min-height: min(52vh, 520px);
+  min-height: 0;
   margin: 0;
-  padding: 32px 20px;
+  padding: 38px 20px 28px;
   align-items: center;
   justify-items: center;
   color: var(--td-text-color-primary);
-  font-size: 36px;
+  font-size: 34px;
   font-weight: 600;
   line-height: 1.35;
-  letter-spacing: 0;
   text-align: center;
 }
-
+.workspace-page__projects {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(240px, 320px));
+  gap: 24px;
+  max-width: 1120px;
+  margin: 0 auto;
+  padding: 0 28px 48px;
+  justify-content: center;
+}
+.project-card {
+  position: relative;
+  min-height: 220px;
+  overflow: hidden;
+  border-radius: 16px;
+  color: #fff;
+  box-shadow: 0 10px 28px rgb(0 0 0 / 10%);
+  transition:
+    transform 0.3s ease,
+    box-shadow 0.3s ease;
+  isolation: isolate;
+}
+.project-card::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  background-image:
+    linear-gradient(135deg, rgb(8 12 30 / 12%), rgb(8 12 30 / 58%)),
+    var(--card-image);
+  background-position: center;
+  background-size: cover;
+  transition:
+    transform 0.45s ease,
+    filter 0.3s ease;
+}
+.project-card:hover::before {
+  transform: scale(1.06);
+  filter: blur(4px) saturate(1.08);
+}
+.project-card:hover {
+  transform: translateY(-6px);
+  box-shadow: 0 16px 34px rgb(46 55 84 / 22%);
+}
+.project-card__overlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  background: rgb(20 25 50 / 32%);
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+.project-card:hover .project-card__overlay {
+  opacity: 1;
+}
+.project-card__button {
+  cursor: pointer;
+  padding: 9px 17px;
+  border: 1px solid rgb(255 255 255 / 70%);
+  border-radius: 8px;
+  background: rgb(255 255 255 / 16%);
+  color: #fff;
+  font: inherit;
+  font-size: 14px;
+  transition:
+    background 0.2s ease,
+    color 0.2s ease;
+}
+.project-card__button:hover,
+.project-card__button--primary {
+  background: #fff;
+  color: #3d5bd9;
+}
 @media (max-width: 760px) {
   .workspace-page__welcome {
-    min-height: 44vh;
-    padding: 24px 12px;
+    padding: 28px 12px 22px;
     font-size: 28px;
+  }
+  .workspace-page__projects {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 16px;
+    padding: 0 16px 32px;
   }
 }

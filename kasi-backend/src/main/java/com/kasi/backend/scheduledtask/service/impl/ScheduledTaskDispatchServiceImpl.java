@@ -12,6 +12,7 @@ import com.kasi.backend.provider.exception.ProviderRemoteRejectedException;
 import com.kasi.backend.provider.exception.ProviderTransientException;
 import com.kasi.backend.scheduledtask.config.ScheduledTaskProperties;
 import com.kasi.backend.scheduledtask.entity.SystemScheduledTask;
+import com.kasi.backend.scheduledtask.enums.ScheduledTaskCode;
 import com.kasi.backend.scheduledtask.mapper.SystemScheduledTaskMapper;
 import com.kasi.backend.scheduledtask.service.ScheduledTaskDispatchService;
 import com.kasi.backend.scheduledtask.service.ScheduledTaskScheduleCalculator;
@@ -23,6 +24,7 @@ import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.support.TransactionTemplate;
 
 import java.time.Clock;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
 
@@ -99,6 +101,12 @@ public class ScheduledTaskDispatchServiceImpl implements ScheduledTaskDispatchSe
                 dispatch(task);
             } catch (BusinessException | ProviderTransientException | ProviderRemoteRejectedException exception) {
                 log.error("系统定时任务执行失败: taskCode={}", task.getTaskCode(), exception);
+                if (task.getTaskCode() == ScheduledTaskCode.GOODSHORT_ANALYTICAL_REPORT_SYNC
+                        || task.getTaskCode() == ScheduledTaskCode.GOODSHORT_ORDER_TODAY_SYNC
+                        || task.getTaskCode() == ScheduledTaskCode.GOODSHORT_ORDER_SYNC
+                        || task.getTaskCode() == ScheduledTaskCode.GOODSHORT_ORDER_RECENT_SYNC) {
+                    continue;
+                }
             }
             taskMapper.completeRun(task.getTaskCode(), workerId, nextRun(task, now));
         }
@@ -125,7 +133,9 @@ public class ScheduledTaskDispatchServiceImpl implements ScheduledTaskDispatchSe
         switch (task.getTaskCode()) {
             case GOODSHORT_DRAMA_INCREMENTAL_SYNC -> dispatchGoodShortDramaIncremental();
             case GOODSHORT_DRAMA_CONTENT_SYNC -> contentSyncService.processDueBatch();
-            case GOODSHORT_ORDER_SYNC -> dispatchGoodShortOrderSync();
+            case GOODSHORT_ORDER_TODAY_SYNC -> dispatchGoodShortOrderSync(0);
+            case GOODSHORT_ORDER_SYNC -> dispatchGoodShortOrderSync(1);
+            case GOODSHORT_ORDER_RECENT_SYNC -> dispatchGoodShortOrderSync(2);
             case GOODSHORT_ANALYTICAL_REPORT_SYNC -> dispatchGoodShortAnalyticalReportSync();
         }
     }
@@ -138,13 +148,20 @@ public class ScheduledTaskDispatchServiceImpl implements ScheduledTaskDispatchSe
         syncService.requestScheduledIncremental(provider.getId(), dramaProperties.getLanguages());
     }
 
-    private void dispatchGoodShortOrderSync() {
+    private void dispatchGoodShortOrderSync(int windowType) {
         ShortDramaProvider provider = providerMapper.findByCode("GOODSHORT");
         if (provider == null) {
             return;
         }
         LocalDateTime endDate = LocalDateTime.now(clock);
-        orderSyncService.sync(provider.getId(), endDate.minusDays(3), endDate);
+        LocalDate today = endDate.toLocalDate();
+        LocalDateTime startDate = switch (windowType) {
+            case 0 -> today.atStartOfDay();
+            case 1 -> today.minusDays(1).atStartOfDay();
+            case 2 -> today.minusDays(6).atStartOfDay();
+            default -> throw new IllegalArgumentException("未知订单同步窗口: " + windowType);
+        };
+        orderSyncService.sync(provider.getId(), startDate, endDate);
     }
 
     private void dispatchGoodShortAnalyticalReportSync() {

@@ -154,4 +154,64 @@ describe('ProviderManagementPage', () => {
       ),
     )
   })
+
+  it('allows an empty configuration only while the connection is disabled', async () => {
+    const user = userEvent.setup()
+    let requestBody: unknown
+    const disabledProvider = {
+      ...provider,
+      connection: {
+        ...provider.connection,
+        mediaRootDomain: null,
+        baseUrl: null,
+        partnerId: null,
+        status: 0,
+        credentialConfigured: false,
+      },
+    }
+    server.use(
+      http.get('/api/admin/drama/providers', () =>
+        HttpResponse.json({
+          code: 0,
+          message: 'ok',
+          data: [disabledProvider],
+        }),
+      ),
+      http.put(
+        '/api/admin/drama/providers/1/connection',
+        async ({ request }) => {
+          requestBody = await request.json()
+          return HttpResponse.json({
+            code: 0,
+            message: 'ok',
+            data: disabledProvider.connection,
+          })
+        },
+      ),
+    )
+    render(
+      <AntdApp>
+        <ProviderManagementPage />
+      </AntdApp>,
+    )
+
+    await screen.findByText('GoodShort API 接入')
+    await user.click(screen.getByRole('button', { name: '提交' }))
+
+    await waitFor(() => expect(requestBody).toEqual({ status: 0 }))
+    expect(screen.queryByText('请输入域名白名单')).not.toBeInTheDocument()
+    expect(screen.queryByText('请输入接口 URL')).not.toBeInTheDocument()
+    expect(screen.queryByText('请输入 PID')).not.toBeInTheDocument()
+    expect(screen.queryByText('请输入 KEY')).not.toBeInTheDocument()
+
+    requestBody = undefined
+    await user.click(screen.getByRole('switch'))
+    await user.click(screen.getByRole('button', { name: '提交' }))
+
+    expect(await screen.findByText('请输入域名白名单')).toBeInTheDocument()
+    expect(screen.getByText('请输入接口 URL')).toBeInTheDocument()
+    expect(screen.getByText('请输入 PID')).toBeInTheDocument()
+    expect(screen.getByText('请输入 KEY')).toBeInTheDocument()
+    expect(requestBody).toBeUndefined()
+  })
 })

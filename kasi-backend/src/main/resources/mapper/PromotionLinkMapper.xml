@@ -67,6 +67,55 @@
         WHERE l.user_id = #{userId} AND l.status = 'SUCCESS'
         ORDER BY l.id DESC LIMIT #{offset}, #{size}
     </select>
+    <sql id="adminPageFilters">
+        <where>
+            l.status = 'SUCCESS'
+            <if test="userNo != null and userNo != ''">AND u.user_no = #{userNo}</if>
+            <if test="providerId != null">AND l.provider_id = #{providerId}</if>
+            <if test="externalCode != null and externalCode != ''">AND l.external_code = #{externalCode}</if>
+            <if test="trackingNo != null and trackingNo != ''">AND l.tracking_no = #{trackingNo}</if>
+        </where>
+    </sql>
+    <select id="countAdminPage" resultType="long">
+        SELECT COUNT(*)
+        FROM promotion_link l
+        JOIN promotion_user u ON u.id = l.user_id
+        <include refid="adminPageFilters"/>
+    </select>
+    <select id="findAdminPage" resultType="com.kasi.backend.promotion.vo.AdminPromotionLinkVO">
+        SELECT l.id, u.user_no AS user_no, u.nickname, u.real_name AS real_name,
+               l.provider_id, p.provider_name, l.drama_id, d.title AS drama_title,
+               l.media_type, l.link_variant, l.campaign_name, l.tracking_no, l.external_code, l.share_url,
+               COALESCE(r.click_count, 0) AS click_count,
+               COALESCE(r.attributed_user_count, 0) AS attributed_user_count,
+               COALESCE(r.new_registered_user_count, 0) AS new_registered_user_count,
+               COALESCE(r.new_paid_user_count, 0) AS new_paid_user_count,
+               COALESCE(r.new_member_user_count, 0) AS new_member_user_count,
+               COALESCE(r.paid_user_count, 0) AS paid_user_count,
+               COALESCE(r.order_count, 0) AS order_count, l.created_at
+        FROM promotion_link l
+        JOIN promotion_user u ON u.id = l.user_id
+        LEFT JOIN short_drama_provider p ON p.id = l.provider_id
+        LEFT JOIN provider_drama d ON d.id = l.drama_id
+        LEFT JOIN short_drama_connection c ON c.id = l.connection_id
+        LEFT JOIN (
+            SELECT pid, custom_params, book_id, code,
+                   SUM(click_count) AS click_count,
+                   SUM(attributed_user_count) AS attributed_user_count,
+                   SUM(new_registered_user_count) AS new_registered_user_count,
+                   SUM(new_paid_user_count) AS new_paid_user_count,
+                   SUM(new_member_user_count) AS new_member_user_count,
+                   SUM(paid_user_count) AS paid_user_count,
+                   SUM(order_count) AS order_count
+            FROM promotion_analytical_report
+            GROUP BY pid, custom_params, book_id, code
+        ) r ON r.code = l.external_code
+            AND r.pid = c.partner_id
+            AND r.book_id = d.external_drama_id
+            AND r.custom_params = u.user_no
+        <include refid="adminPageFilters"/>
+        ORDER BY l.id DESC LIMIT #{offset}, #{size}
+    </select>
     <select id="findForOrderAttribution" resultMap="PromotionLinkMap">
         SELECT l.* FROM promotion_link l
         JOIN short_drama_connection c ON c.id = l.connection_id

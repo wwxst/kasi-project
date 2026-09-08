@@ -16,7 +16,12 @@ export default function AppRouter() {
         </div>
       }
     >
-      <Page breadcrumbs={route ? ['工作台', route.title] : ['工作台']}>
+      <Page
+        className={
+          route?.path === '/workspace' ? Style.workspacePanel : undefined
+        }
+        breadcrumbs={route ? ['工作台', route.title] : ['工作台']}
+      >
         <Outlet />
       </Page>
     </Suspense>

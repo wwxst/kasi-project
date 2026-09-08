@@ -373,7 +373,7 @@ CREATE TABLE system_scheduled_task (
     KEY idx_system_scheduled_task_due (enabled, next_run_at, lease_until)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
-INSERT INTO system_scheduled_task (task_code, description, cycle_type, interval_value, interval_hours_part, interval_minutes_part, enabled, next_run_at) VALUES ('GOODSHORT_DRAMA_INCREMENTAL_SYNC','每隔60分钟执行一次GoodShort短剧目录增量同步','INTERVAL_MINUTES',60,0,0,1,TIMESTAMPADD(MINUTE,60,CURRENT_TIMESTAMP)),('GOODSHORT_DRAMA_CONTENT_SYNC','每隔1分钟同步GoodShort免费剧集','INTERVAL_MINUTES',1,0,0,1,TIMESTAMPADD(MINUTE,1,CURRENT_TIMESTAMP)),('GOODSHORT_ORDER_SYNC','每隔1分钟同步最近3天的GoodShort订单','INTERVAL_MINUTES',1,0,0,1,TIMESTAMPADD(MINUTE,1,CURRENT_TIMESTAMP));
+INSERT INTO system_scheduled_task (task_code, description, cycle_type, interval_value, interval_hours_part, interval_minutes_part, enabled, next_run_at) VALUES ('GOODSHORT_DRAMA_INCREMENTAL_SYNC','每隔60分钟执行一次GoodShort短剧目录增量同步','INTERVAL_MINUTES',60,0,0,1,TIMESTAMPADD(MINUTE,60,CURRENT_TIMESTAMP)),('GOODSHORT_DRAMA_CONTENT_SYNC','每隔1分钟同步GoodShort免费剧集','INTERVAL_MINUTES',1,0,0,1,TIMESTAMPADD(MINUTE,1,CURRENT_TIMESTAMP)),('GOODSHORT_ORDER_TODAY_SYNC','每隔5分钟同步今天的GoodShort订单','INTERVAL_MINUTES',5,0,0,1,TIMESTAMPADD(MINUTE,5,CURRENT_TIMESTAMP)),('GOODSHORT_ORDER_SYNC','每隔60分钟同步昨天和今天的GoodShort订单','INTERVAL_MINUTES',60,0,0,1,TIMESTAMPADD(MINUTE,60,CURRENT_TIMESTAMP)),('GOODSHORT_ORDER_RECENT_SYNC','每隔3天补偿同步最近7天的GoodShort订单','INTERVAL_DAYS',3,0,0,1,TIMESTAMPADD(DAY,3,CURRENT_TIMESTAMP));
 INSERT INTO system_scheduled_task
     (task_code, description, cycle_type, time_of_day, enabled, next_run_at)
 VALUES ('GOODSHORT_ANALYTICAL_REPORT_SYNC', 'Daily 08:00 GoodShort analytical report sync', 'DAILY', '08:00:00', 1,

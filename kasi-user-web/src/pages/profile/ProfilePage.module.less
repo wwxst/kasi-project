@@ -1,28 +1,93 @@
 .page {
   min-width: 0;
-  padding: 30px 32px;
-  background: var(--td-bg-color-container);
-  box-shadow: 0 2px 3px rgb(0 0 0 / 10%);
-  border-radius: 3px;
+  padding: 16px 14px 24px;
+  background: #f2f3f5;
 }
 
 .profileSection,
 .securitySection {
-  max-width: 960px;
+  max-width: none;
+  margin-right: auto;
+  margin-left: auto;
+  padding: 30px 36px;
+  background: var(--td-bg-color-container);
+  border: 1px solid var(--td-component-stroke);
+  border-radius: 2px;
+  box-shadow: 0 1px 3px rgb(0 0 0 / 5%);
+}
+
+.basicPanel {
+  margin-top: 14px;
+  padding: 0 24px 28px;
+  border: 1px solid var(--td-component-stroke);
+  border-radius: 2px;
+  background: #fff;
+  box-shadow: 0 1px 3px rgb(0 0 0 / 5%);
 }
 
 .profileHeader {
   display: flex;
   align-items: center;
   gap: 20px;
-  padding-bottom: 28px;
+  min-height: 108px;
+  padding: 0;
+  border: 0;
+  border-radius: 2px;
+  background: #fff;
+}
+
+.profileTabs {
+  display: flex;
+  align-items: center;
+  gap: 32px;
+  margin: 0 -24px;
+  padding: 0 24px;
   border-bottom: 1px solid var(--td-component-stroke);
+}
+
+.profileTab,
+.profileTabActive,
+.profileTabDisabled {
+  position: relative;
+  padding: 0 0 13px;
+  border: 0;
+  background: transparent;
+  color: var(--td-text-color-secondary);
+  font: inherit;
+  font-size: 14px;
+}
+
+.profileTab {
+  cursor: pointer;
+}
+
+.profileTab:hover {
+  color: var(--td-brand-color);
+}
+
+.profileTabActive {
+  color: var(--td-brand-color);
+  font-weight: 600;
+}
+
+.profileTabActive::after {
+  position: absolute;
+  right: 0;
+  bottom: -1px;
+  left: 0;
+  height: 2px;
+  background: var(--td-brand-color);
+  content: '';
+}
+
+.profileTabDisabled {
+  color: var(--td-text-color-placeholder);
 }
 
 .avatarEditor {
   display: flex;
-  width: 88px;
-  flex: 0 0 88px;
+  width: 120px;
+  flex: 0 0 120px;
   flex-direction: column;
   align-items: center;
   gap: 4px;
@@ -45,16 +110,21 @@
 
 .avatarFallback {
   display: flex;
-  width: 72px;
-  height: 72px;
-  flex: 0 0 72px;
+  width: 88px;
+  height: 88px;
+  flex: 0 0 88px;
   align-items: center;
   justify-content: center;
   border-radius: 50%;
-  background: var(--td-bg-color-secondarycontainer);
-  color: var(--td-text-color-secondary);
+  background: linear-gradient(135deg, #eef2ff, #dbe5ff);
+  color: var(--td-brand-color);
   font-size: 28px;
   font-weight: 600;
+  box-shadow: 0 0 0 4px var(--td-bg-color-secondarycontainer);
+}
+
+.avatarEditor :global(.t-avatar) {
+  box-shadow: 0 0 0 4px var(--td-bg-color-secondarycontainer);
 }
 
 .profileIdentity {
@@ -63,6 +133,26 @@
   flex: 1;
   flex-direction: column;
   gap: 5px;
+}
+
+.summaryGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(260px, 1fr));
+  gap: 12px 80px;
+  color: var(--td-text-color-secondary);
+  font-size: 13px;
+}
+
+.summaryGrid strong {
+  margin-left: 8px;
+  color: var(--td-text-color-primary);
+  font-weight: 400;
+}
+
+.summaryGrid em {
+  margin-left: 8px;
+  color: var(--td-success-color);
+  font-style: normal;
 }
 
 .profileIdentity h1,
@@ -91,8 +181,8 @@
 
 .status {
   flex: 0 0 auto;
-  padding: 3px 10px;
-  border-radius: 3px;
+  padding: 4px 12px;
+  border-radius: 999px;
   background: var(--td-success-color-light);
   color: var(--td-success-color);
   font-size: 13px;
@@ -132,19 +222,22 @@
 }
 
 .infoGrid {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 0 48px;
+  display: block;
   margin: 0;
-  padding: 12px 0 0;
+  padding: 20px 0 0;
 }
 
 .infoItem {
   display: grid;
-  grid-template-columns: 112px minmax(0, 1fr);
-  gap: 16px;
-  padding: 16px 0;
-  border-bottom: 1px solid var(--td-component-stroke);
+  grid-template-columns: 110px 330px;
+  width: 500px;
+  gap: 12px;
+  padding: 8px 0;
+  border: 0;
+}
+
+.infoItem:hover {
+  background: transparent;
 }
 
 .infoItem dt,
@@ -160,11 +253,12 @@
 }
 
 .securitySection {
-  margin-top: 36px;
+  margin-top: 14px;
 }
 
 .securitySection h2 {
   margin-bottom: 20px;
+  font-size: 18px;
 }
 
 .passwordForm {
@@ -188,7 +282,27 @@
 
 @media (max-width: 720px) {
   .page {
-    padding: 24px 20px;
+    padding: 16px 12px 24px;
+  }
+
+  .profileSection,
+  .securitySection {
+    padding: 20px 16px;
+    border-radius: 2px;
+  }
+
+  .profileTabs {
+    margin-right: -16px;
+    margin-left: -16px;
+    padding-right: 16px;
+    padding-left: 16px;
+    gap: 24px;
+  }
+
+  .basicPanel {
+    margin-top: 16px;
+    padding-right: 16px;
+    padding-left: 16px;
   }
 
   .profileHeader {
@@ -206,6 +320,10 @@
     justify-content: space-between;
   }
 
+  .profileActions :global(.t-button) {
+    min-height: 36px;
+  }
+
   .editActions {
     width: 100%;
   }
@@ -216,6 +334,15 @@
 
   .infoGrid {
     grid-template-columns: minmax(0, 1fr);
+  }
+
+  .infoItem {
+    width: 100%;
+  }
+
+  .summaryGrid {
+    grid-template-columns: 1fr;
+    gap: 8px;
   }
 }
 

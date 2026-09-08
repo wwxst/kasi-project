@@ -117,6 +117,11 @@ export function AdminLayout() {
                 label: <Link to="/promotion/media-accounts">媒体账号报备</Link>,
               },
               {
+                key: '/promotion/links',
+                icon: <ListOrdered size={18} strokeWidth={1.8} />,
+                label: <Link to="/promotion/links">推广任务</Link>,
+              },
+              {
                 key: '/promotion/orders',
                 icon: <ListOrdered size={18} strokeWidth={1.8} />,
                 label: <Link to="/promotion/orders">推广订单</Link>,

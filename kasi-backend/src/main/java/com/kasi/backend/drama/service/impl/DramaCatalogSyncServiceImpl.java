@@ -319,7 +319,8 @@ public class DramaCatalogSyncServiceImpl implements DramaCatalogSyncService {
                             DramaCatalogProviderAdapter adapter,
                             String contentRunId) {
         int pageNo = value(checkpoint.getPageNo(), 1);
-        int pageSize = value(checkpoint.getPageSize(), properties.getPageSize());
+        int pageSize = Math.min(50, Math.max(1,
+                value(checkpoint.getPageSize(), properties.getPageSize())));
         Long updateTime = checkpoint.getUpdateTime();
         boolean hasNext;
         do {

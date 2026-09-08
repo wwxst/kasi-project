@@ -50,6 +50,11 @@ const PromotionOrderPage = lazy(() =>
     default: module.PromotionOrderPage,
   })),
 )
+const PromotionLinkPage = lazy(() =>
+  import('../pages/promotion/PromotionLinkPage').then((module) => ({
+    default: module.PromotionLinkPage,
+  })),
+)
 const DramaCatalogPage = lazy(() =>
   import('../pages/drama/DramaCatalogPage').then((module) => ({
     default: module.DramaCatalogPage,
@@ -116,6 +121,7 @@ export function AppRouter() {
                 path="/promotion/media-accounts"
                 element={<MediaAccountFilingPage />}
               />
+              <Route path="/promotion/links" element={<PromotionLinkPage />} />
               <Route
                 path="/promotion/orders"
                 element={<PromotionOrderPage />}

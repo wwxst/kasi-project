@@ -117,20 +117,22 @@ export function UserManagementPage() {
       }
       updateStatus={(id, status) => updateUserStatus(id, { status })}
       remove={removeUser}
-      recordName={(record) => `${record.nickname}（${record.userNo}）`}
+      recordName={(record) =>
+        `${record.nickname || '未设置昵称'}（${record.userNo}）`
+      }
       formValues={(record) => ({
         mobile: record.mobile ?? undefined,
         email: record.email ?? undefined,
-        nickname: record.nickname,
+        nickname: record.nickname ?? undefined,
         realName: record.realName ?? undefined,
         avatarUrl: record.avatarUrl ?? undefined,
         remark: record.remark ?? undefined,
       })}
       detailIdentity={{
         avatarUrl: (record) => record.avatarUrl,
-        title: (record) => record.nickname,
+        title: (record) => record.nickname || '未设置昵称',
         subtitle: (record) => record.userNo,
-        fallback: (record) => record.nickname.trim().charAt(0) || '用',
+        fallback: (record) => record.nickname?.trim().charAt(0) || '用',
       }}
       renderCreateForm={(form) => renderUserForm(form, 'create')}
       renderEditForm={(form) => renderUserForm(form, 'edit')}

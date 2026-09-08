@@ -31,9 +31,9 @@ import type {
 import './provider-management-page.css'
 
 interface ProviderFormValues {
-  mediaRootDomain: string
-  baseUrl: string
-  partnerId: string
+  mediaRootDomain?: string
+  baseUrl?: string
+  partnerId?: string
   apiKey?: string
   status: boolean
 }
@@ -100,11 +100,14 @@ export function ProviderManagementPage() {
     if (!activeProvider) return
     try {
       const values = await form.validateFields()
+      const mediaRootDomain = values.mediaRootDomain?.trim().toLowerCase()
+      const baseUrl = values.baseUrl?.trim().replace(/\/$/, '')
+      const partnerId = values.partnerId?.trim()
       const request: UpsertProviderConnectionRequest = {
         status: values.status ? 1 : 0,
-        mediaRootDomain: values.mediaRootDomain.trim().toLowerCase(),
-        baseUrl: values.baseUrl.trim().replace(/\/$/, ''),
-        partnerId: values.partnerId.trim(),
+        ...(mediaRootDomain ? { mediaRootDomain } : {}),
+        ...(baseUrl ? { baseUrl } : {}),
+        ...(partnerId ? { partnerId } : {}),
         ...(values.apiKey?.trim() ? { apiKey: values.apiKey.trim() } : {}),
       }
       setSaving(true)
@@ -202,13 +205,14 @@ export function ProviderManagementPage() {
                       <Form.Item
                         label="域名白名单"
                         name="mediaRootDomain"
+                        dependencies={['status']}
                         extra="填写允许的视频根域，根域及其正规子域均可访问，不包含协议、端口或路径"
                         rules={[
-                          {
-                            required: true,
+                          ({ getFieldValue }) => ({
+                            required: Boolean(getFieldValue('status')),
                             transform: (value) => value?.trim(),
                             message: '请输入域名白名单',
-                          },
+                          }),
                           {
                             transform: (value) => value?.trim(),
                             pattern:
@@ -223,9 +227,13 @@ export function ProviderManagementPage() {
                       <Form.Item
                         label="接口 URL"
                         name="baseUrl"
+                        dependencies={['status']}
                         extra="填写平台 API 的基础地址，不包含具体接口路径"
                         rules={[
-                          { required: true, message: '请输入接口 URL' },
+                          ({ getFieldValue }) => ({
+                            required: Boolean(getFieldValue('status')),
+                            message: '请输入接口 URL',
+                          }),
                           {
                             pattern: /^https?:\/\/\S+$/,
                             message:
@@ -239,8 +247,12 @@ export function ProviderManagementPage() {
                       <Form.Item
                         label="PID"
                         name="partnerId"
+                        dependencies={['status']}
                         rules={[
-                          { required: true, message: '请输入 PID' },
+                          ({ getFieldValue }) => ({
+                            required: Boolean(getFieldValue('status')),
+                            message: '请输入 PID',
+                          }),
                           { max: 64, message: 'PID 不能超过64个字符' },
                         ]}
                       >
@@ -249,17 +261,19 @@ export function ProviderManagementPage() {
                       <Form.Item
                         label="KEY"
                         name="apiKey"
+                        dependencies={['status']}
                         extra={
                           activeProvider.connection?.credentialConfigured
                             ? '已配置 KEY，留空表示保留当前 KEY'
-                            : '首次配置必须填写平台提供的 KEY'
+                            : '启用时必须填写平台提供的 KEY'
                         }
                         rules={[
-                          {
+                          ({ getFieldValue }) => ({
                             required:
+                              Boolean(getFieldValue('status')) &&
                               !activeProvider.connection?.credentialConfigured,
                             message: '请输入 KEY',
-                          },
+                          }),
                           { max: 256, message: 'KEY 不能超过256个字符' },
                         ]}
                       >

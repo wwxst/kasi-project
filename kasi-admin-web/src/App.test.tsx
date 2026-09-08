@@ -1041,6 +1041,69 @@ describe('App', () => {
     expect(createCalled).toBe(false)
   })
 
+  it('opens promotion user details when the nickname is missing', async () => {
+    const userListItem = {
+      id: 7,
+      userNo: '191931716670',
+      nickname: null,
+      realName: null,
+      mobile: null,
+      email: '19193171667@163.com',
+      avatarUrl: null,
+      status: 0,
+      registerSource: null,
+      lastLoginAt: null,
+      createdAt: '2026-09-08T10:00:00',
+    }
+    server.use(
+      http.get('/api/user/management', () =>
+        HttpResponse.json({
+          code: 0,
+          message: '查询成功',
+          data: { list: [userListItem], page: 1, size: 20, total: 1 },
+        }),
+      ),
+      http.get('/api/user/management/7', () =>
+        HttpResponse.json({
+          code: 0,
+          message: '查询成功',
+          data: {
+            ...userListItem,
+            lastLoginIp: null,
+            remark: null,
+            updatedAt: '2026-09-08T10:00:00',
+          },
+        }),
+      ),
+    )
+    useAuthStore.getState().setSession({
+      accessToken: 'test-token',
+      tokenType: 'Bearer',
+      expiresIn: 7200,
+      admin: {
+        id: 1,
+        username: 'kasiadmin',
+        realName: '系统管理员',
+        mobile: null,
+        email: null,
+        avatarUrl: null,
+        isSuperAdmin: 1,
+      },
+    })
+    window.history.replaceState({}, '', '/user-management')
+    const user = userEvent.setup()
+
+    render(<App />)
+    await screen.findByRole('cell', { name: '191931716670' })
+    await user.click(screen.getByTestId('user-detail-7'))
+
+    expect(await screen.findByText('基本信息')).toBeInTheDocument()
+    const identity = screen.getByTestId('user-detail-identity-7')
+    expect(identity).toHaveTextContent('用')
+    expect(identity).toHaveTextContent('未设置昵称')
+    expect(identity).toHaveTextContent('191931716670')
+  })
+
   it('connects the complete promotion user CRUD workflow', async () => {
     const userListItem = {
       id: 7,

@@ -1,5 +1,6 @@
 import { cleanup, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
+import { MessagePlugin } from 'tdesign-react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import App from './App'
 import { queryClient } from './app/queryClient'
@@ -27,6 +28,15 @@ vi.mock('./features/auth/authApi', () => ({
   sendRegisterCode: vi.fn(),
   verifyForgotPasswordCode: vi.fn(),
 }))
+
+vi.mock('tdesign-react', async () => {
+  const actual =
+    await vi.importActual<typeof import('tdesign-react')>('tdesign-react')
+  return {
+    ...actual,
+    MessagePlugin: { success: vi.fn(), error: vi.fn() },
+  }
+})
 
 vi.mock('./features/mediaAccounts/mediaAccountsApi', () => ({
   getMediaAccounts: vi.fn(),
@@ -282,9 +292,10 @@ describe('App', () => {
     )
     await user.click(screen.getByRole('button', { name: '登录' }))
 
-    expect((await screen.findByRole('alert')).textContent).toContain(
-      '账号或密码错误',
-    )
+    await waitFor(() => {
+      expect(MessagePlugin.error).toHaveBeenCalledWith('账号或密码错误')
+    })
+    expect(screen.queryByRole('alert')).toBeNull()
     expect(screen.getByRole('heading', { name: '登录到' })).toBeTruthy()
   })
 

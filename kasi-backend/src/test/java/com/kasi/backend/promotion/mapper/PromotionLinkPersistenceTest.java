@@ -116,6 +116,44 @@ class PromotionLinkPersistenceTest extends BaseAuthTest {
     }
 
     @Test
+    @DisplayName("管理员推广任务只显示成功链接并按四维归因聚合日报")
+    void adminPageAggregatesMatchingAnalyticalReports() {
+        jdbcTemplate.execute("DELETE FROM promotion_analytical_report");
+        Long userId = jdbcTemplate.queryForObject(
+                "SELECT id FROM promotion_user WHERE user_no=?", Long.class, PRIMARY_USER_NO);
+        Long providerId = jdbcTemplate.queryForObject(
+                "SELECT id FROM short_drama_provider WHERE provider_code='GOODSHORT'", Long.class);
+        jdbcTemplate.update("INSERT INTO short_drama_connection "
+                        + "(provider_id,connection_name,partner_id,currency) VALUES (?,?,?,?)",
+                providerId, "GoodShort", "partner-1", "USD");
+        Long connectionId = jdbcTemplate.queryForObject(
+                "SELECT id FROM short_drama_connection WHERE provider_id=?", Long.class, providerId);
+        jdbcTemplate.update("INSERT INTO provider_drama "
+                        + "(connection_id,external_drama_id,title,language) VALUES (?,?,?,?)",
+                connectionId, "book-1", "Drama", "ENGLISH");
+        Long dramaId = jdbcTemplate.queryForObject(
+                "SELECT id FROM provider_drama WHERE external_drama_id='book-1'", Long.class);
+        insertLink(userId, providerId, connectionId, dramaId, "request-success", "SUCCESS",
+                "CODE-1", "https://example.test/success");
+        insertLink(userId, providerId, connectionId, dramaId, "request-pending", "PENDING", null, null);
+        insertReport(LocalDate.of(2026, 9, 7), "partner-1", PRIMARY_USER_NO, "book-1", "CODE-1",
+                11, 12, 13, 14, 15, 16, 17);
+        insertReport(LocalDate.of(2026, 9, 7), "wrong-pid", PRIMARY_USER_NO, "book-1", "CODE-1",
+                100, 200, 300, 400, 500, 600, 700);
+
+        var page = linkMapper.findAdminPage(PRIMARY_USER_NO, providerId, "CODE-1",
+                "tracking-request-success", 0, 20);
+
+        assertThat(page).hasSize(1);
+        assertThat(page.getFirst().getUserNo()).isEqualTo(PRIMARY_USER_NO);
+        assertThat(page.getFirst().getTrackingNo()).isEqualTo("tracking-request-success");
+        assertThat(page.getFirst().getClickCount()).isEqualTo(11);
+        assertThat(page.getFirst().getOrderCount()).isEqualTo(17);
+        assertThat(linkMapper.countAdminPage(PRIMARY_USER_NO, providerId, "CODE-1",
+                "tracking-request-success")).isEqualTo(1);
+    }
+
+    @Test
     @DisplayName("订单归因同时核对连接PID短剧用户编号和外部口令")
     void orderAttributionMatchesAllProviderDimensions() {
         Long userId = jdbcTemplate.queryForObject(

@@ -37,6 +37,7 @@ export default function ProfilePage({ title: _title }: { title: string }) {
   const formRef = useRef<FormInstanceFunctions | null>(null)
   const [submitting, setSubmitting] = useState(false)
   const [editing, setEditing] = useState(false)
+  const [activeTab, setActiveTab] = useState<'basic' | 'security'>('basic')
   const [profileSubmitting, setProfileSubmitting] = useState(false)
   const [avatarSubmitting, setAvatarSubmitting] = useState(false)
   const [profileDraft, setProfileDraft] = useState({
@@ -193,25 +194,41 @@ export default function ProfilePage({ title: _title }: { title: string }) {
             </Button>
           </div>
           <div className={Style.profileIdentity}>
-            <h1>个人资料</h1>
-            {editing ? (
-              <label className={Style.inlineNickname}>
-                <span className={Style.visuallyHidden}>昵称</span>
-                <Input
-                  value={profileDraft.nickname}
-                  maxlength={64}
-                  onChange={(value) =>
-                    setProfileDraft((current) => ({
-                      ...current,
-                      nickname: value,
-                    }))
-                  }
-                />
-              </label>
-            ) : (
-              <strong>{nickname}</strong>
-            )}
-            <span>用户编号 {user.userNo}</span>
+            <h1 className={Style.visuallyHidden}>个人资料</h1>
+            <div className={Style.summaryGrid}>
+              <span>
+                用户名：
+                {editing ? (
+                  <label className={Style.inlineNickname}>
+                    <span className={Style.visuallyHidden}>昵称</span>
+                    <Input
+                      value={profileDraft.nickname}
+                      maxlength={64}
+                      onChange={(value) =>
+                        setProfileDraft((current) => ({
+                          ...current,
+                          nickname: value,
+                        }))
+                      }
+                    />
+                  </label>
+                ) : (
+                  <strong>{nickname}</strong>
+                )}
+              </span>
+              <span>
+                实名认证：<em>未认证</em>
+              </span>
+              <span>
+                账号ID：<strong>{user.userNo}</strong>
+              </span>
+              <span>
+                手机号码：<strong>{displayValue(user.mobile)}</strong>
+              </span>
+              <span>
+                注册时间：<strong>{formatDateTime(user.createdAt)}</strong>
+              </span>
+            </div>
           </div>
           <div className={Style.profileActions}>
             <span className={Style.status}>
@@ -241,105 +258,131 @@ export default function ProfilePage({ title: _title }: { title: string }) {
             )}
           </div>
         </header>
-
-        <dl className={Style.infoGrid}>
-          <InfoItem label="用户编号" value={user.userNo} />
-          <InfoItem
-            label="真实姓名"
-            value={
-              editing ? (
-                <label className={Style.inlineField}>
-                  <span className={Style.visuallyHidden}>真实姓名</span>
-                  <Input
-                    value={profileDraft.realName}
-                    maxlength={64}
-                    onChange={(value) =>
-                      setProfileDraft((current) => ({
-                        ...current,
-                        realName: value,
-                      }))
-                    }
-                  />
-                </label>
-              ) : (
-                displayValue(user.realName)
-              )
-            }
-          />
-          <InfoItem label="手机号码" value={displayValue(user.mobile)} />
-          <InfoItem label="邮箱地址" value={displayValue(user.email)} />
-          <InfoItem label="注册时间" value={formatDateTime(user.createdAt)} />
-          <InfoItem
-            label="最近登录时间"
-            value={formatDateTime(user.lastLoginAt)}
-          />
-          <InfoItem
-            label="最近登录 IP"
-            value={displayValue(user.lastLoginIp)}
-          />
-        </dl>
       </section>
 
-      <section className={Style.securitySection}>
-        <h2>修改密码</h2>
-        <Form
-          ref={formRef}
-          className={Style.passwordForm}
-          labelAlign="top"
-          onSubmit={handlePasswordSubmit}
-        >
-          <Form.FormItem
-            label="当前密码"
-            name="oldPassword"
-            rules={[{ required: true, message: '请输入当前密码' }]}
+      <section className={Style.basicPanel}>
+        <nav className={Style.profileTabs} aria-label="个人中心分类">
+          <button
+            className={
+              activeTab === 'basic' ? Style.profileTabActive : Style.profileTab
+            }
+            type="button"
+            onClick={() => setActiveTab('basic')}
           >
-            <Input
-              type="password"
-              autocomplete="current-password"
-              placeholder="请输入当前密码"
+            基本信息
+          </button>
+          <button
+            className={
+              activeTab === 'security'
+                ? Style.profileTabActive
+                : Style.profileTab
+            }
+            type="button"
+            onClick={() => setActiveTab('security')}
+          >
+            安全设置
+          </button>
+          <span className={Style.profileTabDisabled}>实名认证</span>
+        </nav>
+
+        {activeTab === 'basic' ? (
+          <dl className={Style.infoGrid}>
+            <InfoItem
+              label="真实姓名"
+              value={
+                editing ? (
+                  <label className={Style.inlineField}>
+                    <span className={Style.visuallyHidden}>真实姓名</span>
+                    <Input
+                      value={profileDraft.realName}
+                      maxlength={64}
+                      onChange={(value) =>
+                        setProfileDraft((current) => ({
+                          ...current,
+                          realName: value,
+                        }))
+                      }
+                    />
+                  </label>
+                ) : (
+                  displayValue(user.realName)
+                )
+              }
             />
-          </Form.FormItem>
-          <Form.FormItem
-            label="新密码"
-            name="newPassword"
-            rules={[
-              { required: true, message: '请输入新密码' },
-              { min: 8, message: '新密码长度不能少于8位' },
-            ]}
-          >
-            <Input
-              type="password"
-              autocomplete="new-password"
-              placeholder="请输入新密码"
+            <InfoItem label="邮箱地址" value={displayValue(user.email)} />
+            <InfoItem label="注册时间" value={formatDateTime(user.createdAt)} />
+            <InfoItem
+              label="最近登录时间"
+              value={formatDateTime(user.lastLoginAt)}
             />
-          </Form.FormItem>
-          <Form.FormItem
-            label="确认新密码"
-            name="confirmPassword"
-            rules={[
-              { required: true, message: '请再次输入新密码' },
-              {
-                validator: (value) =>
-                  value === formRef.current?.getFieldValue('newPassword'),
-                message: '两次输入的新密码不一致',
-              },
-            ]}
-          >
-            <Input
-              type="password"
-              autocomplete="new-password"
-              placeholder="请再次输入新密码"
+            <InfoItem
+              label="最近登录 IP"
+              value={displayValue(user.lastLoginIp)}
             />
-          </Form.FormItem>
-          <Button
-            className={Style.passwordSubmit}
-            theme="primary"
-            type="submit"
-            loading={submitting}
-          >
-            修改密码
-          </Button>
-        </Form>
+          </dl>
+        ) : (
+          <section className={Style.securitySection}>
+            <h2>修改密码</h2>
+            <Form
+              ref={formRef}
+              className={Style.passwordForm}
+              labelAlign="top"
+              onSubmit={handlePasswordSubmit}
+            >
+              <Form.FormItem
+                label="当前密码"
+                name="oldPassword"
+                rules={[{ required: true, message: '请输入当前密码' }]}
+              >
+                <Input
+                  type="password"
+                  autocomplete="current-password"
+                  placeholder="请输入当前密码"
+                />
+              </Form.FormItem>
+              <Form.FormItem
+                label="新密码"
+                name="newPassword"
+                rules={[
+                  { required: true, message: '请输入新密码' },
+                  { min: 8, message: '新密码长度不能少于8位' },
+                ]}
+              >
+                <Input
+                  type="password"
+                  autocomplete="new-password"
+                  placeholder="请输入新密码"
+                />
+              </Form.FormItem>
+              <Form.FormItem
+                label="确认新密码"
+                name="confirmPassword"
+                rules={[
+                  { required: true, message: '请再次输入新密码' },
+                  {
+                    validator: (value) =>
+                      value === formRef.current?.getFieldValue('newPassword'),
+                    message: '两次输入的新密码不一致',
+                  },
+                ]}
+              >
+                <Input
+                  type="password"
+                  autocomplete="new-password"
+                  placeholder="请再次输入新密码"
+                />
+              </Form.FormItem>
+              <Button
+                className={Style.passwordSubmit}
+                theme="primary"
+                type="submit"
+                loading={submitting}
+              >
+                修改密码
+              </Button>
+            </Form>
+          </section>
+        )}
       </section>
     </div>
   )

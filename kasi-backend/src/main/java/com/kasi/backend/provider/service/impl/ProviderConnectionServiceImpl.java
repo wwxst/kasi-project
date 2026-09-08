@@ -61,9 +61,11 @@ public class ProviderConnectionServiceImpl implements ProviderConnectionService 
         String baseUrl = normalizeBaseUrl(request.getBaseUrl());
         String partnerId = trimToNull(request.getPartnerId());
         String mediaRootDomain = trimToNull(request.getMediaRootDomain());
-        if (baseUrl == null || partnerId == null
-                || mediaRootDomain == null
-                || (existing == null && apiKey == null)) {
+        boolean enabled = Integer.valueOf(1).equals(request.getStatus());
+        boolean credentialConfigured = apiKey != null
+                || existing != null && trimToNull(existing.getApiKeyCiphertext()) != null;
+        if (enabled && (baseUrl == null || partnerId == null
+                || mediaRootDomain == null || !credentialConfigured)) {
             throw new BusinessException(ErrorCode.PROVIDER_CONNECTION_INVALID);
         }
 

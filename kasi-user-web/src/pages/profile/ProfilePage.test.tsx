@@ -145,6 +145,8 @@ describe('ProfilePage', () => {
     vi.mocked(changePassword).mockResolvedValue(undefined)
     renderPage()
 
+    await screen.findByRole('button', { name: '安全设置' })
+    await user.click(screen.getByRole('button', { name: '安全设置' }))
     await screen.findByRole('heading', { name: '修改密码' })
     await user.type(
       screen.getByPlaceholderText('请输入当前密码'),

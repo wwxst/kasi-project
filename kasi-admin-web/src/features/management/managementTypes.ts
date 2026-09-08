@@ -55,7 +55,7 @@ export type UpdateAdminRequest = Omit<
 export interface UserListItem {
   id: number
   userNo: string
-  nickname: string
+  nickname: string | null
   realName: string | null
   mobile: string | null
   email: string | null

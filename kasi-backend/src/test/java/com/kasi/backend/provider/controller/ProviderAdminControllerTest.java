@@ -121,6 +121,32 @@ class ProviderAdminControllerTest extends BaseAuthTest {
     }
 
     @Test
+    @DisplayName("超级管理员可以保存无接入资料的停用配置")
+    void superAdminCanSaveEmptyDisabledConnection() throws Exception {
+        Long providerId = providerId();
+        String token = loginAsAdmin();
+
+        mockMvc.perform(put("/api/admin/drama/providers/{providerId}/connection", providerId)
+                        .header("Authorization", "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"status\":0}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(0))
+                .andExpect(jsonPath("$.data.status").value(0))
+                .andExpect(jsonPath("$.data.credentialConfigured").value(false));
+
+        Map<String, Object> stored = jdbcTemplate.queryForMap(
+                "SELECT base_url, media_root_domain, partner_id, api_key_ciphertext, status "
+                        + "FROM short_drama_connection WHERE provider_id = ?",
+                providerId);
+        assertThat(stored).containsEntry("STATUS", 0);
+        assertThat(stored.get("BASE_URL")).isNull();
+        assertThat(stored.get("MEDIA_ROOT_DOMAIN")).isNull();
+        assertThat(stored.get("PARTNER_ID")).isNull();
+        assertThat(stored.get("API_KEY_CIPHERTEXT")).isNull();
+    }
+
+    @Test
     @DisplayName("超级管理员可以测试连接且查询结果不泄露密钥")
     void superAdminCanProbeAndReadWithoutSecretExposure() throws Exception {
         Long providerId = providerId();

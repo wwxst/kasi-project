@@ -80,6 +80,20 @@ class ProviderConnectionServiceTest {
     }
 
     @Test
+    @DisplayName("停用占位配置重新启用时必须提供平台密钥")
+    void enablingDisabledPlaceholderRequiresApiKey() {
+        ShortDramaConnection existing = connection(null);
+        existing.setStatus(0);
+        when(providerMapper.findById(1L)).thenReturn(provider());
+        when(connectionMapper.findByProviderId(1L)).thenReturn(existing);
+
+        assertThatThrownBy(() -> service.upsert(9L, 1L, request("  ", 1)))
+                .isInstanceOfSatisfying(BusinessException.class,
+                        exception -> assertThat(exception.getCode()).isEqualTo(6003));
+        verify(connectionMapper, never()).update(any());
+    }
+
+    @Test
     @DisplayName("API-only 接入契约不再暴露报白模式")
     void apiOnlyContractDoesNotExposeFilingMode() {
         assertThat(fieldNames(UpsertProviderConnectionDTO.class)).doesNotContain("filingMode");

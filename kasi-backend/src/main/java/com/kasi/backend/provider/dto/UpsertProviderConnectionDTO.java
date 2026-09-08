@@ -41,7 +41,8 @@ public class UpsertProviderConnectionDTO {
 
     @AssertTrue(message = "接口 URL、媒体根域名和 PID 不能为空")
     public boolean isApiConfigurationPresent() {
-        return baseUrl != null && !baseUrl.isBlank()
+        return !Integer.valueOf(1).equals(status)
+                || baseUrl != null && !baseUrl.isBlank()
                 && mediaRootDomain != null && !mediaRootDomain.isBlank()
                 && partnerId != null && !partnerId.isBlank();
     }

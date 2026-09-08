@@ -47,7 +47,7 @@ public class PromotionOrderUserServiceImpl implements PromotionOrderUserService 
         return PromotionMonthlyCommissionVO.builder().month(query.getMonth())
                 .paidOrderCount(summary.getPaidOrderCount() == null ? 0 : summary.getPaidOrderCount())
                 .calculatedCommission(calculated)
-                .reversedCommission(reversed).netCommission(calculated).build();
+                .reversedCommission(reversed).netCommission(calculated.subtract(reversed)).build();
     }
 
     private static UserPromotionOrderVO toUserVO(PromotionOrder order) {

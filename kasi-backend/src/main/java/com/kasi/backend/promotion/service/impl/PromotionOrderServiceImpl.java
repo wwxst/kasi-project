@@ -62,7 +62,9 @@ public class PromotionOrderServiceImpl implements PromotionOrderService {
         orderMapper.updateSourceFields(existing);
         if (record.status() == ProviderOrderStatus.REFUNDED && existing.getCommissionAmount() != null) {
             orderMapper.markCommissionReversed(existing.getId());
-        } else if (existing.getRuleHistoryId() == null && record.status() == ProviderOrderStatus.PAID) {
+        } else if (existing.getRuleHistoryId() == null
+                && (record.status() == ProviderOrderStatus.PAID
+                || record.status() == ProviderOrderStatus.REFUNDED)) {
             applyAttributionAndCommission(existing);
             orderMapper.applyAttributionAndCommission(existing);
         }
