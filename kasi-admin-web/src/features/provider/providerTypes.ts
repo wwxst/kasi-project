@@ -19,7 +19,6 @@ export interface ProviderConnection {
   currency: string
   status: number
   credentialConfigured: boolean
-  filingMode?: 'API' | 'MANUAL'
   createdAt: string
   updatedAt: string
 }
@@ -39,7 +38,6 @@ export interface UpsertProviderConnectionRequest {
   partnerId?: string
   apiKey?: string
   status: number
-  filingMode: 'API' | 'MANUAL'
 }
 
 export interface ProviderConnectionTestResult {

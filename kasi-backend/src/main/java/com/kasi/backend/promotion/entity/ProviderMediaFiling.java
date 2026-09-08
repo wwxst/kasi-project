@@ -18,7 +18,6 @@ public class ProviderMediaFiling {
     private String externalFilingId;
     private LocalDateTime filingTime;
     private LocalDateTime operateTime;
-    private Long operateBy;
     private FilingAction nextAction;
     private LocalDateTime nextActionAt;
     private Integer retryCount;

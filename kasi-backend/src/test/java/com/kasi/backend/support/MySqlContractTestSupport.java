@@ -78,8 +78,8 @@ public abstract class MySqlContractTestSupport {
         String name = CONTRACT_PREFIX + suffix;
         jdbcTemplate.update("""
                 INSERT INTO short_drama_connection
-                    (provider_id, connection_name, partner_id, currency, filing_mode, status)
-                VALUES (?, ?, 'mysql-contract-partner', 'USD', 'API', 1)
+                    (provider_id, connection_name, partner_id, currency, status)
+                VALUES (?, ?, 'mysql-contract-partner', 'USD', 1)
                 """, providerId, name);
         return jdbcTemplate.queryForObject(
                 "SELECT id FROM short_drama_connection WHERE connection_name = ?", Long.class, name);

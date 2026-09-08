@@ -78,53 +78,20 @@ class ProviderAdminControllerTest extends BaseAuthTest {
     }
 
     @Test
-    @DisplayName("瓒呯骇绠＄悊鍛樺彲淇敼鎶ョ櫧鏂瑰紡锛屾櫘閫氱鐞嗗憳鍙兘鏌ョ湅")
-    void filingModeIsRestrictedToSuperAdmin() throws Exception {
+    @DisplayName("平台配置不再暴露独立报白模式接口")
+    void filingModeEndpointsDoNotExist() throws Exception {
         Long providerId = providerId();
         String superToken = loginAsAdmin();
         configure(providerId, superToken);
 
+        mockMvc.perform(get("/api/admin/drama/providers/{providerId}/filing-mode", providerId)
+                        .header("Authorization", "Bearer " + superToken))
+                .andExpect(status().isNotFound());
         mockMvc.perform(put("/api/admin/drama/providers/{providerId}/filing-mode", providerId)
                         .header("Authorization", "Bearer " + superToken)
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"filingMode\":\"MANUAL\"}"))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.code").value(0))
-                .andExpect(jsonPath("$.data.providerName").value("GoodShort"))
-                .andExpect(jsonPath("$.data.filingMode").value("MANUAL"));
-
-        String ordinaryToken = loginAsAdmin("operator", ADMIN_PASSWORD);
-        mockMvc.perform(get("/api/admin/drama/providers/{providerId}/filing-mode", providerId)
-                        .header("Authorization", "Bearer " + ordinaryToken))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.data.filingMode").value("MANUAL"));
-        mockMvc.perform(put("/api/admin/drama/providers/{providerId}/filing-mode", providerId)
-                        .header("Authorization", "Bearer " + ordinaryToken)
-                        .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"filingMode\":\"API\"}"))
-                .andExpect(status().isForbidden())
-                .andExpect(jsonPath("$.code").value(1003));
-    }
-
-    @Test
-    @DisplayName("鎶ョ櫧鏂瑰紡涓嶅厑璁哥┖鍊兼垨闈炴硶鍊?")
-    void filingModeValidationReturnsValidationError() throws Exception {
-        Long providerId = providerId();
-        String token = loginAsAdmin();
-        configure(providerId, token);
-
-        mockMvc.perform(put("/api/admin/drama/providers/{providerId}/filing-mode", providerId)
-                        .header("Authorization", "Bearer " + token)
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content("{}"))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.code").value(1006));
-                mockMvc.perform(put("/api/admin/drama/providers/{providerId}/filing-mode", providerId)
-                        .header("Authorization", "Bearer " + token)
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"filingMode\":\"UNKNOWN\"}"))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.code").value(1006));
+                .andExpect(status().isNotFound());
     }
 
     @Test

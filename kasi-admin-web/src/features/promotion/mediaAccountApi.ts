@@ -4,7 +4,6 @@ import { unwrapApiResponse } from '../management/managementTypes'
 import type {
   AdminMediaAccountDetail,
   AdminMediaAccountListItem,
-  AdminUpdateMediaAccountRequest,
   DramaProviderOption,
   MediaAccountPageQuery,
   MediaAccountPageResult,
@@ -31,17 +30,6 @@ export async function getAdminMediaAccount(
   return unwrapApiResponse(response.data)
 }
 
-export async function updateAdminMediaAccount(
-  id: number,
-  request: AdminUpdateMediaAccountRequest,
-): Promise<AdminMediaAccountDetail> {
-  const response = await httpClient.put<ApiResponse<AdminMediaAccountDetail>>(
-    `${basePath}/${id}`,
-    request,
-  )
-  return unwrapApiResponse(response.data)
-}
-
 export async function retryMediaFiling(
   id: number,
   providerId: number,
@@ -50,6 +38,13 @@ export async function retryMediaFiling(
     `${basePath}/${id}/filings/${providerId}/retry`,
   )
   return unwrapApiResponse(response.data)
+}
+
+export async function deleteAdminMediaAccount(id: number): Promise<void> {
+  const response = await httpClient.delete<ApiResponse<null>>(
+    `${basePath}/${id}`,
+  )
+  unwrapApiResponse(response.data)
 }
 
 export async function listDramaProviderOptions(): Promise<

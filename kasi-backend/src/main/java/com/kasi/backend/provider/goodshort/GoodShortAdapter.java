@@ -102,43 +102,54 @@ public class GoodShortAdapter implements AccountFilingProviderAdapter, DramaCata
     private final tools.jackson.databind.ObjectMapper objectMapper;
     private final GoodShortCatalogRateLimiter catalogRateLimiter;
     private final GoodShortFreeContentRateLimiter freeContentRateLimiter;
+    private final GoodShortFilingRateLimiter filingRateLimiter;
 
     @Autowired
     public GoodShortAdapter(@Qualifier("goodShortRestClient") RestClient restClient,
                             GoodShortSigner signer, Clock clock,
                             tools.jackson.databind.ObjectMapper objectMapper) {
         this(restClient, signer, clock, objectMapper, new GoodShortCatalogRateLimiter(),
-                new GoodShortFreeContentRateLimiter());
+                new GoodShortFreeContentRateLimiter(), new GoodShortFilingRateLimiter());
     }
 
     GoodShortAdapter(RestClient restClient, GoodShortSigner signer, Clock clock,
                      tools.jackson.databind.ObjectMapper objectMapper,
                      GoodShortCatalogRateLimiter catalogRateLimiter) {
         this(restClient, signer, clock, objectMapper, catalogRateLimiter,
-                new GoodShortFreeContentRateLimiter());
+                new GoodShortFreeContentRateLimiter(), new GoodShortFilingRateLimiter());
     }
 
     GoodShortAdapter(RestClient restClient, GoodShortSigner signer, Clock clock,
                      tools.jackson.databind.ObjectMapper objectMapper,
                      GoodShortCatalogRateLimiter catalogRateLimiter,
                      GoodShortFreeContentRateLimiter freeContentRateLimiter) {
+        this(restClient, signer, clock, objectMapper, catalogRateLimiter, freeContentRateLimiter,
+                new GoodShortFilingRateLimiter());
+    }
+
+    GoodShortAdapter(RestClient restClient, GoodShortSigner signer, Clock clock,
+                     tools.jackson.databind.ObjectMapper objectMapper,
+                     GoodShortCatalogRateLimiter catalogRateLimiter,
+                     GoodShortFreeContentRateLimiter freeContentRateLimiter,
+                     GoodShortFilingRateLimiter filingRateLimiter) {
         this.restClient = restClient;
         this.signer = signer;
         this.clock = clock;
         this.objectMapper = objectMapper;
         this.catalogRateLimiter = catalogRateLimiter;
         this.freeContentRateLimiter = freeContentRateLimiter;
+        this.filingRateLimiter = filingRateLimiter;
     }
 
     GoodShortAdapter(RestClient restClient, GoodShortSigner signer, Clock clock) {
         this(restClient, signer, clock, tools.jackson.databind.json.JsonMapper.builder().build(),
-                new GoodShortCatalogRateLimiter(), new GoodShortFreeContentRateLimiter());
+                new GoodShortCatalogRateLimiter(), new GoodShortFreeContentRateLimiter(), new GoodShortFilingRateLimiter());
     }
 
     GoodShortAdapter(RestClient restClient, GoodShortSigner signer, Clock clock,
                      GoodShortCatalogRateLimiter catalogRateLimiter) {
         this(restClient, signer, clock, tools.jackson.databind.json.JsonMapper.builder().build(),
-                catalogRateLimiter);
+                catalogRateLimiter, new GoodShortFreeContentRateLimiter(), new GoodShortFilingRateLimiter());
     }
 
     GoodShortAdapter(RestClient restClient, GoodShortSigner signer, Clock clock,
@@ -185,6 +196,7 @@ public class GoodShortAdapter implements AccountFilingProviderAdapter, DramaCata
 
     @Override
     public void submitAccountFiling(ProviderConnectionSecret connection, AccountFilingSubmission submission) {
+        filingRateLimiter.acquire(connection.getBaseUrl() + "|" + connection.getPartnerId() + "|REPORT");
         Map<String, Object> parameters = filingParameters(connection, submission);
         GoodShortResponse response = post(connection, FILING_REPORT_PATH, parameters);
         if (!successful(response)) throw new ProviderRemoteRejectedException("GoodShort 报备请求被拒绝");
@@ -192,6 +204,7 @@ public class GoodShortAdapter implements AccountFilingProviderAdapter, DramaCata
 
     @Override
     public AccountFilingResult queryAccountFiling(ProviderConnectionSecret connection, AccountFilingQuery query) {
+        filingRateLimiter.acquire(connection.getBaseUrl() + "|" + connection.getPartnerId() + "|QUERY");
         long timestamp = clock.millis();
         Map<String, Object> parameters = new LinkedHashMap<>();
         parameters.put("pid", connection.getPartnerId());
@@ -662,7 +675,7 @@ public class GoodShortAdapter implements AccountFilingProviderAdapter, DramaCata
 
     private LocalDateTime parseRemoteTime(String value) {
         if (value == null || value.isBlank()) return null;
-        return OffsetDateTime.parse(value, REMOTE_DATE_FORMAT).toLocalDateTime();
+        return OffsetDateTime.parse(value, REMOTE_DATE_FORMAT).atZoneSameInstant(clock.getZone()).toLocalDateTime();
     }
 
     private LocalDateTime parseRemoteTimeFlexible(String value) {
@@ -671,10 +684,12 @@ public class GoodShortAdapter implements AccountFilingProviderAdapter, DramaCata
             return parseRemoteTime(value);
         } catch (DateTimeParseException ignored) {
             try {
-                return OffsetDateTime.parse(value, REMOTE_DATE_FORMAT_WITHOUT_MILLIS).toLocalDateTime();
+                return OffsetDateTime.parse(value, REMOTE_DATE_FORMAT_WITHOUT_MILLIS)
+                        .atZoneSameInstant(clock.getZone()).toLocalDateTime();
             } catch (DateTimeParseException ignoredCompactOffsetDateTime) {
                 try {
-                    return OffsetDateTime.parse(value, DateTimeFormatter.ISO_OFFSET_DATE_TIME).toLocalDateTime();
+                    return OffsetDateTime.parse(value, DateTimeFormatter.ISO_OFFSET_DATE_TIME)
+                            .atZoneSameInstant(clock.getZone()).toLocalDateTime();
                 } catch (DateTimeParseException ignoredOffsetDateTime) {
                     try {
                         return LocalDateTime.parse(value, DateTimeFormatter.ISO_LOCAL_DATE_TIME);

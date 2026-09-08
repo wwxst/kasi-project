@@ -143,8 +143,9 @@ const detail = {
 }
 
 describe('MediaAccountFilingPage', () => {
-  it('shows details and retry without add or delete actions', async () => {
+  it('shows details and lets an administrator retry or delete eligible accounts', async () => {
     let retryCalled = false
+    let deleteCalled = false
     server.use(
       http.get('/api/admin/drama/providers', () =>
         HttpResponse.json({
@@ -178,6 +179,10 @@ describe('MediaAccountFilingPage', () => {
           data: { ...detail.mediaAccount.filings[0], status: 'PENDING' },
         })
       }),
+      http.delete('/api/admin/promotion/media-accounts/8', () => {
+        deleteCalled = true
+        return HttpResponse.json({ code: 0, message: 'ok', data: null })
+      }),
     )
 
     const user = userEvent.setup()
@@ -209,5 +214,13 @@ describe('MediaAccountFilingPage', () => {
     await user.click(retryButton)
     await waitFor(() => expect(retryCalled).toBe(true))
     expect(within(drawerElement).getByText('已拒绝')).toBeInTheDocument()
+
+    await user.click(
+      within(drawerElement).getByRole('button', { name: '删除' }),
+    )
+    const confirmation = await screen.findByText('确认删除这个媒体账号？')
+    const popover = confirmation.closest('.ant-popover') as HTMLElement
+    await user.click(within(popover).getByRole('button', { name: /删\s*除/ }))
+    await waitFor(() => expect(deleteCalled).toBe(true))
   })
 })

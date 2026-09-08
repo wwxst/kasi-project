@@ -1,6 +1,5 @@
 package com.kasi.backend.provider.vo;
 
-import com.kasi.backend.provider.enums.FilingMode;
 import lombok.Builder;
 import lombok.Data;
 
@@ -17,7 +16,6 @@ public class ProviderConnectionVO {
     private String partnerId;
     private String currency;
     private Integer status;
-    private FilingMode filingMode;
     private boolean credentialConfigured;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;

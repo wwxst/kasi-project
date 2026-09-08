@@ -48,8 +48,5 @@ public interface ProviderMediaFilingMapper {
                     @Param("retryCount") int retryCount,
                     @Param("errorCode") String errorCode,
                     @Param("errorMessage") String errorMessage);
-    int updateManualStatus(@Param("id") Long id, @Param("status") FilingStatus status,
-                           @Param("operateBy") Long operateBy,
-                           @Param("operateTime") LocalDateTime operateTime);
-    int stopPendingTasksByConnectionId(@Param("connectionId") Long connectionId);
+    int deleteByMediaAccountId(@Param("mediaAccountId") Long mediaAccountId);
 }

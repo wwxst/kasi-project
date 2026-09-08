@@ -27,10 +27,10 @@ class MediaAccountFilingMigrationTest {
         assertThat(tableExists(jdbc, "PROVIDER_SYNC_CHECKPOINT")).isTrue();
         assertThat(jdbc.queryForObject(
                 "SELECT COUNT(*) FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME = 'SHORT_DRAMA_CONNECTION' AND COLUMN_NAME = 'FILING_MODE'",
-                Integer.class)).isEqualTo(1);
+                Integer.class)).isZero();
         assertThat(jdbc.queryForObject(
                 "SELECT COUNT(*) FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME = 'PROVIDER_MEDIA_FILING' AND COLUMN_NAME = 'OPERATE_BY'",
-                Integer.class)).isEqualTo(1);
+                Integer.class)).isZero();
         assertThat(jdbc.queryForObject(
                 "SELECT COUNT(*) FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME = 'SHORT_DRAMA_CONNECTION' AND COLUMN_NAME IN ('BASE_URL', 'PARTNER_ID', 'API_KEY_CIPHERTEXT') AND IS_NULLABLE = 'YES'",
                 Integer.class)).isEqualTo(3);
@@ -53,9 +53,6 @@ class MediaAccountFilingMigrationTest {
                 providerId, "GoodShort默认接入", "partner-1", "ciphertext", "USD");
         Long connectionId = jdbc.queryForObject(
                 "SELECT id FROM short_drama_connection WHERE provider_id = ?", Long.class, providerId);
-        assertThat(jdbc.queryForObject(
-                "SELECT filing_mode FROM short_drama_connection WHERE id = ?", String.class, connectionId))
-                .isEqualTo("API");
         assertThat(jdbc.queryForObject(
                 "SELECT base_url FROM short_drama_connection WHERE id = ?", String.class, connectionId))
                 .isNull();

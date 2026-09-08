@@ -66,14 +66,12 @@ describe('providerApi', () => {
       baseUrl: 'https://api.test',
       partnerId: 'p1',
       status: 1,
-      filingMode: 'API',
     })
     expect(requestBody).toEqual({
       mediaRootDomain: 'novelopen.com',
       baseUrl: 'https://api.test',
       partnerId: 'p1',
       status: 1,
-      filingMode: 'API',
     })
   })
 

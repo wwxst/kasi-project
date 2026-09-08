@@ -4,7 +4,6 @@ import com.kasi.backend.common.exception.BusinessException;
 import com.kasi.backend.common.exception.ErrorCode;
 import com.kasi.backend.provider.entity.ShortDramaConnection;
 import com.kasi.backend.provider.entity.ShortDramaProvider;
-import com.kasi.backend.provider.enums.FilingMode;
 import com.kasi.backend.provider.enums.ProviderCapability;
 import com.kasi.backend.provider.mapper.ShortDramaConnectionMapper;
 import com.kasi.backend.provider.mapper.ShortDramaProviderMapper;
@@ -70,10 +69,6 @@ public class ProviderRuntimeConnectionServiceImpl implements ProviderRuntimeConn
         List<ShortDramaProvider> providers = providerMapper.findAll();
         return providers.stream()
                 .map(provider -> {
-                    ShortDramaConnection connection = connectionMapper.findByProviderId(provider.getId());
-                    if (connection != null && connection.getFilingMode() == FilingMode.MANUAL) {
-                        return resolveManual(provider, connection, capability);
-                    }
                     try {
                         return resolve(provider.getId(), capability);
                     } catch (BusinessException exception) {
@@ -85,32 +80,6 @@ public class ProviderRuntimeConnectionServiceImpl implements ProviderRuntimeConn
                 })
                 .filter(java.util.Objects::nonNull)
                 .toList();
-    }
-
-    private ProviderRuntimeConnection resolveManual(ShortDramaProvider provider,
-                                                     ShortDramaConnection connection,
-                                                     ProviderCapability capability) {
-        if (!Integer.valueOf(1).equals(provider.getStatus())
-                || !Integer.valueOf(1).equals(connection.getStatus())) {
-            return null;
-        }
-        ProviderAdapter adapter;
-        try {
-            adapter = adapterRegistry.require(provider.getProviderCode());
-        } catch (BusinessException exception) {
-            if (exception.getCode() == ErrorCode.PROVIDER_CAPABILITY_UNSUPPORTED.getCode()) {
-                return null;
-            }
-            throw exception;
-        }
-        if (!adapter.capabilities().contains(capability)) {
-            return null;
-        }
-        return new ProviderRuntimeConnection(
-                connection.getId(), provider.getId(), provider.getProviderCode(), provider.getProviderName(),
-                new ProviderConnectionSecret(connection.getBaseUrl(), connection.getPartnerId(), null,
-                        connection.getCurrency()),
-                adapter);
     }
 
     private boolean blank(String value) {

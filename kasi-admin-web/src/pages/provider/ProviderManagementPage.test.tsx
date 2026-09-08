@@ -70,7 +70,6 @@ const provider = {
     partnerId: 'partner',
     currency: 'USD',
     status: 1,
-    filingMode: 'API',
     credentialConfigured: true,
     createdAt: '2026-08-18T10:00:00',
     updatedAt: '2026-08-18T10:00:00',
@@ -98,6 +97,7 @@ describe('ProviderManagementPage', () => {
         Node.DOCUMENT_POSITION_FOLLOWING,
     ).toBeTruthy()
     expect(screen.queryByText('分佣规则')).not.toBeInTheDocument()
+    expect(screen.queryByText('人工报备')).not.toBeInTheDocument()
   })
 
   it('keeps API configuration read-only for ordinary administrators', async () => {

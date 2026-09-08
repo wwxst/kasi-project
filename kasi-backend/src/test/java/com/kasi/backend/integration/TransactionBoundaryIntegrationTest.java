@@ -104,8 +104,8 @@ class TransactionBoundaryIntegrationTest extends BaseAuthTest {
     private Long insertConnection(Long providerId) {
         jdbcTemplate.update("""
                 INSERT INTO short_drama_connection
-                    (provider_id, connection_name, currency, filing_mode, status)
-                VALUES (?, 'Transaction Test', 'USD', 'API', 1)
+                    (provider_id, connection_name, currency, status)
+                VALUES (?, 'Transaction Test', 'USD', 1)
                 """, providerId);
         return jdbcTemplate.queryForObject(
                 "SELECT id FROM short_drama_connection WHERE provider_id = ?", Long.class, providerId);

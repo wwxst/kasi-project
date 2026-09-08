@@ -6,7 +6,6 @@ import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
 import jakarta.validation.constraints.AssertTrue;
-import com.kasi.backend.provider.enums.FilingMode;
 import lombok.Data;
 import lombok.ToString;
 
@@ -40,15 +39,11 @@ public class UpsertProviderConnectionDTO {
     @Max(1)
     private Integer status;
 
-    private FilingMode filingMode;
-
-    @AssertTrue(message = "API 报备模式下接口 URL、媒体根域名和 PID 不能为空")
+    @AssertTrue(message = "接口 URL、媒体根域名和 PID 不能为空")
     public boolean isApiConfigurationPresent() {
-        if (filingMode == FilingMode.MANUAL) {
-            return true;
-        }
         return baseUrl != null && !baseUrl.isBlank()
                 && mediaRootDomain != null && !mediaRootDomain.isBlank()
                 && partnerId != null && !partnerId.isBlank();
     }
+
 }

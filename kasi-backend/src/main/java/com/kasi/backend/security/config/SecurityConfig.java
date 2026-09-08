@@ -86,8 +86,6 @@ public class SecurityConfig {
                                 "/api/admin/drama/providers/*/connection").hasRole("SUPER_ADMIN")
                         .requestMatchers(HttpMethod.POST,
                                 "/api/admin/drama/providers/*/connection/test").hasRole("SUPER_ADMIN")
-                        .requestMatchers(HttpMethod.PUT,
-                                "/api/admin/drama/providers/*/filing-mode").hasRole("SUPER_ADMIN")
                         .requestMatchers(HttpMethod.POST,
                                 "/api/admin/drama/providers/*/commission-rules").hasRole("SUPER_ADMIN")
                         .requestMatchers(HttpMethod.PUT,

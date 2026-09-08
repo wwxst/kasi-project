@@ -103,6 +103,33 @@ describe('MediaAccountsPage', () => {
     expect(screen.queryByText('\u5ba1\u6838\u4e2d')).toBeNull()
   })
 
+  it('labels a terminal query error as query failed', async () => {
+    vi.mocked(getMediaAccounts).mockResolvedValueOnce([
+      {
+        id: 3,
+        mediaType: 'FACEBOOK',
+        externalAccountId: 'creator-query-failed',
+        accountName: 'Query Failed Creator',
+        accountLink: 'https://facebook.com/creator-query-failed',
+        status: 1,
+        filings: [
+          {
+            providerId: 3,
+            providerName: 'GoodShort',
+            status: 'FAILED',
+            remoteStatus: null,
+            lastSubmittedAt: '2026-09-05T10:00:00',
+            lastErrorMessage: '查询超时',
+          } as never,
+        ],
+      },
+    ])
+
+    renderPage()
+
+    expect(await screen.findByText('查询失败')).toBeTruthy()
+  })
+
   it('uses the Starter message for ordinary API errors', async () => {
     const messageError = vi
       .spyOn(MessagePlugin, 'error')

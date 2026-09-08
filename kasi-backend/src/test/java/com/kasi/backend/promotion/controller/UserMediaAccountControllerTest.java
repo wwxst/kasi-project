@@ -8,7 +8,9 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.MediaType;
 
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -48,12 +50,32 @@ class UserMediaAccountControllerTest extends BaseAuthTest {
                 .andExpect(jsonPath("$.data.filings[0].connectionId").doesNotExist());
     }
 
+    @Test
+    @DisplayName("推广用户不能修改、启停或重试媒体账号报白")
+    void mutationAndRetryEndpointsDoNotExist() throws Exception {
+        String token = loginAsUser();
+
+        mockMvc.perform(put("/api/user/promotion/media-accounts/1")
+                        .header("Authorization", "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{}"))
+                .andExpect(status().isMethodNotAllowed());
+        mockMvc.perform(patch("/api/user/promotion/media-accounts/1/status")
+                        .header("Authorization", "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"status\":1}"))
+                .andExpect(status().isNotFound());
+        mockMvc.perform(post("/api/user/promotion/media-accounts/1/filings/1")
+                        .header("Authorization", "Bearer " + token))
+                .andExpect(status().isNotFound());
+    }
+
     private Long configureConnection() {
         Long providerId = jdbcTemplate.queryForObject(
                 "SELECT id FROM short_drama_provider WHERE provider_code = 'GOODSHORT'", Long.class);
         jdbcTemplate.update("INSERT INTO short_drama_connection "
-                        + "(provider_id, connection_name, base_url, partner_id, api_key_ciphertext, currency, status) "
-                        + "VALUES (?, 'GoodShort', 'https://goodshort.test', 'partner-1', ?, 'USD', 1)",
+                        + "(provider_id, connection_name, base_url, media_root_domain, partner_id, api_key_ciphertext, currency, status) "
+                        + "VALUES (?, 'GoodShort', 'https://goodshort.test', 'goodshort.test', 'partner-1', ?, 'USD', 1)",
                 providerId, credentialCipher.encrypt("test-key"));
         return providerId;
     }

@@ -82,14 +82,11 @@ public enum ErrorCode {
     // ========== 推广媒体与报备错误 ==========
     MEDIA_ACCOUNT_NOT_FOUND(7001, "媒体账号不存在"),
     MEDIA_ACCOUNT_DUPLICATE(7002, "该媒体账号已被绑定"),
-    MEDIA_ACCOUNT_IDENTITY_LOCKED(7003, "已加白账号的平台和账号ID不能修改"),
     MEDIA_ACCOUNT_DISABLED(7004, "媒体账号已停用"),
     MEDIA_TYPE_UNSUPPORTED(7005, "当前平台不支持该媒体类型"),
     MEDIA_FILING_NOT_FOUND(7006, "平台报备不存在"),
-    MEDIA_FILING_APPROVED(7007, "已加白报备不需要重试"),
-    MEDIA_FILING_STATUS_INVALID(7008, "报备状态只能更新为已加白或已失败"),
-    MEDIA_FILING_MANUAL_ONLY(7009, "人工报备无需执行API任务"),
     MEDIA_FILING_RETRY_NOT_ALLOWED(7012, "只有提交甲方失败的报备可以重新提交"),
+    MEDIA_ACCOUNT_DELETE_NOT_ALLOWED(7013, "当前报白状态不允许删除"),
     PROMOTION_LINK_DRAMA_UNAVAILABLE(7010, "短剧当前不可推广"),
     PROMOTION_LINK_MEDIA_NOT_APPROVED(7011, "媒体账号尚未在该平台加白"),
 

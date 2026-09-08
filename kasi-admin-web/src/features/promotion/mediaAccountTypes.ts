@@ -2,7 +2,12 @@ export type MediaType = 'FACEBOOK' | 'TIKTOK' | 'YOUTUBE' | 'INSTAGRAM'
 
 export type FilingStatus = 'PENDING' | 'APPROVED' | 'FAILED'
 export type FilingDisplayStatus =
-  'NOT_SUBMITTED' | 'SUBMIT_FAILED' | 'PENDING' | 'APPROVED' | 'FAILED'
+  | 'NOT_SUBMITTED'
+  | 'SUBMIT_FAILED'
+  | 'PENDING'
+  | 'APPROVED'
+  | 'FAILED'
+  | 'QUERY_FAILED'
 
 export interface MediaAccountPageQuery {
   page: number
@@ -72,14 +77,6 @@ export interface AdminMediaAccountDetail {
   nickname: string | null
   realName: string | null
   mediaAccount: MediaAccountDetail
-}
-
-export interface AdminUpdateMediaAccountRequest {
-  mediaType: MediaType
-  externalAccountId: string
-  accountName?: string
-  accountLink?: string
-  status: number
 }
 
 export interface DramaProviderOption {

@@ -43,24 +43,6 @@ class MediaAccountFilingPersistenceTest extends BaseAuthTest {
     }
 
     @Test
-    @DisplayName("媒体账号资料版本和启停状态可以更新")
-    void mediaAccountDetailsAdvanceVersion() {
-        Long userId = userId(PRIMARY_USER_NO);
-        PromotionMediaAccount account = mediaAccount(userId, MediaType.YOUTUBE, "channel-1");
-        mediaAccountMapper.insert(account);
-        account.setAccountName("Updated");
-        account.setAccountLink("https://youtube.com/@updated");
-        account.setDataVersion(2);
-        assertThat(mediaAccountMapper.updateDetails(account)).isEqualTo(1);
-        assertThat(mediaAccountMapper.updateStatus(account.getId(), 0)).isEqualTo(1);
-
-        PromotionMediaAccount stored = mediaAccountMapper.findOwnedById(account.getId(), userId);
-        assertThat(stored.getAccountName()).isEqualTo("Updated");
-        assertThat(stored.getDataVersion()).isEqualTo(2);
-        assertThat(stored.getStatus()).isZero();
-    }
-
-    @Test
     @DisplayName("同一接入账号和媒体账号只保留一条报备")
     void filingIsUniquePerConnectionAndMediaAccount() {
         PromotionMediaAccount account = mediaAccount(userId(PRIMARY_USER_NO), MediaType.TIKTOK, "creator-2");
@@ -106,7 +88,7 @@ class MediaAccountFilingPersistenceTest extends BaseAuthTest {
         LocalDateTime now = LocalDateTime.now();
         jdbcTemplate.update("UPDATE provider_media_filing SET status = 'FAILED', submitted_data_version = 1, "
                         + "remote_status = '2', external_filing_id = 'old-filing', filing_time = ?, operate_time = ?, "
-                        + "operate_by = 99, last_submitted_at = ?, "
+                        + "last_submitted_at = ?, "
                         + "last_queried_at = ? WHERE id = ?",
                 now, now, now, now, filing.getId());
 
@@ -123,7 +105,6 @@ class MediaAccountFilingPersistenceTest extends BaseAuthTest {
         assertThat(stored.getLastSubmittedAt()).isNull();
         assertThat(stored.getLastQueriedAt()).isNull();
         assertThat(stored.getOperateTime()).isNull();
-        assertThat(stored.getOperateBy()).isNull();
     }
 
     @Test
@@ -151,25 +132,6 @@ class MediaAccountFilingPersistenceTest extends BaseAuthTest {
         assertThat(mediaAccountMapper.findAdminPage(query, 0, 1))
                 .extracting(PromotionMediaAccount::getExternalAccountId)
                 .containsExactly("creator-filter-failed");
-    }
-
-    @Test
-    @DisplayName("人工报白可以原子更新为最终状态并记录管理员")
-    void manualFilingStatusRecordsOperator() {
-        PromotionMediaAccount account = mediaAccount(userId(PRIMARY_USER_NO), MediaType.TIKTOK, "creator-manual");
-        mediaAccountMapper.insert(account);
-        Long connectionId = insertConnection();
-        ProviderMediaFiling filing = pendingFiling(connectionId, account.getId(), 1);
-        filingMapper.insert(filing);
-
-        assertThat(filingMapper.updateManualStatus(filing.getId(), FilingStatus.APPROVED, 99L,
-                LocalDateTime.now())).isEqualTo(1);
-        ProviderMediaFiling stored = filingMapper.findById(filing.getId());
-        assertThat(stored.getStatus()).isEqualTo(FilingStatus.APPROVED);
-        assertThat(stored.getOperateBy()).isEqualTo(99L);
-        assertThat(stored.getNextAction()).isEqualTo(FilingAction.NONE);
-        assertThat(filingMapper.updateManualStatus(filing.getId(), FilingStatus.FAILED, 100L,
-                LocalDateTime.now())).isZero();
     }
 
     private Long insertConnection() {

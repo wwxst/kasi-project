@@ -9,6 +9,8 @@ import com.kasi.backend.promotion.enums.MediaType;
 import com.kasi.backend.promotion.mapper.PromotionMediaAccountMapper;
 import com.kasi.backend.promotion.mapper.ProviderMediaFilingMapper;
 import com.kasi.backend.provider.entity.ShortDramaConnection;
+import com.kasi.backend.provider.exception.ProviderRemoteRejectedException;
+import com.kasi.backend.provider.exception.ProviderTransientException;
 import com.kasi.backend.provider.service.ProviderRuntimeConnectionService;
 import com.kasi.backend.provider.spi.AccountFilingProviderAdapter;
 import com.kasi.backend.provider.spi.AccountFilingResult;
@@ -28,6 +30,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.*;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 @DisplayName("媒体账号报备后台任务")
 class MediaFilingTaskServiceTest {
@@ -125,6 +128,80 @@ class MediaFilingTaskServiceTest {
 
         verify(adapter).submitAccountFiling(any(), any());
         verify(filingMapper).completeSubmit(eq(1L), any(), eq(1), eq(now), eq(now.plusMinutes(1)));
+    }
+
+    @Test
+    @DisplayName("第4次查询临时错误继续排队")
+    void fourthTransientQueryFailureRetries() {
+        ProviderMediaFiling filing = filing();
+        filing.setNextAction(FilingAction.QUERY);
+        filing.setRetryCount(3);
+        stubClaimedQuery(filing);
+        when(adapter.queryAccountFiling(any(), any())).thenThrow(new ProviderTransientException("temporary"));
+
+        service.processDueBatch();
+
+        verify(filingMapper).recordRetry(eq(1L), any(), eq(1), eq(FilingStatus.PENDING),
+                eq(FilingAction.QUERY), eq(LocalDateTime.of(2026, 8, 18, 8, 30)), eq(4),
+                eq("REMOTE_TRANSIENT"), eq("temporary"));
+    }
+
+    @Test
+    @DisplayName("第5次查询临时错误停止并标记查询失败")
+    void fifthTransientQueryFailureStops() {
+        ProviderMediaFiling filing = filing();
+        filing.setNextAction(FilingAction.QUERY);
+        filing.setRetryCount(4);
+        stubClaimedQuery(filing);
+        when(adapter.queryAccountFiling(any(), any())).thenThrow(new ProviderTransientException("temporary"));
+
+        service.processDueBatch();
+
+        verify(filingMapper).recordRetry(eq(1L), any(), eq(1), eq(FilingStatus.FAILED),
+                eq(FilingAction.NONE), isNull(), eq(5), eq("REMOTE_TRANSIENT"), eq("temporary"));
+    }
+
+    @Test
+    @DisplayName("查询被甲方拒绝时立即停止")
+    void rejectedQueryFailureStopsImmediately() {
+        ProviderMediaFiling filing = filing();
+        filing.setNextAction(FilingAction.QUERY);
+        stubClaimedQuery(filing);
+        when(adapter.queryAccountFiling(any(), any())).thenThrow(new ProviderRemoteRejectedException("rejected"));
+
+        service.processDueBatch();
+
+        verify(filingMapper).recordRetry(eq(1L), any(), eq(1), eq(FilingStatus.FAILED),
+                eq(FilingAction.NONE), isNull(), eq(1), eq("REMOTE_REJECTED"), eq("rejected"));
+    }
+
+    @Test
+    @DisplayName("查询不可恢复错误停止后继续抛出")
+    void unexpectedQueryFailureStopsImmediately() {
+        ProviderMediaFiling filing = filing();
+        filing.setNextAction(FilingAction.QUERY);
+        stubClaimedQuery(filing);
+        when(adapter.queryAccountFiling(any(), any())).thenThrow(new IllegalStateException("broken"));
+
+        assertThatThrownBy(service::processDueBatch).isInstanceOf(IllegalStateException.class);
+
+        verify(filingMapper).recordRetry(eq(1L), any(), eq(1), eq(FilingStatus.FAILED),
+                eq(FilingAction.NONE), isNull(), eq(1), eq("TASK_ERROR"), eq("broken"));
+    }
+
+    private void stubClaimedQuery(ProviderMediaFiling filing) {
+        LocalDateTime now = LocalDateTime.of(2026, 8, 18, 8, 0);
+        when(filingMapper.findDueIds(now, 50)).thenReturn(List.of(1L));
+        when(filingMapper.claimLease(eq(1L), any(), eq(now), any())).thenReturn(1);
+        when(filingMapper.findById(1L)).thenReturn(filing);
+        when(mediaMapper.findById(2L)).thenReturn(account());
+        ShortDramaConnection connection = new ShortDramaConnection();
+        connection.setId(3L);
+        connection.setProviderId(4L);
+        when(connectionMapper.findById(3L)).thenReturn(connection);
+        when(runtimeService.resolve(4L, com.kasi.backend.provider.enums.ProviderCapability.FILING_STATUS_QUERY))
+                .thenReturn(new ProviderRuntimeConnection(3L, 4L, "GOODSHORT", "GoodShort",
+                        new ProviderConnectionSecret("https://test", "pid", "key", "USD"), adapter));
     }
 
     private ProviderMediaFiling filing() {

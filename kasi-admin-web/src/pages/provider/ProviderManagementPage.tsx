@@ -7,7 +7,6 @@ import {
   Input,
   Modal,
   Result,
-  Radio,
   Space,
   Spin,
   Switch,
@@ -24,7 +23,6 @@ import {
   testProviderConnection,
   upsertProviderConnection,
 } from '../../features/provider/providerApi'
-import type { FilingMode } from '../../features/promotion/filingModeTypes'
 import type {
   DramaProvider,
   ProviderConnectionTestResult,
@@ -51,7 +49,6 @@ export function ProviderManagementPage() {
   const [testing, setTesting] = useState(false)
   const [testResult, setTestResult] =
     useState<ProviderConnectionTestResult | null>(null)
-  const [filingMode, setFilingMode] = useState<FilingMode>('API')
 
   const activeProvider = useMemo(
     () =>
@@ -97,7 +94,6 @@ export function ProviderManagementPage() {
       apiKey: undefined,
       status: activeProvider.connection?.status !== 0,
     })
-    setFilingMode(activeProvider.connection?.filingMode ?? 'API')
   }, [activeProvider, form])
 
   const handleSave = async () => {
@@ -106,17 +102,10 @@ export function ProviderManagementPage() {
       const values = await form.validateFields()
       const request: UpsertProviderConnectionRequest = {
         status: values.status ? 1 : 0,
-        filingMode,
-        ...(filingMode === 'API'
-          ? {
-              mediaRootDomain: values.mediaRootDomain.trim().toLowerCase(),
-              baseUrl: values.baseUrl.trim().replace(/\/$/, ''),
-              partnerId: values.partnerId.trim(),
-              ...(values.apiKey?.trim()
-                ? { apiKey: values.apiKey.trim() }
-                : {}),
-            }
-          : {}),
+        mediaRootDomain: values.mediaRootDomain.trim().toLowerCase(),
+        baseUrl: values.baseUrl.trim().replace(/\/$/, ''),
+        partnerId: values.partnerId.trim(),
+        ...(values.apiKey?.trim() ? { apiKey: values.apiKey.trim() } : {}),
       }
       setSaving(true)
       await upsertProviderConnection(activeProvider.id, request)
@@ -209,108 +198,83 @@ export function ProviderManagementPage() {
                     preserve={false}
                     autoComplete="off"
                   >
-                    {filingMode === 'API' ? (
-                      <>
-                        <Form.Item
-                          label="域名白名单"
-                          name="mediaRootDomain"
-                          extra="填写允许的视频根域，根域及其正规子域均可访问，不包含协议、端口或路径"
-                          rules={[
-                            {
-                              required: true,
-                              transform: (value) => value?.trim(),
-                              message: '请输入域名白名单',
-                            },
-                            {
-                              transform: (value) => value?.trim(),
-                              pattern:
-                                /^(?=.{1,253}$)(?:[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?\.)+[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?$/,
-                              message:
-                                '请输入不包含协议、端口、路径或通配符的有效域名',
-                            },
-                          ]}
-                        >
-                          <Input placeholder="例如：novelopen.com" />
-                        </Form.Item>
-                        <Form.Item
-                          label="接口 URL"
-                          name="baseUrl"
-                          extra="填写平台 API 的基础地址，不包含具体接口路径"
-                          rules={[
-                            { required: true, message: '请输入接口 URL' },
-                            {
-                              pattern: /^https?:\/\/\S+$/,
-                              message:
-                                '请输入以 http:// 或 https:// 开头的有效地址',
-                            },
-                            { max: 512, message: '接口 URL 不能超过512个字符' },
-                          ]}
-                        >
-                          <Input placeholder="例如：https://api.novelopen.com" />
-                        </Form.Item>
-                        <Form.Item
-                          label="PID"
-                          name="partnerId"
-                          rules={[
-                            { required: true, message: '请输入 PID' },
-                            { max: 64, message: 'PID 不能超过64个字符' },
-                          ]}
-                        >
-                          <Input placeholder="请输入平台提供的 PID" />
-                        </Form.Item>
-                        <Form.Item
-                          label="KEY"
-                          name="apiKey"
-                          extra={
-                            activeProvider.connection?.credentialConfigured
-                              ? '已配置 KEY，留空表示保留当前 KEY'
-                              : '首次配置必须填写平台提供的 KEY'
-                          }
-                          rules={[
-                            {
-                              required:
-                                !activeProvider.connection
-                                  ?.credentialConfigured,
-                              message: '请输入 KEY',
-                            },
-                            { max: 256, message: 'KEY 不能超过256个字符' },
-                          ]}
-                        >
-                          <Input.Password
-                            placeholder="请输入平台提供的 KEY"
-                            autoComplete="new-password"
-                          />
-                        </Form.Item>
-                      </>
-                    ) : (
-                      <Alert
-                        type="info"
-                        showIcon
-                        message="人工报备模式无需配置 API 地址、PID 和 KEY，由管理员手工维护报备状态"
-                      />
-                    )}
+                    <>
+                      <Form.Item
+                        label="域名白名单"
+                        name="mediaRootDomain"
+                        extra="填写允许的视频根域，根域及其正规子域均可访问，不包含协议、端口或路径"
+                        rules={[
+                          {
+                            required: true,
+                            transform: (value) => value?.trim(),
+                            message: '请输入域名白名单',
+                          },
+                          {
+                            transform: (value) => value?.trim(),
+                            pattern:
+                              /^(?=.{1,253}$)(?:[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?\.)+[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?$/,
+                            message:
+                              '请输入不包含协议、端口、路径或通配符的有效域名',
+                          },
+                        ]}
+                      >
+                        <Input placeholder="例如：novelopen.com" />
+                      </Form.Item>
+                      <Form.Item
+                        label="接口 URL"
+                        name="baseUrl"
+                        extra="填写平台 API 的基础地址，不包含具体接口路径"
+                        rules={[
+                          { required: true, message: '请输入接口 URL' },
+                          {
+                            pattern: /^https?:\/\/\S+$/,
+                            message:
+                              '请输入以 http:// 或 https:// 开头的有效地址',
+                          },
+                          { max: 512, message: '接口 URL 不能超过512个字符' },
+                        ]}
+                      >
+                        <Input placeholder="例如：https://api.novelopen.com" />
+                      </Form.Item>
+                      <Form.Item
+                        label="PID"
+                        name="partnerId"
+                        rules={[
+                          { required: true, message: '请输入 PID' },
+                          { max: 64, message: 'PID 不能超过64个字符' },
+                        ]}
+                      >
+                        <Input placeholder="请输入平台提供的 PID" />
+                      </Form.Item>
+                      <Form.Item
+                        label="KEY"
+                        name="apiKey"
+                        extra={
+                          activeProvider.connection?.credentialConfigured
+                            ? '已配置 KEY，留空表示保留当前 KEY'
+                            : '首次配置必须填写平台提供的 KEY'
+                        }
+                        rules={[
+                          {
+                            required:
+                              !activeProvider.connection?.credentialConfigured,
+                            message: '请输入 KEY',
+                          },
+                          { max: 256, message: 'KEY 不能超过256个字符' },
+                        ]}
+                      >
+                        <Input.Password
+                          placeholder="请输入平台提供的 KEY"
+                          autoComplete="new-password"
+                        />
+                      </Form.Item>
+                    </>
                     <Form.Item
                       label="启用状态"
                       name="status"
                       valuePropName="checked"
                     >
                       <Switch checkedChildren="启用" unCheckedChildren="停用" />
-                    </Form.Item>
-                    <Form.Item
-                      label="账号报备方式"
-                      extra="API 自动报备或人工维护报备状态"
-                    >
-                      <Radio.Group
-                        aria-label="账号报备方式"
-                        value={filingMode}
-                        onChange={(event) =>
-                          setFilingMode(event.target.value as FilingMode)
-                        }
-                        options={[
-                          { label: 'API 自动报备', value: 'API' },
-                          { label: '人工报备', value: 'MANUAL' },
-                        ]}
-                      />
                     </Form.Item>
                   </Form>
                 </div>
@@ -385,8 +349,6 @@ function getTestDisabledReason(provider: DramaProvider) {
   if (provider.status !== 1) return '平台已停用'
   if (!provider.connection) return '请先提交 API 配置'
   if (provider.connection.status !== 1) return 'API 配置已停用'
-  if (provider.connection.filingMode === 'MANUAL')
-    return '人工报备模式无需连接测试'
   if (!provider.connection.credentialConfigured) return '请先配置 KEY'
   return null
 }

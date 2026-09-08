@@ -109,24 +109,25 @@ public class MediaFilingTaskServiceImpl implements MediaFilingTaskService {
         } catch (ProviderTransientException exception) {
             recordRetry(filing, now, "REMOTE_TRANSIENT", safeMessage(exception));
         } catch (ProviderRemoteRejectedException exception) {
-            recordProcessingFailure(filing, now, "REMOTE_REJECTED", safeMessage(exception));
+            recordFinalFailure(filing, now, "REMOTE_REJECTED", safeMessage(exception));
         } catch (RuntimeException exception) {
-            recordProcessingFailure(filing, now, "TASK_ERROR", safeMessage(exception));
+            recordFinalFailure(filing, now, "TASK_ERROR", safeMessage(exception));
             throw exception;
         }
     }
 
     private void recordProcessingFailure(ProviderMediaFiling filing, LocalDateTime now,
                                          String code, String message) {
-        if (filing.getNextAction() == FilingAction.SUBMIT) {
-            recordFinalFailure(filing, now, code, message);
-        } else {
-            recordRetry(filing, now, code, message);
-        }
+        recordFinalFailure(filing, now, code, message);
     }
 
     private void recordRetry(ProviderMediaFiling filing, LocalDateTime now, String code, String message) {
         int retries = filing.getRetryCount() == null ? 1 : filing.getRetryCount() + 1;
+        if (filing.getNextAction() == FilingAction.QUERY
+                && retries >= properties.getMaxQueryRetries()) {
+            recordFinalFailure(filing, now, code, message);
+            return;
+        }
         FilingStatus status = FilingStatus.PENDING;
         // Report calls are initiated explicitly after a user action; the scheduled worker only queries.
         FilingAction action = filing.getNextAction() == FilingAction.SUBMIT

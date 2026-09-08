@@ -3,10 +3,10 @@ import { http, HttpResponse } from 'msw'
 import { setupServer } from 'msw/node'
 import {
   getAdminMediaAccount,
+  deleteAdminMediaAccount,
   listAdminMediaAccounts,
   listDramaProviderOptions,
   retryMediaFiling,
-  updateAdminMediaAccount,
 } from './mediaAccountApi'
 
 const server = setupServer()
@@ -43,8 +43,8 @@ describe('mediaAccountApi', () => {
     expect(requestUrl?.searchParams.get('filingStatus')).toBe('FAILED')
   })
 
-  it('calls detail, update, retry and provider option endpoints', async () => {
-    let updateBody: unknown
+  it('calls detail, retry, delete and provider option endpoints', async () => {
+    let deleted = false
     server.use(
       http.get('/api/admin/promotion/media-accounts/8', () =>
         HttpResponse.json({
@@ -53,9 +53,9 @@ describe('mediaAccountApi', () => {
           data: { id: 8, userNo: '123456789012' },
         }),
       ),
-      http.put('/api/admin/promotion/media-accounts/8', async ({ request }) => {
-        updateBody = await request.json()
-        return HttpResponse.json({ code: 0, message: 'ok', data: {} })
+      http.delete('/api/admin/promotion/media-accounts/8', () => {
+        deleted = true
+        return HttpResponse.json({ code: 0, message: 'ok', data: null })
       }),
       http.post('/api/admin/promotion/media-accounts/8/filings/1/retry', () =>
         HttpResponse.json({ code: 0, message: 'ok', data: { providerId: 1 } }),
@@ -72,24 +72,12 @@ describe('mediaAccountApi', () => {
     )
 
     await getAdminMediaAccount(8)
-    await updateAdminMediaAccount(8, {
-      mediaType: 'TIKTOK',
-      externalAccountId: 'creator-1001',
-      accountName: 'Creator',
-      accountLink: 'https://www.tiktok.com/@creator-1001',
-      status: 1,
-    })
     await retryMediaFiling(8, 1)
+    await deleteAdminMediaAccount(8)
     await expect(listDramaProviderOptions()).resolves.toEqual([
       expect.objectContaining({ providerCode: 'GOODSHORT' }),
     ])
 
-    expect(updateBody).toEqual({
-      mediaType: 'TIKTOK',
-      externalAccountId: 'creator-1001',
-      accountName: 'Creator',
-      accountLink: 'https://www.tiktok.com/@creator-1001',
-      status: 1,
-    })
+    expect(deleted).toBe(true)
   })
 })

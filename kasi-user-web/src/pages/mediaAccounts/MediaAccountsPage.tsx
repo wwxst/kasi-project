@@ -31,7 +31,7 @@ function filingTag(filing: MediaAccount['filings'][number] | undefined) {
   const theme =
     label === '已加白'
       ? 'success'
-      : label === '已拒绝' || label === '提交失败'
+      : label === '已拒绝' || label === '提交失败' || label === '查询失败'
         ? 'danger'
         : label === '审核中'
           ? 'warning'
@@ -46,6 +46,7 @@ function filingTag(filing: MediaAccount['filings'][number] | undefined) {
 function getFilingStatusLabel(
   filing: MediaAccount['filings'][number] | undefined,
 ) {
+  if (filing?.lastSubmittedAt && filing.lastErrorMessage) return '查询失败'
   if (!filing?.lastSubmittedAt) {
     if (filing?.lastErrorMessage) return '提交失败'
     if (filing?.status === 'APPROVED') return '已加白'

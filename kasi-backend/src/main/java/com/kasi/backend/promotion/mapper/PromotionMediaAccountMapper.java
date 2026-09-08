@@ -22,6 +22,5 @@ public interface PromotionMediaAccountMapper {
     List<PromotionMediaAccount> findByUserId(@Param("userId") Long userId);
     long countByUserId(@Param("userId") Long userId);
     int insert(PromotionMediaAccount entity);
-    int updateDetails(PromotionMediaAccount entity);
-    int updateStatus(@Param("id") Long id, @Param("status") Integer status);
+    int deleteById(@Param("id") Long id);
 }

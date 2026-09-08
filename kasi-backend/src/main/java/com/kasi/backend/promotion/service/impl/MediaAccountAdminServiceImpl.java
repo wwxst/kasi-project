@@ -3,11 +3,9 @@ package com.kasi.backend.promotion.service.impl;
 import com.kasi.backend.common.exception.BusinessException;
 import com.kasi.backend.common.exception.ErrorCode;
 import com.kasi.backend.promotion.dto.AdminMediaAccountPageQueryDTO;
-import com.kasi.backend.promotion.dto.AdminUpdateMediaAccountDTO;
-import com.kasi.backend.promotion.dto.UpdateMediaFilingStatusDTO;
 import com.kasi.backend.promotion.entity.PromotionMediaAccount;
 import com.kasi.backend.promotion.entity.ProviderMediaFiling;
-import com.kasi.backend.promotion.enums.FilingStatus;
+import com.kasi.backend.promotion.enums.FilingAction;
 import com.kasi.backend.promotion.mapper.PromotionMediaAccountMapper;
 import com.kasi.backend.promotion.mapper.ProviderMediaFilingMapper;
 import com.kasi.backend.promotion.service.MediaAccountAdminService;
@@ -59,40 +57,36 @@ public class MediaAccountAdminServiceImpl implements MediaAccountAdminService {
 
     @Override
     @Transactional
-    public AdminMediaAccountDetailVO update(Long id, AdminUpdateMediaAccountDTO request) {
-        mediaAccountService.updateByAdmin(id, request);
-        return getById(id);
-    }
-
-    @Override
-    @Transactional
     public MediaFilingVO retry(Long id, Long providerId) {
-        PromotionMediaAccount account = mediaMapper.findById(id);
-        if (account == null) throw new BusinessException(ErrorCode.MEDIA_ACCOUNT_NOT_FOUND);
-        return mediaAccountService.submitOrRetry(account.getUserId(), id, providerId);
+        return mediaAccountService.retryFailedSubmission(id, providerId);
     }
 
     @Override
     @Transactional
-    public MediaFilingVO updateFilingStatus(Long operatorId, Long mediaAccountId, Long providerId,
-                                             UpdateMediaFilingStatusDTO request) {
-        PromotionMediaAccount account = mediaMapper.findById(mediaAccountId);
-        if (account == null) throw new BusinessException(ErrorCode.MEDIA_ACCOUNT_NOT_FOUND);
-        if (request.getStatus() != FilingStatus.APPROVED && request.getStatus() != FilingStatus.FAILED) {
-            throw new BusinessException(ErrorCode.MEDIA_FILING_STATUS_INVALID);
+    public void delete(Long id) {
+        PromotionMediaAccount account = mediaMapper.findByIdForUpdate(id);
+        if (account == null) {
+            throw new BusinessException(ErrorCode.MEDIA_ACCOUNT_NOT_FOUND);
         }
-        ShortDramaConnection connection = connectionMapper.findByProviderId(providerId);
-        if (connection == null) throw new BusinessException(ErrorCode.PROVIDER_CONNECTION_NOT_FOUND);
-        ProviderMediaFiling filing = filingMapper.findByConnectionAndMedia(connection.getId(), mediaAccountId);
-        if (filing == null) throw new BusinessException(ErrorCode.MEDIA_FILING_NOT_FOUND);
-        int affected = filingMapper.updateManualStatus(filing.getId(), request.getStatus(), operatorId,
-                java.time.LocalDateTime.now());
-        if (affected != 1) throw new BusinessException(ErrorCode.MEDIA_FILING_STATUS_INVALID);
+        List<ProviderMediaFiling> filings = filingMapper.findByMediaAccountId(id);
+        if (filings == null || filings.isEmpty() || filings.stream().anyMatch(this::cannotDelete)) {
+            throw new BusinessException(ErrorCode.MEDIA_ACCOUNT_DELETE_NOT_ALLOWED);
+        }
+        filingMapper.deleteByMediaAccountId(id);
+        if (mediaMapper.deleteById(id) != 1) {
+            throw new IllegalStateException("媒体账号删除未生效");
+        }
+    }
 
-        return mediaAccountService.getMineById(account.getUserId(), mediaAccountId).getFilings().stream()
-                .filter(item -> providerId.equals(item.getProviderId()))
-                .findFirst()
-                .orElseThrow(() -> new BusinessException(ErrorCode.MEDIA_FILING_NOT_FOUND));
+    private boolean cannotDelete(ProviderMediaFiling filing) {
+        if (filing.getNextAction() != FilingAction.NONE) {
+            return true;
+        }
+        boolean submissionFailed = filing.getLastSubmittedAt() == null
+                && filing.getLastErrorMessage() != null
+                && !filing.getLastErrorMessage().isBlank();
+        boolean remoteRejected = "2".equals(filing.getRemoteStatus());
+        return !submissionFailed && !remoteRejected;
     }
 
     private AdminMediaAccountListItemVO toListItem(PromotionMediaAccount account) {

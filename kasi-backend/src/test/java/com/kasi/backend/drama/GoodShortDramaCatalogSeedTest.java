@@ -124,12 +124,11 @@ class GoodShortDramaCatalogSeedTest {
         assertThat(jdbc.queryForObject("SELECT id FROM short_drama_connection", Long.class))
                 .isEqualTo(connectionIdBefore);
         Map<String, Object> connection = jdbc.queryForMap(
-                "SELECT connection_name, currency, status, filing_mode, partner_id, api_key_ciphertext, base_url, media_root_domain "
+                "SELECT connection_name, currency, status, partner_id, api_key_ciphertext, base_url, media_root_domain "
                         + "FROM short_drama_connection");
         assertThat(connection.get("CONNECTION_NAME")).isEqualTo("GoodShort local fixture");
         assertThat(connection.get("CURRENCY")).isEqualTo("USD");
         assertThat(((Number) connection.get("STATUS")).intValue()).isZero();
-        assertThat(connection.get("FILING_MODE")).isEqualTo("MANUAL");
         assertThat(connection.get("PARTNER_ID")).isNull();
         assertThat(connection.get("API_KEY_CIPHERTEXT")).isNull();
         assertThat(connection.get("BASE_URL")).isNull();
@@ -229,9 +228,9 @@ class GoodShortDramaCatalogSeedTest {
         Long providerId = jdbc.queryForObject(
                 "SELECT id FROM short_drama_provider WHERE provider_code = 'GOODSHORT'", Long.class);
         jdbc.update("INSERT INTO short_drama_connection "
-                        + "(provider_id, connection_name, partner_id, api_key_ciphertext, currency, status, filing_mode, base_url) "
-                        + "VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
-                providerId, "GoodShort Real", "partner-live", "cipher-live", "USD", 1, "API", "https://api.goodshort.com");
+                        + "(provider_id, connection_name, partner_id, api_key_ciphertext, currency, status, base_url) "
+                        + "VALUES (?, ?, ?, ?, ?, ?, ?)",
+                providerId, "GoodShort Real", "partner-live", "cipher-live", "USD", 1, "https://api.goodshort.com");
 
         assertThatThrownBy(() -> executeSeed(jdbc)).isInstanceOf(DataAccessException.class);
         assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM provider_drama", Long.class)).isZero();

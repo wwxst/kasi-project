@@ -55,6 +55,14 @@
                     AND f.last_submitted_at IS NOT NULL
                     AND COALESCE(f.remote_status, '') NOT IN ('1', '2')
                     AND f.status &lt;&gt; 'APPROVED'
+                    AND NOT (f.status = 'FAILED' AND f.last_error_message IS NOT NULL)
+                </when>
+                <when test="query.filingStatus == 'QUERY_FAILED'">
+                    AND f.status = 'FAILED'
+                    AND f.last_submitted_at IS NOT NULL
+                    AND COALESCE(f.remote_status, '') &lt;&gt; '2'
+                    AND f.last_error_message IS NOT NULL
+                    AND TRIM(f.last_error_message) &lt;&gt; ''
                 </when>
                 <when test="query.filingStatus == 'APPROVED'">
                     AND (f.status = 'APPROVED' OR f.remote_status = '1')
@@ -100,14 +108,7 @@
             (user_id, media_type, external_account_id, account_name, account_link, status, data_version)
         VALUES (#{userId}, #{mediaType}, #{externalAccountId}, #{accountName}, #{accountLink}, #{status}, #{dataVersion})
     </insert>
-    <update id="updateDetails">
-        UPDATE promotion_media_account
-        SET media_type = #{mediaType}, external_account_id = #{externalAccountId},
-            account_name = #{accountName}, account_link = #{accountLink},
-            data_version = #{dataVersion}, updated_at = CURRENT_TIMESTAMP
-        WHERE id = #{id}
-    </update>
-    <update id="updateStatus">
-        UPDATE promotion_media_account SET status = #{status}, updated_at = CURRENT_TIMESTAMP WHERE id = #{id}
-    </update>
+    <delete id="deleteById">
+        DELETE FROM promotion_media_account WHERE id = #{id}
+    </delete>
 </mapper>

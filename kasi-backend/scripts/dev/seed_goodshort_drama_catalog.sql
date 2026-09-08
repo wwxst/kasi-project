@@ -40,7 +40,6 @@ WHERE p.provider_code = 'GOODSHORT'
       c.connection_name = 'GoodShort local fixture'
       AND c.currency = 'USD'
       AND c.status = 0
-      AND c.filing_mode = 'MANUAL'
       AND c.partner_id IS NULL
       AND c.api_key_ciphertext IS NULL
   AND c.base_url IS NULL
@@ -52,10 +51,10 @@ SET @goodshort_provider_id = (
 );
 
 INSERT INTO short_drama_connection (
-    provider_id, connection_name, currency, status, filing_mode,
+    provider_id, connection_name, currency, status,
     partner_id, api_key_ciphertext, base_url, media_root_domain
 )
-SELECT @goodshort_provider_id, 'GoodShort local fixture', 'USD', 0, 'MANUAL',
+SELECT @goodshort_provider_id, 'GoodShort local fixture', 'USD', 0,
        NULL, NULL, NULL, NULL
 WHERE @goodshort_provider_id IS NOT NULL
   AND NOT EXISTS (

@@ -3,9 +3,6 @@ package com.kasi.backend.promotion.service.impl;
 import com.kasi.backend.common.exception.BusinessException;
 import com.kasi.backend.common.exception.ErrorCode;
 import com.kasi.backend.promotion.dto.CreateMediaAccountDTO;
-import com.kasi.backend.promotion.dto.AdminUpdateMediaAccountDTO;
-import com.kasi.backend.promotion.dto.UpdateMediaAccountDTO;
-import com.kasi.backend.promotion.dto.UpdateMediaAccountStatusDTO;
 import com.kasi.backend.promotion.entity.PromotionMediaAccount;
 import com.kasi.backend.promotion.entity.ProviderMediaFiling;
 import com.kasi.backend.promotion.enums.FilingAction;
@@ -18,12 +15,10 @@ import com.kasi.backend.promotion.service.MediaFilingTaskService;
 import com.kasi.backend.provider.entity.ShortDramaConnection;
 import com.kasi.backend.provider.entity.ShortDramaProvider;
 import com.kasi.backend.provider.enums.ProviderCapability;
-import com.kasi.backend.provider.enums.FilingMode;
 import com.kasi.backend.provider.mapper.ShortDramaConnectionMapper;
 import com.kasi.backend.provider.mapper.ShortDramaProviderMapper;
 import com.kasi.backend.provider.spi.AccountFilingProviderAdapter;
 import com.kasi.backend.provider.spi.ProviderRuntimeConnection;
-import lombok.RequiredArgsConstructor;
 import org.springframework.dao.DuplicateKeyException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -33,10 +28,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.time.LocalDateTime;
-import java.util.Collections;
 import java.util.List;
-import java.util.Locale;
-import java.util.Objects;
 
 @Service
 public class MediaAccountServiceImpl implements MediaAccountService {
@@ -122,87 +114,39 @@ public class MediaAccountServiceImpl implements MediaAccountService {
             filing.setMediaAccountId(account.getId());
             filing.setStatus(FilingStatus.PENDING);
             filing.setTaskDataVersion(1);
-            if (filingMode(runtime.connectionId()) == FilingMode.MANUAL) {
-                filing.setNextAction(FilingAction.NONE);
-                filing.setNextActionAt(null);
-            } else {
-                filing.setNextAction(FilingAction.SUBMIT);
-                filing.setNextActionAt(LocalDateTime.now());
-            }
+            filing.setNextAction(FilingAction.SUBMIT);
+            filing.setNextActionAt(LocalDateTime.now());
             filingMapper.insert(filing);
-            if (filing.getNextAction() == FilingAction.SUBMIT) {
-                registerImmediateSubmit(filing.getId());
-            }
+            registerImmediateSubmit(filing.getId());
         }
         return getMineById(userId, account.getId());
     }
 
     @Override
     @Transactional
-    public com.kasi.backend.promotion.vo.MediaAccountDetailVO update(Long userId, Long id, UpdateMediaAccountDTO request) {
-        PromotionMediaAccount account = requireOwnedForUpdate(id, userId);
-        if (!Integer.valueOf(1).equals(account.getStatus())) throw new BusinessException(ErrorCode.MEDIA_ACCOUNT_DISABLED);
-        applyDetailsUpdate(account, request.getMediaType(), request.getExternalAccountId(),
-                request.getAccountName(), request.getAccountLink());
-        return getMineById(userId, id);
-    }
-
-    @Override
-    @Transactional
-    public com.kasi.backend.promotion.vo.MediaAccountDetailVO updateByAdmin(Long id,
-                                                                              AdminUpdateMediaAccountDTO request) {
+    public com.kasi.backend.promotion.vo.MediaFilingVO retryFailedSubmission(Long id, Long providerId) {
         PromotionMediaAccount account = mediaMapper.findByIdForUpdate(id);
-        if (account == null) throw new BusinessException(ErrorCode.MEDIA_ACCOUNT_NOT_FOUND);
-        applyDetailsUpdate(account, request.getMediaType(), request.getExternalAccountId(),
-                request.getAccountName(), request.getAccountLink());
-        if (mediaMapper.updateStatus(id, request.getStatus()) != 1) {
-            throw new IllegalStateException("媒体账号状态更新未生效");
+        if (account == null) {
+            throw new BusinessException(ErrorCode.MEDIA_ACCOUNT_NOT_FOUND);
         }
-        return toDetailVO(mediaMapper.findById(id));
-    }
-
-    @Override
-    @Transactional
-    public void updateStatus(Long userId, Long id, UpdateMediaAccountStatusDTO request) {
-        PromotionMediaAccount account = requireOwnedForUpdate(id, userId);
-        if (mediaMapper.updateStatus(account.getId(), request.getStatus()) != 1) {
-            throw new IllegalStateException("媒体账号状态更新未生效");
-        }
-    }
-
-    @Override
-    @Transactional
-    public com.kasi.backend.promotion.vo.MediaFilingVO submitOrRetry(Long userId, Long id, Long providerId) {
-        PromotionMediaAccount account = requireOwnedForUpdate(id, userId);
-        if (!Integer.valueOf(1).equals(account.getStatus())) throw new BusinessException(ErrorCode.MEDIA_ACCOUNT_DISABLED);
         ProviderRuntimeConnection runtime = resolve(providerId, account.getMediaType());
-        FilingMode mode = filingMode(runtime.connectionId());
         ProviderMediaFiling filing = filingMapper.findByConnectionAndMedia(runtime.connectionId(), id);
-        if (filing == null) {
-            if (mode == FilingMode.MANUAL) {
-                throw new BusinessException(ErrorCode.MEDIA_FILING_MANUAL_ONLY);
-            }
-            filing = new ProviderMediaFiling();
-            filing.setConnectionId(runtime.connectionId());
-            filing.setMediaAccountId(id);
-            filing.setStatus(FilingStatus.PENDING);
-            filing.setTaskDataVersion(account.getDataVersion());
-            filing.setNextAction(FilingAction.SUBMIT);
-            filing.setNextActionAt(LocalDateTime.now());
-            filingMapper.insert(filing);
-            registerImmediateSubmit(filing.getId());
-        } else if (mode == FilingMode.MANUAL) {
-            throw new BusinessException(ErrorCode.MEDIA_FILING_MANUAL_ONLY);
-        } else if (filing.getLastSubmittedAt() == null
-                && filing.getLastErrorMessage() != null && !filing.getLastErrorMessage().isBlank()) {
-            filingMapper.reschedule(filing.getId(), FilingStatus.PENDING, FilingAction.SUBMIT,
-                    filing.getTaskDataVersion(), account.getDataVersion(), LocalDateTime.now());
-            filing = filingMapper.findById(filing.getId());
-            registerImmediateSubmit(filing.getId());
-        } else {
-            throw new BusinessException(filing.getStatus() == FilingStatus.APPROVED
-                    ? ErrorCode.MEDIA_FILING_APPROVED : ErrorCode.MEDIA_FILING_RETRY_NOT_ALLOWED);
+        if (filing == null
+                || filing.getLastSubmittedAt() != null
+                || filing.getNextAction() != FilingAction.NONE
+                || !"REMOTE_TRANSIENT".equals(filing.getLastErrorCode())) {
+            throw new BusinessException(ErrorCode.MEDIA_FILING_RETRY_NOT_ALLOWED);
         }
+        int affected = filingMapper.reschedule(filing.getId(), FilingStatus.PENDING, FilingAction.SUBMIT,
+                filing.getTaskDataVersion(), account.getDataVersion(), LocalDateTime.now());
+        if (affected != 1) {
+            throw new BusinessException(ErrorCode.MEDIA_FILING_RETRY_NOT_ALLOWED);
+        }
+        filing = filingMapper.findById(filing.getId());
+        if (filing == null) {
+            throw new BusinessException(ErrorCode.MEDIA_FILING_NOT_FOUND);
+        }
+        registerImmediateSubmit(filing.getId());
         return toFilingVO(filing);
     }
 
@@ -213,58 +157,6 @@ public class MediaAccountServiceImpl implements MediaAccountService {
             throw new BusinessException(ErrorCode.MEDIA_TYPE_UNSUPPORTED);
         }
         return runtime;
-    }
-
-    private void resolveExistingProviderMedia(MediaType mediaType, List<ProviderMediaFiling> filings) {
-        if (connectionMapper == null || providerMapper == null) {
-            return;
-        }
-        for (ProviderMediaFiling filing : filings) {
-            ShortDramaConnection connection = connectionMapper.findById(filing.getConnectionId());
-            if (connection == null) continue;
-            resolve(connection.getProviderId(), mediaType);
-        }
-    }
-
-    private void applyDetailsUpdate(PromotionMediaAccount account, MediaType mediaType,
-                                    String externalAccountId, String accountName, String accountLink) {
-        List<ProviderMediaFiling> filings = filings(account.getId());
-        String externalId = requiredTrim(externalAccountId);
-        boolean identityChanged = mediaType != account.getMediaType()
-                || !externalId.equals(account.getExternalAccountId());
-        if (identityChanged && filings.stream().anyMatch(f -> f.getStatus() == FilingStatus.APPROVED)) {
-            throw new BusinessException(ErrorCode.MEDIA_ACCOUNT_IDENTITY_LOCKED);
-        }
-        if (identityChanged) {
-            PromotionMediaAccount duplicate = mediaMapper.findByIdentity(mediaType, externalId);
-            if (duplicate != null && !Objects.equals(duplicate.getId(), account.getId())) {
-                throw new BusinessException(ErrorCode.MEDIA_ACCOUNT_DUPLICATE);
-            }
-            resolveExistingProviderMedia(mediaType, filings);
-        }
-        boolean detailsChanged = identityChanged
-                || !Objects.equals(trimToNull(accountName), account.getAccountName())
-                || !Objects.equals(trimToNull(accountLink), account.getAccountLink());
-        if (!detailsChanged) return;
-        int previousVersion = account.getDataVersion();
-        account.setMediaType(mediaType);
-        account.setExternalAccountId(externalId);
-        account.setAccountName(trimToNull(accountName));
-        account.setAccountLink(trimToNull(accountLink));
-        account.setDataVersion(previousVersion + 1);
-        mediaMapper.updateDetails(account);
-        if (identityChanged) {
-            for (ProviderMediaFiling filing : filings) {
-                boolean manual = filingMode(filing.getConnectionId()) == FilingMode.MANUAL;
-                filingMapper.reschedule(filing.getId(), FilingStatus.PENDING,
-                        manual ? FilingAction.NONE : FilingAction.SUBMIT,
-                        filing.getTaskDataVersion(), account.getDataVersion(),
-                        manual ? null : LocalDateTime.now());
-                if (!manual) {
-                    registerImmediateSubmit(filing.getId());
-                }
-            }
-        }
     }
 
     private void registerImmediateSubmit(Long filingId) {
@@ -296,17 +188,9 @@ public class MediaAccountServiceImpl implements MediaAccountService {
         return account;
     }
 
-    private PromotionMediaAccount requireOwnedForUpdate(Long id, Long userId) {
-        PromotionMediaAccount account = mediaMapper.findByIdForUpdate(id);
-        if (account == null || !Objects.equals(account.getUserId(), userId)) {
-            throw new BusinessException(ErrorCode.MEDIA_ACCOUNT_NOT_FOUND);
-        }
-        return account;
-    }
-
     private List<ProviderMediaFiling> filings(Long id) {
         List<ProviderMediaFiling> result = filingMapper.findByMediaAccountId(id);
-        return result == null ? Collections.emptyList() : result;
+        return result == null ? List.of() : result;
     }
 
     private com.kasi.backend.promotion.vo.MediaAccountVO toListVO(PromotionMediaAccount account) {
@@ -338,7 +222,7 @@ public class MediaAccountServiceImpl implements MediaAccountService {
         return com.kasi.backend.promotion.vo.MediaFilingVO.builder().providerId(providerId).providerName(providerName)
                 .status(filing.getStatus()).remoteStatus(filing.getRemoteStatus())
                 .externalFilingId(filing.getExternalFilingId()).filingTime(filing.getFilingTime())
-                .operateTime(filing.getOperateTime()).operateBy(filing.getOperateBy())
+                .operateTime(filing.getOperateTime())
                 .lastSubmittedAt(filing.getLastSubmittedAt())
                 .lastQueriedAt(filing.getLastQueriedAt()).nextActionAt(filing.getNextActionAt())
                 .lastErrorCode(filing.getLastErrorCode())
@@ -347,16 +231,4 @@ public class MediaAccountServiceImpl implements MediaAccountService {
 
     private String requiredTrim(String value) { return value == null ? null : value.trim(); }
     private String trimToNull(String value) { return value == null || value.trim().isEmpty() ? null : value.trim(); }
-
-    private FilingMode filingMode(Long connectionId) {
-        if (connectionMapper == null) return FilingMode.API;
-        ShortDramaConnection connection = connectionMapper.findById(connectionId);
-        if (connection == null) {
-            throw new BusinessException(ErrorCode.PROVIDER_CONNECTION_NOT_FOUND);
-        }
-        if (connection.getFilingMode() == null) {
-            throw new BusinessException(ErrorCode.PROVIDER_CONNECTION_INVALID);
-        }
-        return connection.getFilingMode();
-    }
 }

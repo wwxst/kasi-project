@@ -18,11 +18,11 @@
 
     <insert id="insert" useGeneratedKeys="true" keyProperty="id">
         INSERT INTO short_drama_connection
-            (provider_id, connection_name, base_url, media_root_domain, partner_id, api_key_ciphertext, currency, filing_mode, status,
+            (provider_id, connection_name, base_url, media_root_domain, partner_id, api_key_ciphertext, currency, status,
              created_by, updated_by)
         VALUES
             (#{providerId}, #{connectionName}, #{baseUrl}, #{mediaRootDomain}, #{partnerId}, #{apiKeyCiphertext}, #{currency},
-             COALESCE(#{filingMode}, 'API'), #{status},
+             #{status},
              #{createdBy}, #{updatedBy})
     </insert>
 
@@ -36,19 +36,10 @@
                 api_key_ciphertext = #{apiKeyCiphertext},
             </if>
             currency = #{currency},
-            filing_mode = COALESCE(#{filingMode}, 'API'),
             status = #{status},
             updated_by = #{updatedBy},
             updated_at = CURRENT_TIMESTAMP
         WHERE id = #{id}
-    </update>
-
-    <update id="updateFilingMode">
-        UPDATE short_drama_connection
-        SET filing_mode = #{filingMode},
-            updated_by = #{updatedBy},
-            updated_at = CURRENT_TIMESTAMP
-        WHERE id = #{connectionId}
     </update>
 
 </mapper>

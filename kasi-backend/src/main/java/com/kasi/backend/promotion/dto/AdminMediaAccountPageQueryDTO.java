@@ -14,6 +14,6 @@ public class AdminMediaAccountPageQueryDTO {
     private MediaType mediaType;
     private Integer accountStatus;
     private Long providerId;
-    @Pattern(regexp = "NOT_SUBMITTED|SUBMIT_FAILED|PENDING|APPROVED|FAILED")
+    @Pattern(regexp = "NOT_SUBMITTED|SUBMIT_FAILED|PENDING|APPROVED|FAILED|QUERY_FAILED")
     private String filingStatus;
 }

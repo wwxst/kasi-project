@@ -18,6 +18,8 @@ import org.springframework.web.client.RestClient;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.ZoneOffset;
+import java.time.ZoneId;
+import java.time.LocalDateTime;
 import java.util.LinkedHashMap;
 import java.util.Map;
 
@@ -94,6 +96,24 @@ class GoodShortFilingAdapterTest {
                     .isEqualTo(remoteStatus == 0 ? FilingStatus.PENDING
                             : remoteStatus == 1 ? FilingStatus.APPROVED : FilingStatus.FAILED);
         }
+        server.verify();
+    }
+
+    @Test
+    void convertsOffsetFilingTimesToTheBusinessTimeZone() {
+        RestClient.Builder builder = RestClient.builder().baseUrl("https://goodshort.test");
+        server = MockRestServiceServer.bindTo(builder).build();
+        adapter = new GoodShortAdapter(builder.build(), signer,
+                Clock.fixed(Instant.ofEpochMilli(TIMESTAMP), ZoneId.of("Asia/Shanghai")));
+        server.expect(requestTo("https://goodshort.test/creek/open/filing/query"))
+                .andRespond(withSuccess("{\"status\":0,\"success\":true,\"data\":{"
+                                + "\"status\":1,\"filingTime\":\"2025-08-28T11:26:18.000+0000\"}}",
+                        org.springframework.http.MediaType.APPLICATION_JSON));
+
+        var result = adapter.queryAccountFiling(CONNECTION,
+                new AccountFilingQuery(MediaType.FACEBOOK, "creator-2"));
+
+        assertThat(result.filingTime()).isEqualTo(LocalDateTime.of(2025, 8, 28, 19, 26, 18));
         server.verify();
     }
 

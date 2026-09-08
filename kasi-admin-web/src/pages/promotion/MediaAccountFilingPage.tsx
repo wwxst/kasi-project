@@ -6,9 +6,7 @@ import {
   Button,
   Descriptions,
   Drawer,
-  Form,
-  Input,
-  Select,
+  Popconfirm,
   Space,
   Spin,
   Tag,
@@ -19,13 +17,12 @@ import {
   getAdminMediaAccount,
   listAdminMediaAccounts,
   listDramaProviderOptions,
+  deleteAdminMediaAccount,
   retryMediaFiling,
-  updateAdminMediaAccount,
 } from '../../features/promotion/mediaAccountApi'
 import type {
   AdminMediaAccountDetail,
   AdminMediaAccountListItem,
-  AdminUpdateMediaAccountRequest,
   DramaProviderOption,
   FilingStatus,
   FilingDisplayStatus,
@@ -47,6 +44,7 @@ const filingStatusLabels: Record<FilingDisplayStatus, string> = {
   PENDING: '审核中',
   APPROVED: '已加白',
   FAILED: '已拒绝',
+  QUERY_FAILED: '查询失败',
 }
 
 export function MediaAccountFilingPage() {
@@ -56,12 +54,9 @@ export function MediaAccountFilingPage() {
   const [detail, setDetail] = useState<AdminMediaAccountDetail | null>(null)
   const [detailOpen, setDetailOpen] = useState(false)
   const [detailLoading, setDetailLoading] = useState(false)
-  const [editOpen, setEditOpen] = useState(false)
-  const [editSubmitting, setEditSubmitting] = useState(false)
   const [retryingProviderId, setRetryingProviderId] = useState<number | null>(
     null,
   )
-  const [editForm] = Form.useForm<AdminUpdateMediaAccountRequest>()
 
   useEffect(() => {
     void listDramaProviderOptions()
@@ -96,37 +91,6 @@ export function MediaAccountFilingPage() {
     }
   }
 
-  const openEdit = () => {
-    if (!detail) return
-    editForm.setFieldsValue({
-      mediaType: detail.mediaAccount.mediaType,
-      externalAccountId: detail.mediaAccount.externalAccountId,
-      accountName: detail.mediaAccount.accountName ?? undefined,
-      accountLink: detail.mediaAccount.accountLink ?? undefined,
-      status: detail.mediaAccount.status,
-    })
-    setEditOpen(true)
-  }
-
-  const handleEdit = async () => {
-    if (!detail) return
-    try {
-      const values = await editForm.validateFields()
-      setEditSubmitting(true)
-      const updated = await updateAdminMediaAccount(detail.id, values)
-      setDetail(updated)
-      setEditOpen(false)
-      actionRef.current?.reload()
-      message.success('媒体账号保存成功')
-    } catch (error) {
-      if (error && typeof error === 'object' && 'errorFields' in error) return
-      if (isUnauthorizedError(error)) return
-      message.error(error instanceof Error ? error.message : '保存失败')
-    } finally {
-      setEditSubmitting(false)
-    }
-  }
-
   const handleRetry = async (providerId: number | null) => {
     if (!detail || providerId === null) return
     setRetryingProviderId(providerId)
@@ -140,6 +104,19 @@ export function MediaAccountFilingPage() {
       message.error(error instanceof Error ? error.message : '重试失败')
     } finally {
       setRetryingProviderId(null)
+    }
+  }
+
+  const handleDelete = async () => {
+    if (!detail) return
+    try {
+      await deleteAdminMediaAccount(detail.id)
+      setDetailOpen(false)
+      actionRef.current?.reload()
+      message.success('媒体账号删除成功')
+    } catch (error) {
+      if (isUnauthorizedError(error)) return
+      message.error(error instanceof Error ? error.message : '删除失败')
     }
   }
 
@@ -249,10 +226,6 @@ export function MediaAccountFilingPage() {
     return { data: result.list, total: result.total, success: true }
   }
 
-  const identityLocked = Boolean(
-    detail?.mediaAccount.filings.some((filing) => filing.status === 'APPROVED'),
-  )
-
   return (
     <PageContainer
       className="media-account-filing-page"
@@ -313,9 +286,19 @@ export function MediaAccountFilingPage() {
                 <div className="media-account-filing-page__section-title">
                   <span className="media-account-filing-page__marker" />
                   媒体账号资料
-                  <Button type="link" size="small" onClick={openEdit}>
-                    编辑
-                  </Button>
+                  {canDeleteAccount(detail.mediaAccount.filings) ? (
+                    <Popconfirm
+                      title="确认删除这个媒体账号？"
+                      description="删除后可重新提交相同平台和账号 ID。"
+                      okText="删除"
+                      cancelText="取消"
+                      onConfirm={() => void handleDelete()}
+                    >
+                      <Button type="link" danger size="small">
+                        删除
+                      </Button>
+                    </Popconfirm>
+                  ) : null}
                 </div>
                 <Descriptions column={2} size="small">
                   <Descriptions.Item label="媒体平台">
@@ -409,78 +392,6 @@ export function MediaAccountFilingPage() {
           ) : null}
         </Spin>
       </Drawer>
-
-      <Drawer
-        title="编辑媒体账号"
-        open={editOpen}
-        width={560}
-        rootClassName="media-account-filing-page__edit-drawer"
-        footer={
-          <div className="media-account-filing-page__edit-footer">
-            <Button onClick={() => setEditOpen(false)}>取消</Button>
-            <Button
-              type="primary"
-              loading={editSubmitting}
-              onClick={() => void handleEdit()}
-            >
-              保存
-            </Button>
-          </div>
-        }
-        onClose={() => setEditOpen(false)}
-      >
-        <Form
-          form={editForm}
-          layout="vertical"
-          preserve={false}
-          autoComplete="off"
-        >
-          <Form.Item
-            label="媒体平台"
-            name="mediaType"
-            rules={[{ required: true }]}
-          >
-            <Select
-              disabled={identityLocked}
-              options={Object.entries(mediaTypeLabels).map(
-                ([value, label]) => ({ value, label }),
-              )}
-            />
-          </Form.Item>
-          <Form.Item
-            label="账号 ID"
-            name="externalAccountId"
-            rules={[{ required: true, max: 128 }]}
-          >
-            <Input disabled={identityLocked} />
-          </Form.Item>
-          <Form.Item label="账号名称" name="accountName" rules={[{ max: 128 }]}>
-            <Input />
-          </Form.Item>
-          <Form.Item
-            label="主页链接"
-            name="accountLink"
-            rules={[
-              { pattern: /^https:\/\/.+$/, message: '主页链接必须使用 HTTPS' },
-              { max: 512 },
-            ]}
-          >
-            <Input />
-          </Form.Item>
-          <Form.Item
-            label="账号状态"
-            name="status"
-            rules={[{ required: true }]}
-          >
-            <Select
-              options={[
-                { value: 1, label: '启用' },
-                { value: 0, label: '禁用' },
-              ]}
-            />
-          </Form.Item>
-        </Form>
-      </Drawer>
     </PageContainer>
   )
 }
@@ -509,7 +420,7 @@ function FilingStatusTag({
   const color =
     label === '已加白'
       ? 'success'
-      : label === '已拒绝' || label === '提交失败'
+      : label === '已拒绝' || label === '提交失败' || label === '查询失败'
         ? 'error'
         : label === '审核中'
           ? 'processing'
@@ -523,6 +434,7 @@ function getFilingStatusLabel(
   lastErrorMessage?: string | null,
   remoteStatus?: string | null,
 ) {
+  if (lastSubmittedAt && lastErrorMessage) return '查询失败'
   if (!lastSubmittedAt) {
     if (lastErrorMessage) return '提交失败'
     if (status === 'APPROVED') return '已加白'
@@ -532,6 +444,21 @@ function getFilingStatusLabel(
   if (status === 'APPROVED' || remoteStatus === '1') return '已加白'
   if (remoteStatus === '2') return '已拒绝'
   return '审核中'
+}
+
+function canDeleteAccount(
+  filings: AdminMediaAccountDetail['mediaAccount']['filings'],
+) {
+  return (
+    filings.length > 0 &&
+    filings.every(
+      (filing) =>
+        (filing.lastSubmittedAt == null &&
+          filing.nextActionAt == null &&
+          filing.lastErrorMessage != null) ||
+        (filing.remoteStatus === '2' && filing.nextActionAt == null),
+    )
+  )
 }
 
 function stringValue(value: unknown) {

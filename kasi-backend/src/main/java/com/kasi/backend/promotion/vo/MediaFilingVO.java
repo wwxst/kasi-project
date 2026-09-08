@@ -16,7 +16,6 @@ public class MediaFilingVO {
     private String externalFilingId;
     private LocalDateTime filingTime;
     private LocalDateTime operateTime;
-    private Long operateBy;
     private LocalDateTime lastSubmittedAt;
     private LocalDateTime lastQueriedAt;
     private LocalDateTime nextActionAt;

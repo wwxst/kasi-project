@@ -6,7 +6,6 @@ import com.kasi.backend.provider.dto.UpsertProviderConnectionDTO;
 import com.kasi.backend.provider.entity.ShortDramaConnection;
 import com.kasi.backend.provider.entity.ShortDramaProvider;
 import com.kasi.backend.provider.enums.ProviderCapability;
-import com.kasi.backend.provider.enums.FilingMode;
 import com.kasi.backend.provider.mapper.ShortDramaConnectionMapper;
 import com.kasi.backend.provider.mapper.ShortDramaProviderMapper;
 import com.kasi.backend.provider.service.impl.ProviderConnectionServiceImpl;
@@ -25,6 +24,7 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.time.LocalDateTime;
+import java.util.Arrays;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -80,25 +80,15 @@ class ProviderConnectionServiceTest {
     }
 
     @Test
-    @DisplayName("首次人工报备配置允许不填写 API 凭据")
-    void manualFilingAllowsEmptyApiConfig() {
-        when(providerMapper.findById(1L)).thenReturn(provider());
-        when(connectionMapper.findByProviderId(1L)).thenReturn(null, connection(null));
-        when(connectionMapper.insert(any())).thenReturn(1);
-
-        UpsertProviderConnectionDTO request = new UpsertProviderConnectionDTO();
-        request.setFilingMode(FilingMode.MANUAL);
-        request.setStatus(1);
-
-        service.upsert(9L, 1L, request);
-
-        ArgumentCaptor<ShortDramaConnection> captor = ArgumentCaptor.forClass(ShortDramaConnection.class);
-        verify(connectionMapper).insert(captor.capture());
-        assertThat(captor.getValue().getFilingMode()).isEqualTo(FilingMode.MANUAL);
-        assertThat(captor.getValue().getBaseUrl()).isNull();
-        assertThat(captor.getValue().getPartnerId()).isNull();
-        assertThat(captor.getValue().getApiKeyCiphertext()).isNull();
-        verify(credentialCipher, never()).encrypt(any());
+    @DisplayName("API-only 接入契约不再暴露报白模式")
+    void apiOnlyContractDoesNotExposeFilingMode() {
+        assertThat(fieldNames(UpsertProviderConnectionDTO.class)).doesNotContain("filingMode");
+        assertThat(fieldNames(ShortDramaConnection.class)).doesNotContain("filingMode");
+        assertThat(fieldNames(com.kasi.backend.provider.vo.ProviderConnectionVO.class))
+                .doesNotContain("filingMode");
+        assertThat(Arrays.stream(ProviderConnectionService.class.getMethods())
+                .map(java.lang.reflect.Method::getName).toList())
+                .doesNotContain("getFilingMode", "updateFilingMode");
     }
 
     @Test
@@ -301,10 +291,13 @@ class ProviderConnectionServiceTest {
         connection.setApiKeyCiphertext(ciphertext);
         connection.setCurrency("USD");
         connection.setStatus(1);
-        connection.setFilingMode(FilingMode.API);
         connection.setCreatedAt(LocalDateTime.of(2026, 8, 17, 10, 0));
         connection.setUpdatedAt(LocalDateTime.of(2026, 8, 17, 11, 0));
         return connection;
+    }
+
+    private List<String> fieldNames(Class<?> type) {
+        return Arrays.stream(type.getDeclaredFields()).map(java.lang.reflect.Field::getName).toList();
     }
 
     private UpsertProviderConnectionDTO request(String apiKey, Integer status) {

@@ -200,7 +200,7 @@ $env:FLYWAY_PASSWORD='...'
 
 ### GoodShort 本地目录假数据
 
-`scripts/dev/seed_goodshort_drama_catalog.sql` 仅用于当前本地开发 MySQL 在尚未取得真实 PID/KEY 前准备目录联调数据，禁止用于生产、预发布或共享测试环境。它不属于数据库初始化，应用启动和运行时都不会自动执行。脚本创建的安全连接固定为名称 `GoodShort 本地假数据`、币种 `USD`、禁用状态、`MANUAL` 报备模式，不写入 PID、KEY 密文或接口地址，也不会发起远端请求。连接、短剧、剧集和检查点的内部 ID 均由数据库自增；短剧外部 ID 为 `99000001..99000024`。
+`scripts/dev/seed_goodshort_drama_catalog.sql` 仅用于当前本地开发 MySQL 在尚未取得真实 PID/KEY 前准备目录联调数据，禁止用于生产、预发布或共享测试环境。它不属于数据库初始化，应用启动和运行时都不会自动执行。脚本创建的安全连接固定为名称 `GoodShort 本地假数据`、币种 `USD`、禁用状态，不写入 PID、KEY 密文或接口地址，也不会发起远端请求。连接、短剧、剧集和检查点的内部 ID 均由数据库自增；短剧外部 ID 为 `99000001..99000024`。
 
 脚本可重复执行，预期得到 24 部短剧、204 条剧集内容和 4 个同步检查点。若已存在真实或非完全匹配的 GoodShort 连接，脚本会拒绝执行且不会覆盖；即使客户端在守卫报错后继续发送语句，脚本也会通过 DML 守卫拒绝写入。必须使用遇到首个错误即停止的 SQL 客户端执行，严禁 mysql `--force`；任何错误后先执行 `ROLLBACK` 并关闭连接，再重新尝试。
 
@@ -225,8 +225,8 @@ mysql --host=127.0.0.1 --user=$env:SPRING_DATASOURCE_USERNAME --password --datab
 | MySQL | `sys_admin_user` | 后台管理员用户 | username, password(BCrypt), real_name, mobile, email, status, is_super_admin |
 | MySQL | `promotion_user` | 推广用户 | user_no(12位随机数字字符串), password(BCrypt), nickname, mobile, email, status, register_source |
 | MySQL | `short_drama_provider` | 短剧平台定义 | provider_code, provider_name, status |
-| MySQL | `short_drama_connection` | 平台机构接入账号（仅保存密钥密文；人工报备可不配置 API 凭据） | provider_id, base_url, partner_id, api_key_ciphertext, filing_mode, status |
-| MySQL | `promotion_media_account` | 推广用户绑定的媒体账号（不可物理删除） | user_id, media_type, external_account_id, account_name, account_link, status, data_version |
+| MySQL | `short_drama_connection` | 平台机构接入账号（仅保存密钥密文） | provider_id, base_url, partner_id, api_key_ciphertext, status |
+| MySQL | `promotion_media_account` | 推广用户绑定的全局唯一媒体账号 | user_id, media_type, external_account_id, account_name, account_link, status, data_version |
 | MySQL | `provider_media_filing` | 媒体账号按平台保存的报备状态和任务信息 | connection_id, media_account_id, status, next_action, retry_count |
 | MySQL | `provider_drama` | 按接入账号保存的短剧目录，本地状态、远端状态与本地推广元数据分离 | connection_id, external_drama_id, language, remote_show_status, local_status, commission_scope, promotion_description |
 | MySQL | `provider_drama_content` | 短剧剧集元数据和永久视频地址 | drama_id, external_content_id, sequence_no, is_free, duration_seconds, content_url |
@@ -244,7 +244,7 @@ mysql --host=127.0.0.1 --user=$env:SPRING_DATASOURCE_USERNAME --password --datab
 
 `kasi_promotion.sql` 和生产 `V1` 均按当前完整结构一次建库，并在建表后直接插入 `admin` 超级管理员和一个启用的初始推广用户。管理员固定写入 `status=1`、`is_super_admin=1`；推广用户使用邮箱登录，密码和管理员密码均只以 BCrypt 哈希保存。两条路径都不会在应用启动时自动执行，也不植入任何平台接入密钥。
 
-当前已完成平台定义与接入账号持久层、AES-GCM 密钥加密、不暴露密钥的管理服务和管理员 API，以及 GoodShort 签名和连接探测适配器。GoodShort 接入配置同时保存一个媒体根域名，未知域名不会自动加入白名单；官方文档未保证媒体资源固定属于 `novelopen.com`，`novelopen.com` 是当前实际配置值而非官方契约。媒体账号绑定与通用报备模块也已完成后端闭环：推广用户可绑定多个媒体账号，同一媒体平台账号全局唯一；推广用户创建或编辑媒体账号时，媒体平台、账号 ID、账号名称和账号主页链接均为必填，主页链接必须使用 HTTPS；创建媒体账号时不选择单个平台，系统会为所有已启用、接入配置完整且适配器声明支持账号报备的平台分别建立报备记录。API 模式在本地事务提交后立即调用 GoodShort `/creek/open/filing/report`，接口成功只表示已提交甲方并进入审核中；上报失败会保存明确错误且不自动重试，用户端不提供重试，管理端仅允许从未成功提交且存在提交错误的记录重新提交。后台持久任务只对已成功提交且仍在审核中的记录调用 `/creek/open/filing/query`：甲方状态 `0` 每 5 分钟继续查询，`1` 记为已加白并停止，`2` 记为已拒绝并停止；页面统一显示待提交、提交失败、审核中、已加白、已拒绝。修改账号名称或主页链接不会重新报备，只有媒体平台或账号 ID 实际变化才重新上报。任务继续使用现有租约和资料版本隔离；绑定媒体账号的推广用户只能禁用不能物理删除。平台接入配置支持 API 自动报备和人工报备两种模式：API 模式必须填写接口 URL、媒体根域名、PID、KEY，人工模式无需保存这些 API 凭据，由管理员维护报备状态。
+当前已完成平台定义与接入账号持久层、AES-GCM 密钥加密、不暴露密钥的管理服务和管理员 API，以及 GoodShort 签名和连接探测适配器。GoodShort 接入配置同时保存一个媒体根域名，未知域名不会自动加入白名单；官方文档未保证媒体资源固定属于 `novelopen.com`，`novelopen.com` 是当前实际配置值而非官方契约。媒体账号绑定与通用报白模块也已完成闭环：推广用户可创建多个媒体账号，同一媒体平台和账号 ID 全局唯一，创建后用户端和管理端均不可编辑。系统为所有已启用、接入配置完整且适配器声明支持账号报白的平台分别建立记录，并在本地事务提交后立即调用 GoodShort `/creek/open/filing/report`；成功只表示进入审核中，提交失败保存错误且不自动重试，只有管理员可以重试技术提交失败。后台任务只查询已成功提交且仍在审核中的记录：甲方状态 `0` 继续查询，`1` 记为已加白并停止，`2` 记为已拒绝并停止；连续 5 次查询技术失败后显示“查询失败”并停止。管理端可删除技术提交失败或甲方已拒绝的账号；存在多个报白记录时必须全部可删，删除会同时清理报白记录并释放全局唯一账号。平台接入仅保留 API 自动报白，必须填写接口 URL、媒体根域名、PID 和 KEY。
 
 当前已实现 GoodShort 短剧目录全量 `initBooks`、增量 `incrementBooks`、断点恢复、数据库租约、定时/手动触发、固定定时任务入队、管理员查询详情和本地上下架；首次全量同步仍由管理员手动发起，只有成功全量基线存在时才自动创建增量任务。新同步的甲方在线短剧默认上架，甲方下架会同步我方下架，甲方恢复在线后需管理员手动重新上架。平台分佣规则按平台保存一条默认配置，POST 首次设置、PUT 直接覆盖；每次写入都会产生不可变 `provider_commission_rule_history` 快照，订单同时保存当次五费率和计算结果。规则计算器使用 `BigDecimal`，最终金额保留两位并按 `HALF_UP` 四舍五入。
 

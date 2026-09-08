@@ -2,8 +2,7 @@
   overflow: hidden;
 }
 
-.media-account-filing-page__drawer .ant-drawer-body,
-.media-account-filing-page__edit-drawer .ant-drawer-body {
+.media-account-filing-page__drawer .ant-drawer-body {
   padding: 24px;
 }
 
@@ -87,15 +86,8 @@
   line-height: 1.6;
 }
 
-.media-account-filing-page__edit-footer {
-  display: flex;
-  justify-content: flex-end;
-  gap: 8px;
-}
-
 @media (max-width: 760px) {
-  .media-account-filing-page__drawer .ant-drawer-body,
-  .media-account-filing-page__edit-drawer .ant-drawer-body {
+  .media-account-filing-page__drawer .ant-drawer-body {
     padding: 16px;
   }
 
