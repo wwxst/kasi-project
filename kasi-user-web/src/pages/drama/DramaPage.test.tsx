@@ -15,7 +15,10 @@ Object.defineProperty(HTMLMediaElement.prototype, 'load', {
   value: vi.fn(),
 })
 
-const { navigateMock } = vi.hoisted(() => ({ navigateMock: vi.fn() }))
+const { hlsLoadSourceMock, navigateMock } = vi.hoisted(() => ({
+  hlsLoadSourceMock: vi.fn(),
+  navigateMock: vi.fn(),
+}))
 
 vi.mock('hls.js', () => {
   class MockHls {
@@ -24,7 +27,7 @@ vi.mock('hls.js', () => {
       return true
     }
 
-    loadSource = vi.fn()
+    loadSource = hlsLoadSourceMock
     attachMedia = vi.fn()
     on = vi.fn()
     destroy = vi.fn()
@@ -50,6 +53,8 @@ vi.mock('../../features/promotionLinks/promotionLinksApi', () => ({
 afterEach(() => {
   cleanup()
   navigateMock.mockReset()
+  vi.restoreAllMocks()
+  vi.unstubAllGlobals()
   vi.clearAllMocks()
 })
 
@@ -236,6 +241,7 @@ describe('DramaPage', () => {
 
   it('opens an episode viewer and loads an HLS resource', async () => {
     const user = userEvent.setup()
+    vi.spyOn(HTMLMediaElement.prototype, 'canPlayType').mockReturnValue('')
     vi.mocked(getPublishedDramas).mockResolvedValueOnce({
       list: [
         {
@@ -297,6 +303,47 @@ describe('DramaPage', () => {
     expect(await screen.findByText('第1集')).toBeTruthy()
     await user.click(screen.getByRole('button', { name: '播放' }))
     expect(await screen.findByTestId('drama-video')).toBeTruthy()
+    await waitFor(() =>
+      expect(hlsLoadSourceMock).toHaveBeenCalledWith(
+        'https://cdn.example.com/episode-1.m3u8',
+      ),
+    )
+  })
+
+  it('plays an MP4 resource directly without passing it to Hls.js', async () => {
+    const user = userEvent.setup()
+    vi.spyOn(HTMLMediaElement.prototype, 'canPlayType').mockReturnValue('')
+    vi.spyOn(HTMLMediaElement.prototype, 'play').mockResolvedValue()
+    vi.mocked(getPublishedDramas).mockResolvedValueOnce({
+      list: [promotionDrama()],
+      page: 1,
+      size: 20,
+      total: 1,
+    })
+    vi.mocked(getPublishedDramaFreeContent).mockResolvedValueOnce([
+      {
+        id: 101,
+        sequenceNo: 1,
+        title: '第1集',
+        free: true,
+        playUrl: 'https://cdn.example.com/episode-1.mp4',
+      },
+    ])
+
+    renderDramaPage()
+
+    await user.click(
+      await screen.findByRole('button', { name: '创建推广任务' }),
+    )
+    await user.click(await screen.findByRole('button', { name: '播放' }))
+
+    await waitFor(() =>
+      expect(screen.getByTestId('drama-video')).toHaveProperty(
+        'src',
+        'https://cdn.example.com/episode-1.mp4',
+      ),
+    )
+    expect(hlsLoadSourceMock).not.toHaveBeenCalled()
   })
 
   it('downloads all available episodes directly in the browser', async () => {
@@ -363,6 +410,7 @@ describe('DramaPage', () => {
     )
     vi.spyOn(URL, 'createObjectURL').mockReturnValue('blob:episode')
     vi.spyOn(URL, 'revokeObjectURL').mockImplementation(() => {})
+    vi.spyOn(MessagePlugin, 'success').mockResolvedValue({} as never)
     const originalCreateElement = document.createElement.bind(document)
     vi.spyOn(document, 'createElement').mockImplementation((tagName) => {
       const element = originalCreateElement(tagName)
@@ -400,6 +448,40 @@ describe('DramaPage', () => {
       '故事-第01集.mp4',
       '故事-第02集.m3u8',
     ])
+  })
+
+  it('shows an error when no original resource can be downloaded', async () => {
+    const user = userEvent.setup()
+    vi.mocked(getPublishedDramas).mockResolvedValueOnce({
+      list: [promotionDrama()],
+      page: 1,
+      size: 20,
+      total: 1,
+    })
+    vi.mocked(getPublishedDramaFreeContent).mockResolvedValueOnce([
+      {
+        id: 101,
+        sequenceNo: 1,
+        title: '第1集',
+        free: true,
+        playUrl: 'https://cdn.example.com/episode-1.mp4',
+      },
+    ])
+    vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new TypeError('cors')))
+    const errorMessage = vi
+      .spyOn(MessagePlugin, 'error')
+      .mockResolvedValue({} as never)
+
+    renderDramaPage()
+
+    await user.click(
+      await screen.findByRole('button', { name: '创建推广任务' }),
+    )
+    await user.click(await screen.findByRole('button', { name: '下载全部' }))
+
+    await waitFor(() =>
+      expect(errorMessage).toHaveBeenCalledWith('素材下载失败，请稍后重试'),
+    )
   })
 })
 

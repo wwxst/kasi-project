@@ -76,6 +76,14 @@ function episodeFilename(
   return `${title}-第${String(sequenceNo).padStart(2, '0')}集${extension}`
 }
 
+function isHlsResource(resourceUrl: string) {
+  try {
+    return new URL(resourceUrl).pathname.toLowerCase().endsWith('.m3u8')
+  } catch {
+    return false
+  }
+}
+
 export default function DramaPage({ title: _title }: { title: string }) {
   const navigate = useNavigate()
   const queryClient = useQueryClient()
@@ -88,7 +96,9 @@ export default function DramaPage({ title: _title }: { title: string }) {
   const [playbackError, setPlaybackError] = useState<string | null>(null)
   const [createDialogVisible, setCreateDialogVisible] = useState(false)
   const [creatingPromotion, setCreatingPromotion] = useState(false)
-  const videoRef = useRef<HTMLVideoElement | null>(null)
+  const [videoElement, setVideoElement] = useState<HTMLVideoElement | null>(
+    null,
+  )
   const promotionFormRef = useRef<FormInstanceFunctions | null>(null)
   const query = useQuery({
     queryKey: ['user', 'dramas', page, pageSize, filters],
@@ -107,11 +117,20 @@ export default function DramaPage({ title: _title }: { title: string }) {
     retry: false,
   })
   useEffect(() => {
-    const video = videoRef.current
+    const video = videoElement
     const source = playingEpisode?.playUrl
     if (!video || !source) return
 
     setPlaybackError(null)
+    if (!isHlsResource(source)) {
+      video.src = source
+      void video.play().catch(() => undefined)
+      return () => {
+        video.removeAttribute('src')
+        video.load()
+      }
+    }
+
     if (video.canPlayType('application/vnd.apple.mpegurl')) {
       video.src = source
       void video.play().catch(() => undefined)
@@ -138,7 +157,7 @@ export default function DramaPage({ title: _title }: { title: string }) {
       video.removeAttribute('src')
       video.load()
     }
-  }, [playingEpisode, viewDrama])
+  }, [playingEpisode, videoElement])
 
   useEffect(() => {
     if (!playingEpisode) return
@@ -181,6 +200,8 @@ export default function DramaPage({ title: _title }: { title: string }) {
       void MessagePlugin.success(
         startedCount === 1 ? '已开始下载' : `已开始下载 ${startedCount} 集`,
       )
+    } else if (availableEpisodes.length > 0) {
+      void MessagePlugin.error('素材下载失败，请稍后重试')
     }
   }
 
@@ -498,7 +519,7 @@ export default function DramaPage({ title: _title }: { title: string }) {
           </div>
           <div className={Style.videoPanel}>
             <video
-              ref={videoRef}
+              ref={setVideoElement}
               className={Style.video}
               controls
               playsInline
