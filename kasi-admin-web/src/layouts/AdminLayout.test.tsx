@@ -50,9 +50,9 @@ describe('AdminLayout navigation', () => {
     expect(screen.getByTestId('location')).toHaveTextContent('/user-management')
   })
 
-  it('shows independent short drama and episode sync entries', () => {
+  it('groups drama and promotion links under short drama management', () => {
     render(
-      <MemoryRouter initialEntries={['/drama/catalog']}>
+      <MemoryRouter initialEntries={['/user-management']}>
         <Routes>
           <Route element={<AdminLayout />}>
             <Route path="*" element={<LocationProbe />} />
@@ -61,14 +61,62 @@ describe('AdminLayout navigation', () => {
       </MemoryRouter>,
     )
 
+    expect(screen.getAllByText('短剧管理').length).toBeGreaterThan(0)
+    expect(
+      screen.queryByRole('link', { name: '短剧目录' }),
+    ).not.toBeInTheDocument()
+
     fireEvent.click(screen.getAllByRole('menuitem', { name: '短剧管理' })[0])
+    expect(screen.getByRole('link', { name: '账号报备' })).toHaveAttribute(
+      'href',
+      '/promotion/media-accounts',
+    )
+    expect(screen.getByRole('link', { name: '推广任务' })).toHaveAttribute(
+      'href',
+      '/promotion/links',
+    )
+    expect(screen.getByRole('link', { name: '推广订单' })).toHaveAttribute(
+      'href',
+      '/promotion/orders',
+    )
+    expect(screen.getByText('同步管理')).toBeInTheDocument()
+
+    fireEvent.click(screen.getAllByRole('menuitem', { name: '同步管理' })[0])
     expect(screen.getByRole('link', { name: '短剧同步' })).toHaveAttribute(
       'href',
       '/drama/sync/catalog',
     )
-    expect(screen.getByRole('link', { name: '剧集同步' })).toHaveAttribute(
-      'href',
-      '/drama/sync/content',
+  })
+
+  it('opens nested sync navigation for a deep sync route', () => {
+    render(
+      <MemoryRouter initialEntries={['/drama/sync/content']}>
+        <Routes>
+          <Route element={<AdminLayout />}>
+            <Route path="*" element={<LocationProbe />} />
+          </Route>
+        </Routes>
+      </MemoryRouter>,
     )
+
+    expect(
+      screen.getAllByRole('link', { name: '剧集同步' })[0],
+    ).toHaveAttribute('href', '/drama/sync/content')
+  })
+
+  it('opens system settings navigation for a deep settings route', () => {
+    render(
+      <MemoryRouter initialEntries={['/system-config/sms']}>
+        <Routes>
+          <Route element={<AdminLayout />}>
+            <Route path="*" element={<LocationProbe />} />
+          </Route>
+        </Routes>
+      </MemoryRouter>,
+    )
+
+    expect(
+      screen.getAllByRole('link', { name: '系统配置' })[0],
+    ).toHaveAttribute('href', '/system-config/sms')
   })
 })

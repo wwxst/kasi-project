@@ -47,6 +47,20 @@ export function AdminLayout() {
   const clearSession = useAuthStore((state) => state.clearSession)
   const showBreadcrumb = location.pathname === '/profile'
   const selectedMenuKey = location.pathname
+  const defaultOpenKeys: string[] = []
+
+  if (
+    location.pathname.startsWith('/drama/') ||
+    location.pathname.startsWith('/promotion/')
+  ) {
+    defaultOpenKeys.push('drama-management')
+  }
+  if (location.pathname.startsWith('/drama/sync/')) {
+    defaultOpenKeys.push('drama-sync-management')
+  }
+  if (location.pathname.startsWith('/system-config/')) {
+    defaultOpenKeys.push('system-config')
+  }
 
   useEffect(() => {
     const handleFullscreenChange = () => {
@@ -64,11 +78,7 @@ export function AdminLayout() {
       <Menu
         mode="inline"
         selectedKeys={[selectedMenuKey]}
-        defaultOpenKeys={
-          location.pathname.startsWith('/drama/sync/')
-            ? ['drama-management']
-            : []
-        }
+        defaultOpenKeys={defaultOpenKeys}
         items={[
           ...(admin?.isSuperAdmin === 1
             ? [
@@ -95,26 +105,9 @@ export function AdminLayout() {
                 label: <Link to="/drama/catalog">短剧目录</Link>,
               },
               {
-                key: '/drama/sync/catalog',
-                icon: <ListOrdered size={18} strokeWidth={1.8} />,
-                label: <Link to="/drama/sync/catalog">短剧同步</Link>,
-              },
-              {
-                key: '/drama/sync/content',
-                icon: <ListOrdered size={18} strokeWidth={1.8} />,
-                label: <Link to="/drama/sync/content">剧集同步</Link>,
-              },
-            ],
-          },
-          {
-            key: 'promotion-management',
-            icon: <BadgeCheck size={18} strokeWidth={1.8} />,
-            label: '推广管理',
-            children: [
-              {
                 key: '/promotion/media-accounts',
                 icon: <BadgeCheck size={18} strokeWidth={1.8} />,
-                label: <Link to="/promotion/media-accounts">媒体账号报备</Link>,
+                label: <Link to="/promotion/media-accounts">账号报备</Link>,
               },
               {
                 key: '/promotion/links',
@@ -126,24 +119,34 @@ export function AdminLayout() {
                 icon: <ListOrdered size={18} strokeWidth={1.8} />,
                 label: <Link to="/promotion/orders">推广订单</Link>,
               },
+              {
+                key: 'drama-sync-management',
+                icon: <ListOrdered size={18} strokeWidth={1.8} />,
+                label: '同步管理',
+                children: [
+                  {
+                    key: '/drama/sync/catalog',
+                    icon: <ListOrdered size={18} strokeWidth={1.8} />,
+                    label: <Link to="/drama/sync/catalog">短剧同步</Link>,
+                  },
+                  {
+                    key: '/drama/sync/content',
+                    icon: <ListOrdered size={18} strokeWidth={1.8} />,
+                    label: <Link to="/drama/sync/content">剧集同步</Link>,
+                  },
+                ],
+              },
             ],
           },
           {
             key: 'system-config',
             icon: <Settings size={18} strokeWidth={1.8} />,
-            label: '系统配置',
+            label: '系统设置',
             children: [
               {
                 key: '/system-config/drama-api',
                 icon: <Clapperboard size={18} strokeWidth={1.8} />,
-                label: <Link to="/system-config/drama-api">短剧 API 配置</Link>,
-              },
-              {
-                key: '/system-config/scheduled-tasks',
-                icon: <Clock3 size={18} strokeWidth={1.8} />,
-                label: (
-                  <Link to="/system-config/scheduled-tasks">定时任务</Link>
-                ),
+                label: <Link to="/system-config/drama-api">平台接入</Link>,
               },
               {
                 key: '/system-config/commission-rules',
@@ -152,12 +155,19 @@ export function AdminLayout() {
                   <Link to="/system-config/commission-rules">分佣规则</Link>
                 ),
               },
+              {
+                key: '/system-config/scheduled-tasks',
+                icon: <Clock3 size={18} strokeWidth={1.8} />,
+                label: (
+                  <Link to="/system-config/scheduled-tasks">定时任务</Link>
+                ),
+              },
               ...(admin?.isSuperAdmin === 1
                 ? [
                     {
                       key: '/system-config/sms',
                       icon: <Settings size={18} strokeWidth={1.8} />,
-                      label: <Link to="/system-config/sms">短信配置</Link>,
+                      label: <Link to="/system-config/sms">系统配置</Link>,
                     },
                   ]
                 : []),
