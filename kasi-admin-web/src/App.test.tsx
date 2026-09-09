@@ -263,10 +263,6 @@ describe('App', () => {
       await screen.findByRole('heading', { name: '短剧目录' }),
     ).toBeInTheDocument()
     expect(screen.getByText('短剧管理')).toBeInTheDocument()
-    expect(
-      screen.queryByText('短剧目录', { selector: 'a' }),
-    ).not.toBeInTheDocument()
-    await userEvent.setup().click(screen.getByText('短剧管理'))
     expect(screen.getByText('短剧目录', { selector: 'a' })).toBeInTheDocument()
     expect(window.location.pathname).toBe('/drama/catalog')
     await waitFor(() => expect(catalogRequestCount).toBeGreaterThanOrEqual(1))
@@ -312,15 +308,19 @@ describe('App', () => {
         isSuperAdmin: 0,
       },
     })
-    window.history.replaceState({}, '', '/promotion/orders')
+    window.history.replaceState({}, '', '/dashboard')
+    const user = userEvent.setup()
 
     render(<App />)
 
+    await screen.findByRole('heading', {
+      name: '欢迎 运营管理员 使用卡司短剧推广平台',
+    })
+    await user.click(screen.getByText('短剧管理'))
+    await user.click(screen.getByRole('link', { name: '推广订单' }))
     expect(
       await screen.findByRole('heading', { name: '推广订单' }),
     ).toBeInTheDocument()
-    await userEvent.setup().click(screen.getByText('推广管理'))
-    expect(screen.getByRole('link', { name: '推广订单' })).toBeInTheDocument()
     expect(window.location.pathname).toBe('/promotion/orders')
   })
 
@@ -399,19 +399,20 @@ describe('App', () => {
     ).toBeInTheDocument()
     expect(screen.getByText('管理员管理')).toBeInTheDocument()
     expect(screen.getByText('用户管理')).toBeInTheDocument()
-    expect(screen.getByText('推广管理')).toBeInTheDocument()
-    expect(screen.getByText('系统配置')).toBeInTheDocument()
+    expect(screen.getByText('短剧管理')).toBeInTheDocument()
+    expect(screen.getByText('系统设置')).toBeInTheDocument()
     expect(screen.queryByText('工作台')).not.toBeInTheDocument()
     expect(
-      screen.queryByRole('link', { name: '媒体账号报备' }),
+      screen.queryByRole('link', { name: '账号报备' }),
     ).not.toBeInTheDocument()
     expect(
-      screen.queryByRole('link', { name: '短剧 API 配置' }),
+      screen.queryByRole('link', { name: '平台接入' }),
     ).not.toBeInTheDocument()
-    await user.click(screen.getByText('推广管理'))
     expect(
-      screen.getByRole('link', { name: '媒体账号报备' }),
-    ).toBeInTheDocument()
+      screen.queryByRole('link', { name: '系统配置' }),
+    ).not.toBeInTheDocument()
+    await user.click(screen.getByText('短剧管理'))
+    expect(screen.getByRole('link', { name: '账号报备' })).toBeInTheDocument()
     expect(screen.getByRole('link', { name: '推广订单' })).toBeInTheDocument()
     const accountMenuButton = within(banner).getByRole('button', {
       name: '账户菜单',
@@ -491,12 +492,12 @@ describe('App', () => {
     await screen.findByRole('heading', {
       name: '欢迎 运营管理员 使用卡司短剧推广平台',
     })
-    expect(screen.getByText('系统配置')).toBeInTheDocument()
+    expect(screen.getByText('系统设置')).toBeInTheDocument()
     expect(
-      screen.queryByRole('link', { name: '短剧 API 配置' }),
+      screen.queryByRole('link', { name: '平台接入' }),
     ).not.toBeInTheDocument()
-    await user.click(screen.getByText('系统配置'))
-    await user.click(screen.getByRole('link', { name: '短剧 API 配置' }))
+    await user.click(screen.getByText('系统设置'))
+    await user.click(screen.getByRole('link', { name: '平台接入' }))
 
     expect(
       await screen.findByRole('heading', { name: '短剧 API 配置' }),
@@ -546,11 +547,7 @@ describe('App', () => {
     expect(
       await screen.findByRole('heading', { name: '定时任务' }),
     ).toBeInTheDocument()
-    expect(screen.getByText('系统配置')).toBeInTheDocument()
-    expect(
-      screen.queryByText('定时任务', { selector: 'a' }),
-    ).not.toBeInTheDocument()
-    await userEvent.setup().click(screen.getByText('系统配置'))
+    expect(screen.getByText('系统设置')).toBeInTheDocument()
     expect(screen.getByText('定时任务', { selector: 'a' })).toBeInTheDocument()
     expect(
       await screen.findByText('GoodShort 短剧增量同步'),
@@ -670,6 +667,10 @@ describe('App', () => {
     expect(await screen.findByText('用户管理')).toBeInTheDocument()
     expect(window.location.pathname).toBe('/user-management')
     expect(screen.queryByText('管理员管理')).not.toBeInTheDocument()
+    await userEvent.setup().click(screen.getByText('系统设置'))
+    expect(
+      screen.queryByRole('link', { name: '系统配置' }),
+    ).not.toBeInTheDocument()
     expect(screen.getByText('用户管理')).toBeInTheDocument()
   })
 
