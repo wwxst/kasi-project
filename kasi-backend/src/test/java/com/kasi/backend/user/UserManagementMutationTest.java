@@ -21,15 +21,19 @@ class UserManagementMutationTest extends BaseAuthTest {
                         .header("Authorization", "Bearer " + token)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
-                                {"mobile":" 13600136000 ","email":" New.User@Example.COM ",
+                                {"mobile":" 13600136000 ","email":" New.User@Example.COM ","wechatId":" wx-new ","studentType":1,
                                  "nickname":" 新用户 ","realName":"张三","password":"newpass123!","confirmPassword":"newpass123!"}
                                 """))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.code").value(0))
                 .andExpect(jsonPath("$.data.email").value("new.user@example.com"))
+                .andExpect(jsonPath("$.data.wechatId").value("wx-new"))
+                .andExpect(jsonPath("$.data.studentType").value(1))
                 .andExpect(jsonPath("$.data.password").doesNotExist());
         var stored = jdbcTemplate.queryForMap("SELECT * FROM promotion_user WHERE mobile = '13600136000'");
         assertThat(stored.get("register_source")).isEqualTo("ADMIN");
+        assertThat(stored.get("wechat_id")).isEqualTo("wx-new");
+        assertThat(((Number) stored.get("student_type")).intValue()).isEqualTo(1);
         assertThat(passwordEncoder.matches("newpass123!", (String) stored.get("password"))).isTrue();
         assertThat(stored.get("user_no").toString()).matches("[1-9][0-9]{11}");
     }
@@ -45,9 +49,11 @@ class UserManagementMutationTest extends BaseAuthTest {
                         .header("Authorization", "Bearer " + adminToken)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
-                                {"mobile":"13900139001","email":"test@example.com","nickname":"修改后"}
-                                """))
-                .andExpect(jsonPath("$.code").value(0));
+                                {"mobile":"13900139001","email":"test@example.com","wechatId":"wx-updated","studentType":1,"nickname":"修改后"}
+                        """))
+                .andExpect(jsonPath("$.code").value(0))
+                .andExpect(jsonPath("$.data.wechatId").value("wx-updated"))
+                .andExpect(jsonPath("$.data.studentType").value(1));
         mockMvc.perform(MockMvcRequestBuilders.get("/api/user/auth/me").header("Authorization", "Bearer " + firstToken))
                 .andExpect(status().isUnauthorized());
         mockMvc.perform(MockMvcRequestBuilders.get("/api/user/auth/me").header("Authorization", "Bearer " + secondToken))

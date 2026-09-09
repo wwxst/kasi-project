@@ -1,6 +1,7 @@
 package com.kasi.backend.user.dto;
 
 import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
 import lombok.Data;
 
@@ -13,4 +14,23 @@ public class UpdateUserProfileDTO {
 
     @Size(max = 64, message = "真实姓名长度不能超过64位")
     private String realName;
+
+    @Size(max = 128, message = "微信号长度不能超过128位")
+    private String wechatId;
+
+    @Pattern(regexp = "^\\s*$|^\\s*1[3-9]\\d{9}\\s*$", message = "手机号格式不正确")
+    private String mobile;
+
+    @Pattern(regexp = "^\\s*$|^\\s*[A-Za-z0-9.!#$%&'*+/=?^_`{|}~-]+@[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?(?:\\.[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?)+\\s*$", message = "邮箱格式不正确")
+    @Size(max = 128, message = "邮箱长度不能超过128位")
+    private String email;
+
+    @jakarta.validation.constraints.AssertTrue(message = "手机号或邮箱不能同时为空")
+    public boolean isContactProvided() {
+        return hasText(mobile) || hasText(email);
+    }
+
+    private boolean hasText(String value) {
+        return value != null && !value.trim().isEmpty();
+    }
 }

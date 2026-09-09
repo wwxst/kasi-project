@@ -191,10 +191,7 @@ export function PromotionLinkPage() {
   }
 
   return (
-    <PageContainer
-      title="推广任务"
-      content="按推广链接查看用户、短剧、口令及累计转化数据，并可手动补拉转化日报。"
-    >
+    <PageContainer>
       <div className="promotion-link-page__toolbar">
         <Form
           name="promotionLinkFilter"

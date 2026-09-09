@@ -146,8 +146,6 @@ export function ProviderManagementPage() {
   return (
     <PageContainer
       className="provider-config-page"
-      title="短剧 API 配置"
-      content="配置短剧平台的接口地址和接入凭据"
       data-testid="provider-management-page"
     >
       <Spin spinning={loading}>

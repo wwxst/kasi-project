@@ -1,0 +1,64 @@
+.promotion-project-page__toolbar {
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: 16px;
+}
+
+.promotion-project-page__table {
+  overflow: hidden;
+  border: 1px solid var(--ant-color-border-secondary);
+  border-radius: 4px;
+}
+
+.promotion-project-page__cover {
+  object-fit: cover;
+}
+
+.promotion-project-page__table a {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.promotion-project-page__sort {
+  width: 100%;
+}
+
+.promotion-project-page__upload-row {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.promotion-project-page__file-button {
+  display: inline-flex;
+  min-height: 32px;
+  cursor: pointer;
+  align-items: center;
+  padding: 4px 15px;
+  border: 1px solid var(--ant-color-border);
+  border-radius: 6px;
+  background: var(--ant-color-bg-container);
+}
+
+.promotion-project-page__file-button:hover {
+  border-color: var(--ant-color-primary-hover);
+  color: var(--ant-color-primary-hover);
+}
+
+.promotion-project-page__file-button input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+.promotion-project-page__cover-error {
+  display: block;
+  margin-top: 6px;
+  color: var(--ant-color-error);
+}

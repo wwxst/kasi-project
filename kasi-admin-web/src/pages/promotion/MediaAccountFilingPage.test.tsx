@@ -192,8 +192,13 @@ describe('MediaAccountFilingPage', () => {
       </AntdApp>,
     )
 
-    expect(await screen.findByText('媒体账号报备')).toBeInTheDocument()
     expect(await screen.findByText('TikTok 运营号')).toBeInTheDocument()
+    expect(
+      screen.queryByRole('heading', { name: '媒体账号报备' }),
+    ).not.toBeInTheDocument()
+    expect(
+      screen.queryByText('查看推广用户媒体账号及短剧平台报备状态'),
+    ).not.toBeInTheDocument()
     expect(screen.queryByText('新增')).not.toBeInTheDocument()
     expect(screen.queryByText('删除')).not.toBeInTheDocument()
 

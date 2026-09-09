@@ -32,6 +32,8 @@ import org.springframework.web.multipart.MultipartFile;
 
 import java.time.LocalDateTime;
 import java.util.Locale;
+import java.util.Objects;
+import org.springframework.dao.DuplicateKeyException;
 
 /**
  * 推广用户认证服务
@@ -208,6 +210,8 @@ public class UserAuthServiceImpl implements UserAuthService {
                 .realName(user.getRealName())
                 .mobile(user.getMobile())
                 .email(user.getEmail())
+                .wechatId(user.getWechatId())
+                .studentType(user.getStudentType())
                 .avatarUrl(user.getAvatarUrl())
                 .status(user.getStatus())
                 .lastLoginAt(user.getLastLoginAt())
@@ -225,10 +229,53 @@ public class UserAuthServiceImpl implements UserAuthService {
         }
         String nickname = request.getNickname().trim();
         String realName = trimToNull(request.getRealName());
-        if (promotionUserMapper.updateSelfProfile(userId, nickname, realName) != 1) {
-            throw new IllegalStateException("用户资料更新未生效");
+        String wechatId = trimToNull(request.getWechatId());
+        String mobile = trimToNull(request.getMobile());
+        String email = normalizeEmail(request.getEmail());
+        checkUniqueContacts(mobile, email, userId);
+        boolean contactChanged = !Objects.equals(mobile, user.getMobile())
+                || !Objects.equals(email, user.getEmail());
+        SessionMutation mutation = contactChanged ? sessionService.beginMutation(SubjectType.USER, userId) : null;
+        registerMutationCompletion(mutation);
+        try {
+            if (promotionUserMapper.updateSelfProfile(userId, nickname, realName, wechatId, mobile, email) != 1) {
+                throw new IllegalStateException("用户资料更新未生效");
+            }
+        } catch (DuplicateKeyException exception) {
+            throw mapDuplicateContact(exception, mobile, email, userId);
         }
         return getCurrentUser(userId);
+    }
+
+    private void checkUniqueContacts(String mobile, String email, Long currentId) {
+        if (mobile != null) checkOther(promotionUserMapper.findByMobile(mobile), currentId, ErrorCode.USER_MOBILE_DUPLICATE);
+        if (email != null) checkOther(promotionUserMapper.findByEmail(email), currentId, ErrorCode.USER_EMAIL_DUPLICATE);
+    }
+
+    private void checkOther(PromotionUser existing, Long currentId, ErrorCode errorCode) {
+        if (existing != null && !Objects.equals(existing.getId(), currentId)) throw new BusinessException(errorCode);
+    }
+
+    private RuntimeException mapDuplicateContact(DuplicateKeyException exception, String mobile,
+                                                  String email, Long currentId) {
+        checkUniqueContacts(mobile, email, currentId);
+        String message = exception.getMostSpecificCause().getMessage().toLowerCase(Locale.ROOT);
+        if (message.contains("uk_mobile") || message.contains("promotion_user.mobile")) {
+            return new BusinessException(ErrorCode.USER_MOBILE_DUPLICATE);
+        }
+        if (message.contains("uk_email") || message.contains("promotion_user.email")) {
+            return new BusinessException(ErrorCode.USER_EMAIL_DUPLICATE);
+        }
+        return exception;
+    }
+
+    private void registerMutationCompletion(SessionMutation mutation) {
+        if (mutation != null) sessionService.registerMutationCompletion(mutation);
+    }
+
+    private String normalizeEmail(String value) {
+        String email = trimToNull(value);
+        return email == null ? null : email.toLowerCase(Locale.ROOT);
     }
 
     @Override

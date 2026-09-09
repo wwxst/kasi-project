@@ -259,9 +259,13 @@ describe('App', () => {
 
     render(<App />)
 
+    expect(await screen.findByTestId('drama-catalog-page')).toBeInTheDocument()
     expect(
-      await screen.findByRole('heading', { name: '短剧目录' }),
-    ).toBeInTheDocument()
+      screen.queryByRole('heading', { name: '短剧目录' }),
+    ).not.toBeInTheDocument()
+    expect(
+      screen.queryByText('管理 GoodShort 已同步短剧、剧集信息和本地上下架状态'),
+    ).not.toBeInTheDocument()
     expect(screen.getByText('短剧管理')).toBeInTheDocument()
     expect(screen.getByText('短剧目录', { selector: 'a' })).toBeInTheDocument()
     expect(window.location.pathname).toBe('/drama/catalog')
@@ -313,15 +317,59 @@ describe('App', () => {
 
     render(<App />)
 
-    await screen.findByRole('heading', {
-      name: '欢迎 运营管理员 使用卡司短剧推广平台',
-    })
+    await screen.findByRole('navigation', { name: '主导航' })
+    expect(
+      screen.queryByRole('heading', {
+        name: '欢迎 运营管理员 使用卡司短剧推广平台',
+      }),
+    ).not.toBeInTheDocument()
     await user.click(screen.getByText('短剧管理'))
     await user.click(screen.getByRole('link', { name: '推广订单' }))
     expect(
-      await screen.findByRole('heading', { name: '推广订单' }),
+      await screen.findByRole('button', { name: '手动同步' }),
     ).toBeInTheDocument()
+    expect(
+      screen.queryByRole('heading', { name: '推广订单' }),
+    ).not.toBeInTheDocument()
     expect(window.location.pathname).toBe('/promotion/orders')
+  })
+
+  it('routes regular administrators to promotion projects', async () => {
+    server.use(
+      http.get('/api/admin/promotion/projects', () =>
+        HttpResponse.json({
+          code: 0,
+          message: 'ok',
+          data: { list: [], page: 1, size: 20, total: 0 },
+        }),
+      ),
+    )
+    useAuthStore.getState().setSession({
+      accessToken: 'ordinary-token',
+      tokenType: 'Bearer',
+      expiresIn: 7200,
+      admin: {
+        id: 2,
+        username: 'operator',
+        realName: '运营管理员',
+        mobile: null,
+        email: null,
+        avatarUrl: null,
+        isSuperAdmin: 0,
+      },
+    })
+    window.history.replaceState({}, '', '/promotion/projects')
+
+    render(<App />)
+
+    expect(
+      await screen.findByRole('button', { name: '新增项目' }),
+    ).toBeInTheDocument()
+    expect(
+      screen.queryByRole('heading', { name: '项目管理' }),
+    ).not.toBeInTheDocument()
+    expect(screen.getByRole('link', { name: '项目管理' })).toBeInTheDocument()
+    expect(window.location.pathname).toBe('/promotion/projects')
   })
 
   it('renders the administrator login entry', async () => {
@@ -368,11 +416,12 @@ describe('App', () => {
     await user.type(screen.getByLabelText('密码'), 'kasi123456')
     await user.click(screen.getByRole('button', { name: '登录' }))
 
+    await screen.findByRole('navigation', { name: '主导航' })
     expect(
-      await screen.findByRole('heading', {
+      screen.queryByRole('heading', {
         name: '欢迎 系统管理员 使用卡司短剧推广平台',
       }),
-    ).toBeInTheDocument()
+    ).not.toBeInTheDocument()
     expect(
       screen.getByRole('navigation', { name: '主导航' }),
     ).toBeInTheDocument()
@@ -430,10 +479,13 @@ describe('App', () => {
       name: '个人主页',
     })
     await user.click(profileMenuItem)
+    expect(await screen.findByText('姓名')).toBeInTheDocument()
     expect(
-      await screen.findByRole('heading', { name: '个人主页' }),
-    ).toBeInTheDocument()
-    expect(screen.getByText('姓名')).toBeInTheDocument()
+      screen.queryByRole('heading', { name: '个人主页' }),
+    ).not.toBeInTheDocument()
+    expect(
+      screen.queryByText('查看当前登录管理员的账户资料。'),
+    ).not.toBeInTheDocument()
     expect(screen.getByText('首页')).toBeInTheDocument()
 
     const collapseButton = screen.getByRole('button', {
@@ -489,9 +541,7 @@ describe('App', () => {
     const user = userEvent.setup()
     window.history.replaceState({}, '', '/dashboard')
     render(<App />)
-    await screen.findByRole('heading', {
-      name: '欢迎 运营管理员 使用卡司短剧推广平台',
-    })
+    await screen.findByRole('navigation', { name: '主导航' })
     expect(screen.getByText('系统设置')).toBeInTheDocument()
     expect(
       screen.queryByRole('link', { name: '平台接入' }),
@@ -499,10 +549,13 @@ describe('App', () => {
     await user.click(screen.getByText('系统设置'))
     await user.click(screen.getByRole('link', { name: '平台接入' }))
 
-    expect(
-      await screen.findByRole('heading', { name: '短剧 API 配置' }),
-    ).toBeInTheDocument()
     expect(await screen.findByText('GoodShort')).toBeInTheDocument()
+    expect(
+      screen.queryByRole('heading', { name: '短剧 API 配置' }),
+    ).not.toBeInTheDocument()
+    expect(
+      screen.queryByText('配置短剧平台的接口地址和接入凭据'),
+    ).not.toBeInTheDocument()
     expect(
       screen.queryByRole('button', { name: '配置' }),
     ).not.toBeInTheDocument()
@@ -544,14 +597,14 @@ describe('App', () => {
 
     render(<App />)
 
-    expect(
-      await screen.findByRole('heading', { name: '定时任务' }),
-    ).toBeInTheDocument()
     expect(screen.getByText('系统设置')).toBeInTheDocument()
     expect(screen.getByText('定时任务', { selector: 'a' })).toBeInTheDocument()
     expect(
       await screen.findByText('GoodShort 短剧增量同步'),
     ).toBeInTheDocument()
+    expect(
+      screen.queryByRole('heading', { name: '定时任务' }),
+    ).not.toBeInTheDocument()
   })
 
   it('loads the administrator table and protects the unique super administrator', async () => {
@@ -605,13 +658,13 @@ describe('App', () => {
     render(<App />)
 
     expect(
-      await screen.findByRole(
-        'heading',
-        { name: '管理员管理' },
-        { timeout: 5_000 },
-      ),
+      await screen.findByTestId('admin-detail-1', undefined, {
+        timeout: 5_000,
+      }),
     ).toBeInTheDocument()
-    expect(await screen.findByTestId('admin-detail-1')).toBeInTheDocument()
+    expect(
+      screen.queryByRole('heading', { name: '管理员管理' }),
+    ).not.toBeInTheDocument()
     expect(
       screen.getByRole('columnheader', { name: '姓名' }),
     ).toBeInTheDocument()
@@ -1029,8 +1082,11 @@ describe('App', () => {
     const user = userEvent.setup()
 
     render(<App />)
-    await screen.findByRole('heading', { name: '用户管理' })
-    await user.click(screen.getByTestId('user-create'))
+    await user.click(await screen.findByTestId('user-create'))
+    expect(
+      screen.queryByRole('heading', { name: '用户管理' }),
+    ).not.toBeInTheDocument()
+    expect(screen.queryByText('管理推广用户资料和状态')).not.toBeInTheDocument()
     await user.type(screen.getByLabelText('昵称'), '新用户')
     await user.type(screen.getByLabelText('初始密码'), 'Password123')
     await user.type(screen.getByLabelText('确认密码'), 'Password123')
@@ -1050,6 +1106,8 @@ describe('App', () => {
       realName: null,
       mobile: null,
       email: '19193171667@163.com',
+      wechatId: null,
+      studentType: 0,
       avatarUrl: null,
       status: 0,
       registerSource: null,
@@ -1113,6 +1171,8 @@ describe('App', () => {
       realName: '用户七',
       mobile: '13900139000',
       email: 'user7@example.com',
+      wechatId: 'wx-user7',
+      studentType: 1,
       avatarUrl: null,
       status: 1,
       registerSource: 'ADMIN',
@@ -1190,8 +1250,12 @@ describe('App', () => {
     const user = userEvent.setup()
 
     render(<App />)
-    expect(await screen.findByText('推广用户七')).toBeInTheDocument()
+    expect(
+      await screen.findByText('推广用户七', undefined, { timeout: 5_000 }),
+    ).toBeInTheDocument()
     expect(screen.getByRole('cell', { name: 'USR0007' })).toBeInTheDocument()
+    expect(screen.getByRole('cell', { name: 'wx-user7' })).toBeInTheDocument()
+    expect(screen.getByRole('cell', { name: '基础学员' })).toBeInTheDocument()
     expect(screen.getByTestId('user-detail-7')).toBeInTheDocument()
     expect(screen.queryByTestId('user-password-7')).not.toBeInTheDocument()
 
@@ -1218,6 +1282,9 @@ describe('App', () => {
       expect(within(userEditDrawer).getByLabelText('昵称')).toHaveValue(
         '推广用户七',
       )
+      expect(within(userEditDrawer).getByLabelText('微信号')).toHaveValue(
+        'wx-user7',
+      )
     })
     await user.clear(within(userEditDrawer).getByLabelText('昵称'))
     await user.type(
@@ -1227,7 +1294,11 @@ describe('App', () => {
     await user.click(screen.getByTestId('user-edit-form-submit'))
     await waitFor(() =>
       expect(updatedBody).toEqual(
-        expect.objectContaining({ nickname: '编辑后的用户' }),
+        expect.objectContaining({
+          nickname: '编辑后的用户',
+          wechatId: 'wx-user7',
+          studentType: 1,
+        }),
       ),
     )
     await waitFor(() => expect(userEditDrawer).not.toBeVisible())
@@ -1274,10 +1345,11 @@ describe('App', () => {
         expect.objectContaining({
           mobile: '13700137000',
           nickname: '新推广用户',
+          studentType: 0,
           password: 'Password123',
           confirmPassword: 'Password123',
         }),
       ),
     )
-  }, 20_000)
+  }, 60_000)
 })

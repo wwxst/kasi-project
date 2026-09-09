@@ -132,10 +132,13 @@ describe('PromotionOrderPage', () => {
       </AntdApp>,
     )
 
-    expect(
-      await screen.findByRole('heading', { name: '推广订单' }),
-    ).toBeInTheDocument()
     expect(await screen.findByText('order-7')).toBeInTheDocument()
+    expect(
+      screen.queryByRole('heading', { name: '推广订单' }),
+    ).not.toBeInTheDocument()
+    expect(
+      screen.queryByText('手动同步 GoodShort 订单并核对归因与 CPS 佣金。'),
+    ).not.toBeInTheDocument()
     expect(screen.getByText('tracking-7')).toBeInTheDocument()
     expect(screen.getAllByText('$19.98').length).toBeGreaterThanOrEqual(1)
     expect(screen.getByText('$9.59')).toBeInTheDocument()

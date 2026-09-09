@@ -35,7 +35,7 @@ class ScheduledTaskMigrationTest {
     }
 
     @Test
-    @DisplayName("初始化脚本植入每分钟执行一次的GoodShort订单同步任务")
+    @DisplayName("初始化脚本植入每60分钟同步昨天和今天的GoodShort订单任务")
     void initializationCreatesGoodShortOrderSyncTask() {
         JdbcTemplate jdbc = initializeDatabase("scheduled_task");
 
@@ -46,9 +46,9 @@ class ScheduledTaskMigrationTest {
                 WHERE task_code = 'GOODSHORT_ORDER_SYNC'
                 """);
         assertThat(task.get("TASK_CODE")).isEqualTo("GOODSHORT_ORDER_SYNC");
-        assertThat(task.get("DESCRIPTION")).isEqualTo("每隔1分钟同步最近3天的GoodShort订单");
+        assertThat(task.get("DESCRIPTION")).isEqualTo("每隔60分钟同步昨天和今天的GoodShort订单");
         assertThat(task.get("CYCLE_TYPE")).isEqualTo("INTERVAL_MINUTES");
-        assertThat(((Number) task.get("INTERVAL_VALUE")).intValue()).isEqualTo(1);
+        assertThat(((Number) task.get("INTERVAL_VALUE")).intValue()).isEqualTo(60);
         assertThat(((Number) task.get("ENABLED")).intValue()).isEqualTo(1);
         assertThat(task.get("NEXT_RUN_AT")).isNotNull();
     }

@@ -31,6 +31,8 @@ describe('media account route', () => {
       userNo: '701804677763',
       nickname: 'Test User',
       realName: null,
+      wechatId: null,
+      studentType: 0,
       mobile: '13600136000',
       email: null,
       avatarUrl: null,

@@ -24,6 +24,9 @@ public class PromotionUserCreationServiceImpl implements PromotionUserCreationSe
     @Override
     public void create(PromotionUser user) {
         boolean defaultNickname = user.getNickname() == null;
+        if (user.getStudentType() == null) {
+            user.setStudentType(0);
+        }
         for (int attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
             user.setId(null);
             user.setUserNo(userNumberGenerator.generate());

@@ -17,6 +17,8 @@ public class CurrentUserVO {
     private String realName;
     private String mobile;
     private String email;
+    private String wechatId;
+    private Integer studentType;
     private String avatarUrl;
     private Integer status;
     private LocalDateTime lastLoginAt;

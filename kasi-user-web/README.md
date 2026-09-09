@@ -16,6 +16,8 @@ Workspace routes require an access token and redirect unauthenticated visits to 
 
 ## Commands
 
+工作区首页从 `GET /api/user/promotion/projects` 加载启用项目，每条记录渲染一张封面卡片；“项目文档”以新标签页打开配置的 HTTPS URL，并设置 `noopener noreferrer`。页面保留加载、失败重试和空数据状态，卡片顺序使用后端返回顺序；停用或删除项目不会出现在用户端。
+
 ```powershell
 pnpm install --frozen-lockfile
 pnpm dev
@@ -34,7 +36,7 @@ pnpm check
 
 `/workspace/orders` 已接入 `/api/user/promotion/orders`，按月份分页展示当前登录用户已归因订单的甲方订单号、未支付/已支付/已退款状态、支付时间、推广跟踪号和“我的收益”。页面不提供订单导出，不展示完整订单金额或内部佣金状态，只展示后端收益结果，不在前端重算佣金；当前不提供独立佣金页面。
 
-`/workspace/profile` 通过工作区 Header 的头像菜单进入，不显示在侧边栏。页面使用 `/api/user/auth/me` 展示本人资料；进入编辑态后，昵称和真实姓名直接在原展示位置切换为输入框，并通过 `/api/user/auth/profile` 保存；头像通过 `/api/user/auth/avatar` 上传 JPG/PNG/WebP 文件。资料或头像更新成功后同步刷新 Header 共用的用户缓存。用户编号、手机号、邮箱、注册时间和最近登录信息保持只读。密码仍通过 `/api/user/auth/password` 修改，成功后清除本地会话并返回登录页重新登录。
+`/workspace/profile` 通过工作区 Header 的头像菜单进入，不显示在侧边栏。页面使用 `/api/user/auth/me` 展示本人资料；用户名下方只读显示学员类型（`0=基础用户`、`1=基础学员`），不会出现在编辑资料表单。进入编辑态后，昵称、真实姓名、微信号、手机号码和电子邮箱直接在基本信息区域切换为输入框，并通过 `/api/user/auth/profile` 保存。手机号或电子邮箱变更后旧会话失效，页面清除本地会话并返回登录页；仅修改其他资料时当前会话保持有效。头像通过 `/api/user/auth/avatar` 上传 JPG/PNG/WebP 文件，头像不显示蓝色外圈。页面不显示实名认证；“基本信息”和“安全设置”是椭圆形白色切换按钮，安全设置内容不嵌套卡片。资料或头像更新成功后同步刷新 Header 共用的用户缓存。用户编号、注册时间和最近登录信息保持只读。密码仍通过 `/api/user/auth/password` 修改，成功后清除本地会话并返回登录页重新登录。
 
 Node.js 和 pnpm 版本以 `package.json` 的 `engines` 与 `packageManager` 为准。`pnpm check` 包含 lint、format、test 和包含 TypeScript 编译的 build；生成的 `pnpm-lock.yaml` 不进入 Prettier 扫描，frozen install 仍校验其一致性。
 

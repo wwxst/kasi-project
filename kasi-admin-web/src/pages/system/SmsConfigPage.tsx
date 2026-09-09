@@ -51,7 +51,7 @@ export function SmsConfigPage() {
   }
 
   return (
-    <PageContainer title="短信与邮箱配置" className="sms-config-page">
+    <PageContainer className="sms-config-page">
       <Form form={form} layout="vertical" onFinish={submit} disabled={loading}>
         <Tabs
           className="sms-config-tabs"

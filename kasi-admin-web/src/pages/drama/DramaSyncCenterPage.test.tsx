@@ -118,7 +118,13 @@ describe('DramaSyncCenterPage', () => {
 
     expect(await screen.findByText('GoodShort')).toBeInTheDocument()
     expect(
-      screen.getByRole('heading', { name: '短剧同步' }),
+      screen.queryByRole('heading', { name: '短剧同步' }),
+    ).not.toBeInTheDocument()
+    expect(
+      screen.queryByText('按一次目录同步触发聚合展示各语言任务。'),
+    ).not.toBeInTheDocument()
+    expect(
+      screen.getByRole('combobox', { name: '短剧同步平台' }),
     ).toBeInTheDocument()
     for (const label of [
       '创建时间',
@@ -155,7 +161,13 @@ describe('DramaSyncCenterPage', () => {
     )
     renderPage('/drama/sync/content')
     expect(
-      await screen.findByRole('heading', { name: '剧集同步' }),
+      screen.queryByRole('heading', { name: '剧集同步' }),
+    ).not.toBeInTheDocument()
+    expect(
+      screen.queryByText('按一次剧集同步触发聚合展示各短剧任务。'),
+    ).not.toBeInTheDocument()
+    expect(
+      await screen.findByRole('combobox', { name: '剧集同步平台' }),
     ).toBeInTheDocument()
     await waitFor(() => expect(contentCalled).toBe(true))
     expect(catalogCalled).toBe(false)

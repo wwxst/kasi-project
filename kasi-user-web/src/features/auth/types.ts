@@ -2,6 +2,8 @@ export interface CurrentUser {
   userNo: string
   nickname: string | null
   realName: string | null
+  wechatId: string | null
+  studentType: number
   mobile: string | null
   email: string | null
   avatarUrl: string | null
@@ -52,4 +54,7 @@ export interface ChangePasswordRequest {
 export interface UpdateUserProfileRequest {
   nickname: string
   realName: string | null
+  wechatId: string | null
+  mobile: string | null
+  email: string | null
 }

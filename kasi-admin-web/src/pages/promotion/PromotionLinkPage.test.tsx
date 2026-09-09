@@ -122,10 +122,15 @@ describe('PromotionLinkPage', () => {
       </AntdApp>,
     )
 
-    expect(
-      await screen.findByRole('heading', { name: '推广任务' }),
-    ).toBeInTheDocument()
     expect(await screen.findByText('tracking-1')).toBeInTheDocument()
+    expect(
+      screen.queryByRole('heading', { name: '推广任务' }),
+    ).not.toBeInTheDocument()
+    expect(
+      screen.queryByText(
+        '按推广链接查看用户、短剧、口令及累计转化数据，并可手动补拉转化日报。',
+      ),
+    ).not.toBeInTheDocument()
     expect(screen.getByText('code-1')).toBeInTheDocument()
     expect(screen.getByText('17')).toBeInTheDocument()
     await waitFor(() => expect(urls).toHaveLength(1))

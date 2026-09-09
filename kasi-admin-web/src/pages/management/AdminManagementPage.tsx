@@ -149,7 +149,6 @@ export function AdminManagementPage() {
     <ManagementTablePage<AdminListItem, AdminDetail>
       title="管理员管理"
       entityName="管理员"
-      description="管理后台管理员账号和状态"
       resourceKey="admin"
       columns={columns}
       detailSections={detailSections}

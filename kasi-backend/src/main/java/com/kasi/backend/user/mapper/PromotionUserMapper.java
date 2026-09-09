@@ -51,7 +51,10 @@ public interface PromotionUserMapper {
 
     int updateSelfProfile(@Param("id") Long id,
                           @Param("nickname") String nickname,
-                          @Param("realName") String realName);
+                          @Param("realName") String realName,
+                          @Param("wechatId") String wechatId,
+                          @Param("mobile") String mobile,
+                          @Param("email") String email);
 
     int updateAvatar(@Param("id") Long id, @Param("avatarUrl") String avatarUrl);
 

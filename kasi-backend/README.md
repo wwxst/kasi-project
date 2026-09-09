@@ -16,6 +16,8 @@
 
 这是卡司推广平台的后端仓库，基于 Spring Boot 4.0.7 + MyBatis 4.0.1 + MySQL 8 + JWT 构建。
 
+项目管理 CRUD 已实现：管理员通过 `/api/admin/promotion/projects` 维护项目名称、后端上传封面、HTTPS 项目文档 URL、启用状态和排序字段；封面保存在 `/uploads/promotion-projects/**`，删除为物理删除。用户端通过 `GET /api/user/promotion/projects` 只读取启用项目，服务端按 `sort_order ASC, id ASC` 返回。
+
 **当前已完成**：管理员（ADMIN）和推广用户（USER）双认证体系、两类账号管理 CRUD、短剧平台接入与 GoodShort 账号报备、GoodShort 短剧目录全量/增量同步、推广链接、GoodShort 订单每分钟自动同步最近 3 天及管理员按时间范围手动补拉、按 `customParams=user_no` 直接归因、CPS 费率快照、订单佣金及按月查询/CSV 导出。详见 [§6 API、认证与业务边界](#6-api认证与业务边界)。
 
 ## 2. 当前结构
@@ -223,7 +225,7 @@ mysql --host=127.0.0.1 --user=$env:SPRING_DATASOURCE_USERNAME --password --datab
 | 存储 | 表/Key | 说明 | 核心字段 |
 |------|--------|------|----------|
 | MySQL | `sys_admin_user` | 后台管理员用户 | username, password(BCrypt), real_name, mobile, email, status, is_super_admin |
-| MySQL | `promotion_user` | 推广用户 | user_no(12位随机数字字符串), password(BCrypt), nickname, mobile, email, status, register_source |
+| MySQL | `promotion_user` | 推广用户 | user_no(12位随机数字字符串), password(BCrypt), nickname, real_name, wechat_id, student_type(0基础用户/1基础学员), mobile, email, status, register_source |
 | MySQL | `short_drama_provider` | 短剧平台定义 | provider_code, provider_name, status |
 | MySQL | `short_drama_connection` | 平台机构接入账号（仅保存密钥密文） | provider_id, base_url, partner_id, api_key_ciphertext, status |
 | MySQL | `promotion_media_account` | 推广用户绑定的全局唯一媒体账号 | user_id, media_type, external_account_id, account_name, account_link, status, data_version |
@@ -325,8 +327,8 @@ mysql --host=127.0.0.1 --user=$env:SPRING_DATASOURCE_USERNAME --password --datab
 | POST | `/api/user/auth/register` | 用户注册（手机号或邮箱 + 验证码 + 密码） | 否 |
 | POST | `/api/user/auth/register/code` | 发送注册验证码（场景由后端固定为 `REGISTER`） | 否 |
 | POST | `/api/user/auth/login` | 用户登录（手机号或邮箱 + 密码） | 否 |
-| GET | `/api/user/auth/me` | 获取当前用户信息 | USER |
-| PUT | `/api/user/auth/profile` | 修改本人昵称和真实姓名 | USER |
+| GET | `/api/user/auth/me` | 获取当前用户信息（包含只读 `studentType` 学员类型） | USER |
+| PUT | `/api/user/auth/profile` | 修改本人昵称、真实姓名、微信号、手机号和邮箱；手机号或邮箱变更后旧会话失效 | USER |
 | PUT | `/api/user/auth/avatar` | 上传并修改本人头像（multipart 字段 `file`） | USER |
 | POST | `/api/user/auth/logout` | 退出登录 | USER |
 | PUT | `/api/user/auth/password` | 修改密码（需旧密码） | USER |
@@ -334,7 +336,7 @@ mysql --host=127.0.0.1 --user=$env:SPRING_DATASOURCE_USERNAME --password --datab
 | POST | `/api/user/auth/password/forgot/verify` | 校验验证码，返回重置 Token | 否 |
 | POST | `/api/user/auth/password/reset` | 使用重置 Token 修改密码 | 否 |
 
-推广用户没有独立 `username`。`userNo` 是 12 位随机数字展示编号，不参与登录、鉴权或数据库关联；内部关联继续使用自增 `id`。普通用户注册时由后端在写入 `promotion_user.nickname` 前生成 `卡司用户` 加 5 位数字后缀（取本次随机 `userNo` 的末 5 位，保留前导零），该昵称随账号持久化，并由登录和 `/api/user/auth/me` 返回；管理员创建或编辑用户时仍使用请求中的昵称。推广用户本人可修改昵称和真实姓名，头像只能通过上传端点修改；手机号、邮箱、用户编号、状态和登录信息不在本人资料修改契约内。普通用户登录和 `/api/user/auth/me` 的 JSON 不返回内部 `id`，但 JWT `sub` 仍按现有认证契约保存内部 `id`。手机号和邮箱至少保留一个，用户同时拥有两者时均可登录。手机号统一 `trim`，邮箱统一 `trim` 后转小写。
+推广用户没有独立 `username`。`userNo` 是 12 位随机数字展示编号，不参与登录、鉴权或数据库关联；内部关联继续使用自增 `id`。普通用户注册时由后端在写入 `promotion_user.nickname` 前生成 `卡司用户` 加 5 位数字后缀（取本次随机 `userNo` 的末 5 位，保留前导零），该昵称随账号持久化，并由登录和 `/api/user/auth/me` 返回；管理员创建或编辑用户时仍使用请求中的昵称。推广用户本人可修改昵称、真实姓名、微信号、手机号和邮箱，头像只能通过上传端点修改；`studentType` 由 `/api/user/auth/me` 返回并在个人中心只读展示（`0=基础用户`、`1=基础学员`），不在本人资料修改契约内。管理员用户管理接口的列表、详情、新建和编辑均支持 `wechatId` 与 `studentType`，其中学员类型只能为 `0`（基础用户）或 `1`（基础学员），新建默认 `0`。用户编号、状态和登录信息也不在本人资料修改契约内。手机号或邮箱变更会使旧会话失效，仅修改其他资料时当前会话保持有效。普通用户登录和 `/api/user/auth/me` 的 JSON 不返回内部 `id`，但 JWT `sub` 仍按现有认证契约保存内部 `id`。手机号和邮箱至少保留一个，用户同时拥有两者时均可登录。手机号统一 `trim`，邮箱统一 `trim` 后转小写。
 
 ### 6.5 推广用户管理 API
 

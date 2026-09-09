@@ -24,6 +24,7 @@ class UserManagementQueryTest extends BaseAuthTest {
                 .andExpect(jsonPath("$.data.list.length()").value(2))
                 .andExpect(jsonPath("$.data.list[0].id").isNumber())
                 .andExpect(jsonPath("$.data.list[0].userNo").value(PRIMARY_USER_NO))
+                .andExpect(jsonPath("$.data.list[0].studentType").value(0))
                 .andExpect(jsonPath("$.data.list[0].password").doesNotExist());
     }
 
@@ -48,6 +49,7 @@ class UserManagementQueryTest extends BaseAuthTest {
                         .header("Authorization", "Bearer " + token))
                 .andExpect(jsonPath("$.code").value(0))
                 .andExpect(jsonPath("$.data.email").value("test@example.com"))
+                .andExpect(jsonPath("$.data.studentType").value(0))
                 .andExpect(jsonPath("$.data.password").doesNotExist());
     }
 

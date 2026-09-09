@@ -384,8 +384,6 @@ export function DramaCatalogPage() {
   return (
     <PageContainer
       className="drama-catalog-page"
-      title="短剧目录"
-      content="管理 GoodShort 已同步短剧、剧集信息和本地上下架状态"
       data-testid="drama-catalog-page"
     >
       <ProTable<DramaCatalogListItem>

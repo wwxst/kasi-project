@@ -160,11 +160,7 @@ export function CommissionRulePage() {
   const configuredProviderIds = new Set(rows.map((row) => row.providerId))
 
   return (
-    <PageContainer
-      title="分佣规则"
-      content="按短剧平台配置默认分佣费率，平台下所有短剧和接入账号共用。"
-      className="commission-rule-page"
-    >
+    <PageContainer className="commission-rule-page">
       {!isSuperAdmin ? <Tag color="blue">当前为只读模式</Tag> : null}
       <div className="commission-rule-toolbar">
         <Select

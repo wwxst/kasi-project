@@ -285,7 +285,7 @@ class UserAuthControllerTest extends BaseAuthTest {
     }
 
     @Test
-    @DisplayName("推广用户修改昵称和真实姓名后原Token继续有效")
+    @DisplayName("推广用户修改五项资料后原Token继续有效")
     void updateOwnProfileKeepsTokenValid() throws Exception {
         String token = loginAsUser();
 
@@ -293,20 +293,48 @@ class UserAuthControllerTest extends BaseAuthTest {
                         .header("Authorization", "Bearer " + token)
                         .contentType("application/json")
                         .content("""
-                                {"nickname":" 新昵称 ","realName":" 张三 "}
+                                {"nickname":" 新昵称 ","realName":" 张三 ","wechatId":" new-wechat ","mobile":" 13800138000 ","email":" Test@Example.com "}
                                 """))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.code").value(0))
                 .andExpect(jsonPath("$.data.nickname").value("新昵称"))
                 .andExpect(jsonPath("$.data.realName").value("张三"))
                 .andExpect(jsonPath("$.data.mobile").value("13800138000"))
-                .andExpect(jsonPath("$.data.email").value("test@example.com"));
+                .andExpect(jsonPath("$.data.email").value("test@example.com"))
+                .andExpect(jsonPath("$.data.wechatId").value("new-wechat"))
+                .andExpect(jsonPath("$.data.studentType").value(0));
 
         mockMvc.perform(MockMvcRequestBuilders.get("/api/user/auth/me")
                         .header("Authorization", "Bearer " + token))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.nickname").value("新昵称"))
-                .andExpect(jsonPath("$.data.realName").value("张三"));
+                .andExpect(jsonPath("$.data.realName").value("张三"))
+                .andExpect(jsonPath("$.data.mobile").value("13800138000"))
+                .andExpect(jsonPath("$.data.email").value("test@example.com"))
+                .andExpect(jsonPath("$.data.wechatId").value("new-wechat"));
+
+        assertThat(jdbcTemplate.queryForObject(
+                "SELECT wechat_id FROM promotion_user WHERE user_no = ?", String.class, PRIMARY_USER_NO))
+                .isEqualTo("new-wechat");
+    }
+
+    @Test
+    @DisplayName("推广用户修改手机号或邮箱后旧Token失效")
+    void updateOwnProfileContactInvalidatesToken() throws Exception {
+        String token = loginAsUser();
+
+        mockMvc.perform(MockMvcRequestBuilders.put("/api/user/auth/profile")
+                        .header("Authorization", "Bearer " + token)
+                        .contentType("application/json")
+                        .content("""
+                                {"nickname":"卡司用户","realName":"张三","wechatId":"wechat","mobile":"19900199000","email":"changed@example.com"}
+                                """))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(0));
+
+        mockMvc.perform(MockMvcRequestBuilders.get("/api/user/auth/me")
+                        .header("Authorization", "Bearer " + token))
+                .andExpect(status().isUnauthorized());
     }
 
     @Test

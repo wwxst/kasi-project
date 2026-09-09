@@ -10,6 +10,8 @@
         <result column="real_name" property="realName"/>
         <result column="mobile" property="mobile"/>
         <result column="email" property="email"/>
+        <result column="wechat_id" property="wechatId"/>
+        <result column="student_type" property="studentType"/>
         <result column="avatar_url" property="avatarUrl"/>
         <result column="status" property="status"/>
         <result column="register_source" property="registerSource"/>
@@ -77,9 +79,9 @@
 
     <insert id="insert" parameterType="com.kasi.backend.user.entity.PromotionUser" useGeneratedKeys="true" keyProperty="id">
         INSERT INTO promotion_user (user_no, password, nickname, real_name, mobile, email,
-                                    avatar_url, status, register_source, remark)
+                                    wechat_id, student_type, avatar_url, status, register_source, remark)
         VALUES (#{userNo}, #{password}, #{nickname}, #{realName}, #{mobile}, #{email},
-                #{avatarUrl}, #{status}, #{registerSource}, #{remark})
+                #{wechatId}, #{studentType}, #{avatarUrl}, #{status}, #{registerSource}, #{remark})
     </insert>
 
     <update id="updatePassword">
@@ -99,13 +101,15 @@
     <update id="updateProfile" parameterType="com.kasi.backend.user.entity.PromotionUser">
         UPDATE promotion_user
         SET nickname = #{nickname}, real_name = #{realName}, mobile = #{mobile}, email = #{email},
+            wechat_id = #{wechatId}, student_type = #{studentType},
             avatar_url = #{avatarUrl}, remark = #{remark}, updated_at = CURRENT_TIMESTAMP
         WHERE id = #{id}
     </update>
 
     <update id="updateSelfProfile">
         UPDATE promotion_user
-        SET nickname = #{nickname}, real_name = #{realName}, updated_at = CURRENT_TIMESTAMP
+        SET nickname = #{nickname}, real_name = #{realName}, wechat_id = #{wechatId},
+            mobile = #{mobile}, email = #{email}, updated_at = CURRENT_TIMESTAMP
         WHERE id = #{id}
     </update>
 

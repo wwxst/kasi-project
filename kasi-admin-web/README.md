@@ -24,7 +24,7 @@ Kasi 推广平台的独立管理端前端，后端项目位于同级目录 `../k
 
 首页采用 Ant Design Pro Analysis 分析页结构，包含指标卡、销售趋势、门店排名、热门搜索、销售额类别占比和门店趋势。当前统计值沿用官方演示数据，不代表后端真实业务数据；接入统计 API 后只需替换 `dashboardData.ts` 数据源。个人主页展示当前已认证管理员的真实资料。
 
-管理员管理 `/admin-management` 和推广用户管理 `/user-management` 直接使用 Ant Design Pro 官方 `PageContainer`、`ProTable` 组件，并接入真实后端接口。两个页面支持关键词查询、分页、新建、分组详情抽屉、详情内编辑和物理删除，不展示表格编辑与重置密码入口，也不使用状态开关。详情按“基本信息”和“账号资料”分组展示，并在顶部展示当前详情记录的 64px 头像、名称和账号标识。管理员头像不出现在新增或编辑表单中，只能点击详情顶部头像选择 JPG/PNG/WebP 文件，在 1:1 裁剪后上传，文件不得超过 2 MB；本人头像走 `/api/admin/auth/avatar` 并同步顶部导航状态，其他管理员头像走 `/api/admin/management/{id}/avatar`。管理员详情内提供“编辑”和“修改密码”：打开谁的详情就操作谁；本人资料走 `/api/admin/auth/profile`，本人改密走 `/api/admin/auth/password` 且成功后返回登录页，其他管理员继续使用 `/api/admin/management/{id}` 与 `/api/admin/management/{id}/password`。本人改密和他人重置密码都只填写新密码与确认密码，不要求原密码。推广用户详情只展示头像，不提供修改密码入口。管理员表格固定展示姓名、手机号、邮箱、角色、登录时间、状态和“详情｜删除”；用户表格固定展示用户 ID、昵称、手机号、邮箱、注册来源、状态和“详情｜更多”，“更多”菜单包含启用/禁用和删除。管理员管理仅超级管理员可见和访问，推广用户管理对全部管理员开放；唯一超级管理员仍禁止删除，但允许通过本人认证接口编辑资料、上传头像和修改密码，后端权限规则继续兜底。
+管理员管理 `/admin-management` 和推广用户管理 `/user-management` 直接使用 Ant Design Pro 官方 `PageContainer`、`ProTable` 组件，并接入真实后端接口。两个页面支持关键词查询、分页、新建、分组详情抽屉、详情内编辑和物理删除，不展示表格编辑与重置密码入口，也不使用状态开关。详情按“基本信息”和“账号资料”分组展示，并在顶部展示当前详情记录的 64px 头像、名称和账号标识。管理员头像不出现在新增或编辑表单中，只能点击详情顶部头像选择 JPG/PNG/WebP 文件，在 1:1 裁剪后上传，文件不得超过 2 MB；本人头像走 `/api/admin/auth/avatar` 并同步顶部导航状态，其他管理员头像走 `/api/admin/management/{id}/avatar`。管理员详情内提供“编辑”和“修改密码”：打开谁的详情就操作谁；本人资料走 `/api/admin/auth/profile`，本人改密走 `/api/admin/auth/password` 且成功后返回登录页，其他管理员继续使用 `/api/admin/management/{id}` 与 `/api/admin/management/{id}/password`。本人改密和他人重置密码都只填写新密码与确认密码，不要求原密码。推广用户详情只展示头像，不提供修改密码入口。管理员表格固定展示姓名、手机号、邮箱、角色、登录时间、状态和“详情｜删除”；用户表格固定展示用户 ID、昵称、手机号、邮箱、微信号、学员类型、注册来源、状态和“详情｜更多”，学员类型文案为 `0=基础用户`、`1=基础学员`，新建和编辑均可维护，“更多”菜单包含启用/禁用和删除。管理员管理仅超级管理员可见和访问，推广用户管理对全部管理员开放；唯一超级管理员仍禁止删除，但允许通过本人认证接口编辑资料、上传头像和修改密码，后端权限规则继续兜底。
 
 左侧“系统配置”一级菜单下提供“短剧 API 配置”二级菜单，页面路由为 `/system-config/drama-api`，旧 `/provider-management` 地址自动跳转到新路由。页面使用 Ant Design `Tabs + Form` 按短剧平台切换配置，展示媒体域名白名单、接口 URL、PID、KEY 和启用状态；媒体域名白名单填写根域名（当前 GoodShort 为 `novelopen.com`），根域及其正规子域允许访问，未知域名不会自动放行。普通管理员只读，超级管理员可提交并测试已保存的启用配置。停用配置允许不填写接入资料；启用时必须填写媒体域名白名单、接口 URL、PID，并在尚未配置密钥时填写 KEY。KEY 只在表单临时输入，已有配置不会回填，留空表示保留原密钥；页面不展示明文、密文或掩码。页面对接后端 `GET /api/admin/drama/providers`、`PUT /api/admin/drama/providers/{providerId}/connection` 和 `POST /api/admin/drama/providers/{providerId}/connection/test`。
 
@@ -37,6 +37,8 @@ Kasi 推广平台的独立管理端前端，后端项目位于同级目录 `../k
 “推广管理”下新增“推广订单”，页面路由为 `/promotion/orders`。普通管理员和超级管理员均可按短剧平台、订单状态、归因状态和支付时间查询订单，查看金额、trackingNo、归因与佣金状态，按相同条件导出 CSV，并在弹窗中选择平台和不超过 31 天的时间窗口手动同步 GoodShort 订单。页面对接 `POST /api/admin/promotion/orders/sync`、`GET /api/admin/promotion/orders` 和 `GET /api/admin/promotion/orders/export.csv`。首发支持 GoodShort 订单自动同步（今日每 5 分钟、昨日加今天每 60 分钟、最近 7 天每 3 天补偿），人工改归属、正式账单、钱包或提现仍不提供。
 
 “推广管理”下提供“推广任务”，页面路由为 `/promotion/links`。普通管理员和超级管理员可按用户编号、短剧平台、口令和 trackingNo 查询已成功生成的推广链接任务，查看用户、短剧、推广名称、媒体、口令、推广链接以及点击、归因用户、新注册、新充值、新会员、充值用户和订单七项累计转化指标。页面对接 `GET /api/admin/promotion/links`，并可选择支持转化同步的平台和不超过 30 个自然日的日期范围，通过 `POST /api/admin/promotion/analytical-reports/sync` 手动补拉日报；不展示原始日报金额，也不修改订单归因或收益计算。
+
+“推广管理”下提供“项目管理”，页面路由为 `/promotion/projects`。管理员可分页查询、新增、编辑和物理删除项目，维护项目名称、后端上传的 JPG/PNG/WebP 封面、HTTPS 项目文档 URL、启用/停用状态和排序字段。新增与编辑使用 multipart 请求；编辑不上传新封面时保留原封面，删除前需要确认。
 
 Analysis 页面和管理查询表格页根据 Ant Design Pro 官方 MIT 源码适配，来源与许可见 [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)。
 分析页通过路由懒加载，图表运行时只在进入 `/dashboard` 后加载。

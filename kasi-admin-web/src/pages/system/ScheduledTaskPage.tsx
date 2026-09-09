@@ -258,7 +258,6 @@ export function ScheduledTaskPage() {
   return (
     <PageContainer
       className="scheduled-task-page"
-      title="定时任务"
       data-testid="scheduled-task-page"
     >
       <Table<ScheduledTask>

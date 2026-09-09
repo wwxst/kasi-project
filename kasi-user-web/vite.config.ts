@@ -11,6 +11,7 @@ export default defineConfig(({ mode }) => {
     server: {
       proxy: {
         '/api': apiTarget,
+        '/uploads': apiTarget,
       },
     },
     test: {

@@ -19,14 +19,14 @@ describe('DashboardPage', () => {
     })
   })
 
-  it('renders a welcome message instead of static demo cards', () => {
+  it('does not render a page introduction or static demo cards', () => {
     render(<DashboardPage />)
 
     expect(
-      screen.getByRole('heading', {
+      screen.queryByRole('heading', {
         name: '欢迎 平台负责人 使用卡司短剧推广平台',
       }),
-    ).toBeInTheDocument()
+    ).not.toBeInTheDocument()
     expect(screen.queryByTestId('dashboard-demo-card')).not.toBeInTheDocument()
     expect(screen.queryByTestId('chart')).not.toBeInTheDocument()
   })

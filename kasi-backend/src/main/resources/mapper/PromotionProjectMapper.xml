@@ -1,0 +1,52 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.kasi.backend.promotion.mapper.PromotionProjectMapper">
+    <resultMap id="PromotionProjectMap" type="com.kasi.backend.promotion.entity.PromotionProject">
+        <id column="id" property="id"/>
+        <result column="name" property="name"/>
+        <result column="cover_image_url" property="coverImageUrl"/>
+        <result column="project_document_url" property="projectDocumentUrl"/>
+        <result column="status" property="status"/>
+        <result column="sort_order" property="sortOrder"/>
+        <result column="created_at" property="createdAt"/>
+        <result column="updated_at" property="updatedAt"/>
+    </resultMap>
+
+    <select id="findById" resultMap="PromotionProjectMap">
+        SELECT * FROM promotion_project WHERE id = #{id}
+    </select>
+
+    <select id="countAll" resultType="long">
+        SELECT COUNT(*) FROM promotion_project
+    </select>
+
+    <select id="findPage" resultMap="PromotionProjectMap">
+        SELECT * FROM promotion_project ORDER BY sort_order ASC, id ASC LIMIT #{offset}, #{size}
+    </select>
+
+    <select id="findEnabled" resultMap="PromotionProjectMap">
+        SELECT * FROM promotion_project WHERE status = 'ENABLED' ORDER BY sort_order ASC, id ASC
+    </select>
+
+    <insert id="insert" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO promotion_project
+            (name, cover_image_url, project_document_url, status, sort_order)
+        VALUES
+            (#{name}, #{coverImageUrl}, #{projectDocumentUrl}, #{status}, #{sortOrder})
+    </insert>
+
+    <update id="update">
+        UPDATE promotion_project
+        SET name = #{name},
+            cover_image_url = #{coverImageUrl},
+            project_document_url = #{projectDocumentUrl},
+            status = #{status},
+            sort_order = #{sortOrder},
+            updated_at = CURRENT_TIMESTAMP
+        WHERE id = #{id}
+    </update>
+
+    <delete id="deleteById">
+        DELETE FROM promotion_project WHERE id = #{id}
+    </delete>
+</mapper>

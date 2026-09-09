@@ -6,6 +6,8 @@ const updatedUser = {
   userNo: '701804677763',
   nickname: '新昵称',
   realName: '张三',
+  wechatId: 'zhangsan-wechat',
+  studentType: 1,
   mobile: '13600136000',
   email: 'user@example.com',
   avatarUrl: '/uploads/user-avatars/avatar.png',
@@ -44,11 +46,20 @@ describe('user profile', () => {
     })
 
     await expect(
-      updateUserProfile({ nickname: '新昵称', realName: '张三' }),
+      updateUserProfile({
+        nickname: '新昵称',
+        realName: '张三',
+        wechatId: 'zhangsan-wechat',
+        mobile: '13600136000',
+        email: 'user@example.com',
+      }),
     ).resolves.toEqual(updatedUser)
     expect(put).toHaveBeenCalledWith('/api/user/auth/profile', {
       nickname: '新昵称',
       realName: '张三',
+      wechatId: 'zhangsan-wechat',
+      mobile: '13600136000',
+      email: 'user@example.com',
     })
   })
 

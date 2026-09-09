@@ -23,7 +23,9 @@ class PromotionUserStructureTest extends BaseAuthTest {
     @DisplayName("实体不保留用户名或软删除字段且认证响应不暴露用户名")
     void promotionUserModelsDoNotExposeRemovedFields() {
         assertThat(fieldNames(PromotionUser.class)).doesNotContain("username", "deletedAt");
+        assertThat(fieldNames(PromotionUser.class)).contains("studentType");
         assertThat(fieldNames(CurrentUserVO.class)).doesNotContain("id", "username");
+        assertThat(fieldNames(CurrentUserVO.class)).contains("studentType");
         assertThat(fieldNames(UserLoginVO.UserInfo.class)).doesNotContain("id", "username");
     }
 
@@ -46,9 +48,18 @@ class PromotionUserStructureTest extends BaseAuthTest {
         assertThat(testPromotionBlock).doesNotContain("username", "deleted_at");
         assertThat(mapper).doesNotContain("username", "deleted_at");
         assertThat(promotionBlock)
-                .contains("`user_no`         CHAR(12)", "UNIQUE KEY `uk_user_no` (`user_no`)");
+                .contains("`user_no`         CHAR(12)", "`wechat_id`       VARCHAR(128)",
+                        "`student_type`    TINYINT         NOT NULL DEFAULT 0",
+                        "UNIQUE KEY `uk_user_no` (`user_no`)");
         assertThat(testPromotionBlock)
-                .contains("user_no CHAR(12) NOT NULL", "UNIQUE (user_no)");
+                .contains("user_no CHAR(12) NOT NULL", "wechat_id VARCHAR(128)",
+                        "student_type TINYINT NOT NULL DEFAULT 0", "UNIQUE (user_no)");
+        assertThat(Files.readString(
+                Path.of("src/main/resources/db/migration/V7__user_profile_contacts.sql"), StandardCharsets.UTF_8))
+                .contains("ADD COLUMN `wechat_id`");
+        assertThat(Files.readString(
+                Path.of("src/main/resources/db/migration/V8__user_student_type.sql"), StandardCharsets.UTF_8))
+                .contains("ADD COLUMN `student_type`");
         assertThat(Arrays.stream(PromotionUserMapper.class.getDeclaredMethods())
                 .map(java.lang.reflect.Method::getName))
                 .doesNotContain("updateUserNo");

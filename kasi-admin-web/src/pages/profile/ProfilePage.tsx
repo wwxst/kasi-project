@@ -9,11 +9,6 @@ export function ProfilePage() {
 
   return (
     <div className="profile-page">
-      <div className="profile-page__heading">
-        <h1>个人主页</h1>
-        <p>查看当前登录管理员的账户资料。</p>
-      </div>
-
       <Card className="profile-card">
         <div className="profile-card__identity">
           <Avatar size={72} src={resolveApiAssetUrl(admin?.avatarUrl)}>

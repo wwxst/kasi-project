@@ -47,7 +47,6 @@ export interface ManagementTablePageProps<
 > {
   title: string
   entityName: string
-  description: string
   resourceKey: string
   columns: ProColumns<T>[]
   detailSections: DetailSection<D>[]
@@ -88,7 +87,6 @@ export function ManagementTablePage<
 >({
   title,
   entityName,
-  description,
   resourceKey,
   columns,
   detailSections,
@@ -406,8 +404,6 @@ export function ManagementTablePage<
   return (
     <PageContainer
       className="management-page"
-      title={title}
-      content={description}
       data-testid={`${resourceKey}-management-page`}
     >
       <ProTable<T>

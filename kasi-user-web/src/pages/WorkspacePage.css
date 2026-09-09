@@ -1,17 +1,14 @@
 .workspace-page {
   width: 100%;
   flex: 1;
+  min-height: 0;
   display: flex;
   flex-direction: column;
-  justify-content: center;
+  justify-content: safe center;
 }
 .workspace-page__welcome {
-  display: grid;
-  min-height: 0;
   margin: 0;
   padding: 38px 20px 28px;
-  align-items: center;
-  justify-items: center;
   color: var(--td-text-color-primary);
   font-size: 34px;
   font-weight: 600;
@@ -20,16 +17,34 @@
 }
 .workspace-page__projects {
   display: grid;
-  grid-template-columns: repeat(3, minmax(240px, 320px));
+  grid-template-columns: repeat(auto-fit, 320px);
   gap: 24px;
-  max-width: 1120px;
+  width: 100%;
+  max-width: 1408px;
   margin: 0 auto;
   padding: 0 28px 48px;
   justify-content: center;
 }
+.workspace-page__state {
+  grid-column: 1 / -1;
+  margin: 0;
+  padding: 48px 16px;
+  color: var(--td-text-color-secondary);
+  text-align: center;
+}
+.workspace-page__state button {
+  cursor: pointer;
+  margin-top: 12px;
+  padding: 7px 16px;
+  border: 1px solid var(--td-brand-color, #0052d9);
+  border-radius: 6px;
+  background: transparent;
+  color: var(--td-brand-color, #0052d9);
+}
 .project-card {
   position: relative;
-  min-height: 220px;
+  width: 320px;
+  height: 174px;
   overflow: hidden;
   border-radius: 16px;
   color: #fff;
@@ -76,6 +91,7 @@
   opacity: 1;
 }
 .project-card__button {
+  display: inline-block;
   cursor: pointer;
   padding: 9px 17px;
   border: 1px solid rgb(255 255 255 / 70%);
@@ -87,6 +103,7 @@
   transition:
     background 0.2s ease,
     color 0.2s ease;
+  text-decoration: none;
 }
 .project-card__button:hover,
 .project-card__button--primary {
@@ -99,8 +116,11 @@
     font-size: 28px;
   }
   .workspace-page__projects {
-    grid-template-columns: minmax(0, 1fr);
+    grid-template-columns: minmax(0, 320px);
     gap: 16px;
     padding: 0 16px 32px;
+  }
+  .project-card {
+    width: 100%;
   }
 }

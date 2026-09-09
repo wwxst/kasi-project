@@ -90,6 +90,9 @@ public enum ErrorCode {
     PROMOTION_LINK_DRAMA_UNAVAILABLE(7010, "短剧当前不可推广"),
     PROMOTION_LINK_MEDIA_NOT_APPROVED(7011, "媒体账号尚未在该平台加白"),
     PROMOTION_LINK_REQUEST_CONFLICT(7014, "requestKey与原推广任务不一致"),
+    PROMOTION_PROJECT_NOT_FOUND(7015, "推广项目不存在"),
+    PROMOTION_PROJECT_IMAGE_INVALID(7016, "项目封面文件格式不正确"),
+    PROMOTION_PROJECT_IMAGE_TOO_LARGE(7017, "项目封面文件不能超过2MB"),
 
     ;
 

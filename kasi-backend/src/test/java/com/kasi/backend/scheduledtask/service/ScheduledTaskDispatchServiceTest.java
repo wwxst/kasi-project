@@ -123,7 +123,7 @@ class ScheduledTaskDispatchServiceTest {
     }
 
     @Test
-    @DisplayName("到期GoodShort订单任务领取后同步最近三天并推进一分钟周期")
+    @DisplayName("到期GoodShort订单任务领取后同步昨天和今天并推进60分钟周期")
     void dueGoodShortOrderTaskIsDispatchedAndAdvanced() {
         SystemScheduledTask task = scheduledOrderTask();
         when(taskMapper.findDue(NOW, 10)).thenReturn(List.of(task));
@@ -137,8 +137,8 @@ class ScheduledTaskDispatchServiceTest {
 
         service.processDueBatch();
 
-        verify(orderSyncService).sync(7L, NOW.minusDays(3), NOW);
-        verify(taskMapper).completeRun(ScheduledTaskCode.GOODSHORT_ORDER_SYNC, "scheduled-worker-test", NOW.plusMinutes(1));
+        verify(orderSyncService).sync(7L, NOW.minusDays(1).toLocalDate().atStartOfDay(), NOW);
+        verify(taskMapper).completeRun(ScheduledTaskCode.GOODSHORT_ORDER_SYNC, "scheduled-worker-test", NOW.plusMinutes(60));
     }
 
     @Test
@@ -157,7 +157,7 @@ class ScheduledTaskDispatchServiceTest {
     }
 
     @Test
-    @DisplayName("GoodShort订单任务找不到平台时不调用同步但推进一分钟周期")
+    @DisplayName("GoodShort订单任务找不到平台时不调用同步但推进60分钟周期")
     void missingProviderStillAdvancesGoodShortOrderSchedule() {
         SystemScheduledTask task = scheduledOrderTask();
         when(taskMapper.findDue(NOW, 10)).thenReturn(List.of(task));
@@ -168,7 +168,7 @@ class ScheduledTaskDispatchServiceTest {
         service.processDueBatch();
 
         verify(orderSyncService, never()).sync(any(), any(), any());
-        verify(taskMapper).completeRun(ScheduledTaskCode.GOODSHORT_ORDER_SYNC, "scheduled-worker-test", NOW.plusMinutes(1));
+        verify(taskMapper).completeRun(ScheduledTaskCode.GOODSHORT_ORDER_SYNC, "scheduled-worker-test", NOW.plusMinutes(60));
     }
 
     private SystemScheduledTask scheduledTask() {
@@ -185,7 +185,7 @@ class ScheduledTaskDispatchServiceTest {
         SystemScheduledTask task = scheduledTask();
         task.setTaskCode(ScheduledTaskCode.GOODSHORT_ORDER_SYNC);
 
-        task.setIntervalValue(1);
+        task.setIntervalValue(60);
         task.setCycleType(com.kasi.backend.scheduledtask.enums.ScheduledTaskCycleType.INTERVAL_MINUTES);
         return task;
     }

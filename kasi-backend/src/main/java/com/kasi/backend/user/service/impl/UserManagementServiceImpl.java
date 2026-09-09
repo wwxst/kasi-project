@@ -69,6 +69,8 @@ public class UserManagementServiceImpl implements UserManagementService {
         user.setRealName(trimToNull(request.getRealName()));
         user.setMobile(mobile);
         user.setEmail(email);
+        user.setWechatId(trimToNull(request.getWechatId()));
+        user.setStudentType(request.getStudentType() == null ? 0 : request.getStudentType());
         user.setAvatarUrl(trimToNull(request.getAvatarUrl()));
         user.setRemark(trimToNull(request.getRemark()));
         user.setStatus(1);
@@ -90,6 +92,10 @@ public class UserManagementServiceImpl implements UserManagementService {
         registerCompletion(mutation);
         user.setMobile(mobile);
         user.setEmail(email);
+        user.setWechatId(trimToNull(request.getWechatId()));
+        if (request.getStudentType() != null) {
+            user.setStudentType(request.getStudentType());
+        }
         user.setNickname(request.getNickname().trim());
         user.setRealName(trimToNull(request.getRealName()));
         user.setAvatarUrl(trimToNull(request.getAvatarUrl()));
@@ -197,14 +203,16 @@ public class UserManagementServiceImpl implements UserManagementService {
 
     private UserListItemVO toListItemVO(PromotionUser user) {
         return UserListItemVO.builder().id(user.getId()).userNo(user.getUserNo()).nickname(user.getNickname())
-                .realName(user.getRealName()).mobile(user.getMobile()).email(user.getEmail())
+                .realName(user.getRealName()).mobile(user.getMobile()).email(user.getEmail()).wechatId(user.getWechatId())
+                .studentType(user.getStudentType())
                 .avatarUrl(user.getAvatarUrl()).status(user.getStatus()).registerSource(user.getRegisterSource())
                 .lastLoginAt(user.getLastLoginAt()).createdAt(user.getCreatedAt()).build();
     }
 
     private UserDetailVO toDetailVO(PromotionUser user) {
         return UserDetailVO.builder().id(user.getId()).userNo(user.getUserNo()).nickname(user.getNickname())
-                .realName(user.getRealName()).mobile(user.getMobile()).email(user.getEmail())
+                .realName(user.getRealName()).mobile(user.getMobile()).email(user.getEmail()).wechatId(user.getWechatId())
+                .studentType(user.getStudentType())
                 .avatarUrl(user.getAvatarUrl()).status(user.getStatus()).registerSource(user.getRegisterSource())
                 .lastLoginAt(user.getLastLoginAt()).createdAt(user.getCreatedAt()).lastLoginIp(user.getLastLoginIp())
                 .remark(user.getRemark()).updatedAt(user.getUpdatedAt()).build();

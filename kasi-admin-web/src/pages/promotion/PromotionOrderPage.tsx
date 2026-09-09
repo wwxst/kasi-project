@@ -238,10 +238,7 @@ export function PromotionOrderPage() {
   ]
 
   return (
-    <PageContainer
-      title="推广订单"
-      content="手动同步 GoodShort 订单并核对归因与 CPS 佣金。"
-    >
+    <PageContainer>
       <div className="promotion-order-page__toolbar">
         <Form
           name="promotionOrderFilter"

@@ -2,6 +2,8 @@ package com.kasi.backend.user.dto;
 
 import com.kasi.backend.common.validation.Utf8ByteLength;
 import jakarta.validation.constraints.AssertTrue;
+import jakarta.validation.constraints.Max;
+import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
@@ -16,6 +18,13 @@ public class CreateUserDTO {
     @Pattern(regexp = "^\\s*$|^\\s*[A-Za-z0-9.!#$%&'*+/=?^_`{|}~-]+@[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?(?:\\.[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?)+\\s*$", message = "邮箱格式不正确")
     @Size(max = 128, message = "邮箱长度不能超过128位")
     private String email;
+
+    @Size(max = 128, message = "微信号长度不能超过128位")
+    private String wechatId;
+
+    @Min(value = 0, message = "学员类型不正确")
+    @Max(value = 1, message = "学员类型不正确")
+    private Integer studentType;
 
     @NotBlank(message = "昵称不能为空")
     @Size(max = 64, message = "昵称长度不能超过64位")

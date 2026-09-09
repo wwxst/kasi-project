@@ -229,8 +229,6 @@ export function MediaAccountFilingPage() {
   return (
     <PageContainer
       className="media-account-filing-page"
-      title="媒体账号报备"
-      content="查看推广用户媒体账号及短剧平台报备状态"
       data-testid="media-account-filing-page"
     >
       <ProTable<AdminMediaAccountListItem>

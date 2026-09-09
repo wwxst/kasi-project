@@ -51,7 +51,8 @@ export function AdminLayout() {
 
   if (
     location.pathname.startsWith('/drama/') ||
-    location.pathname.startsWith('/promotion/')
+    (location.pathname.startsWith('/promotion/') &&
+      location.pathname !== '/promotion/projects')
   ) {
     defaultOpenKeys.push('drama-management')
   }
@@ -61,7 +62,6 @@ export function AdminLayout() {
   if (location.pathname.startsWith('/system-config/')) {
     defaultOpenKeys.push('system-config')
   }
-
   useEffect(() => {
     const handleFullscreenChange = () => {
       setFullscreen(Boolean(document.fullscreenElement))
@@ -93,6 +93,11 @@ export function AdminLayout() {
             key: '/user-management',
             icon: <Users size={18} strokeWidth={1.8} />,
             label: <Link to="/user-management">用户管理</Link>,
+          },
+          {
+            key: '/promotion/projects',
+            icon: <PanelsTopLeft size={18} strokeWidth={1.8} />,
+            label: <Link to="/promotion/projects">项目管理</Link>,
           },
           {
             key: 'drama-management',

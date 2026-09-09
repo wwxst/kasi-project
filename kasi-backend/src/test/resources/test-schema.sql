@@ -74,6 +74,8 @@ CREATE TABLE IF NOT EXISTS promotion_user (
     real_name VARCHAR(64) DEFAULT NULL,
     mobile VARCHAR(32) DEFAULT NULL,
     email VARCHAR(128) DEFAULT NULL,
+    wechat_id VARCHAR(128) DEFAULT NULL,
+    student_type TINYINT NOT NULL DEFAULT 0,
     avatar_url VARCHAR(512) DEFAULT NULL,
     status TINYINT NOT NULL DEFAULT 1,
     register_source VARCHAR(32) DEFAULT NULL,
@@ -223,6 +225,19 @@ CREATE TABLE IF NOT EXISTS drama_sync_display_run_item (
     PRIMARY KEY (run_id, task_domain, task_id),
     INDEX idx_drama_sync_display_run_item_task (task_domain, task_id)
 );
+
+CREATE TABLE IF NOT EXISTS promotion_project (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    name VARCHAR(128) NOT NULL,
+    cover_image_url VARCHAR(512) NOT NULL,
+    project_document_url VARCHAR(1024) NOT NULL,
+    status VARCHAR(16) NOT NULL DEFAULT 'ENABLED',
+    sort_order INT NOT NULL DEFAULT 0,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT ck_promotion_project_status CHECK (status REGEXP '^(ENABLED|DISABLED)$'),
+    CONSTRAINT ck_promotion_project_sort_order CHECK (sort_order >= 0),
+    INDEX idx_promotion_project_user_list (status, sort_order, id));
 
 CREATE TABLE IF NOT EXISTS promotion_link (
     id BIGINT AUTO_INCREMENT PRIMARY KEY,

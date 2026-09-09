@@ -4,6 +4,7 @@ import { Outlet, useLocation } from 'react-router-dom'
 import { appRoutes } from '../../app/routes'
 import Page from './Page'
 import Style from './AppRouter.module.less'
+import PageStyle from './Page.module.less'
 
 export default function AppRouter() {
   const location = useLocation()
@@ -18,9 +19,8 @@ export default function AppRouter() {
     >
       <Page
         className={
-          route?.path === '/workspace' ? Style.workspacePanel : undefined
+          route?.path === '/workspace' ? PageStyle.workspacePanel : undefined
         }
-        breadcrumbs={route ? ['工作台', route.title] : ['工作台']}
       >
         <Outlet />
       </Page>

@@ -5,7 +5,6 @@ import {
   Drawer,
   Empty,
   Select,
-  Space,
   Table,
   Tag,
   Tooltip,
@@ -244,45 +243,35 @@ function SyncRecordsPage({ domain }: { domain: Domain }) {
       className="drama-sync-center-page"
       data-testid={`drama-sync-${domain}-page`}
     >
-      <div className="drama-sync-center-page__heading">
-        <div>
-          <h1>{domain === 'catalog' ? '短剧同步' : '剧集同步'}</h1>
-          <p>
-            {domain === 'catalog'
-              ? '按一次目录同步触发聚合展示各语言任务。'
-              : '按一次剧集同步触发聚合展示各短剧任务。'}
-          </p>
-        </div>
-        <Space>
-          <Select
-            aria-label={`${domain === 'catalog' ? '短剧' : '剧集'}同步平台`}
-            value={providerId ?? undefined}
-            placeholder="请选择短剧平台"
-            options={pageProviders.map((provider) => ({
-              value: provider.id,
-              label: provider.providerName,
-            }))}
-            onChange={setProviderId}
-          />
-          <Tooltip title="刷新同步记录">
-            <Button
-              aria-label="刷新同步记录"
-              icon={<RefreshCw size={16} />}
-              loading={loading}
-              onClick={() => void loadRecords()}
-            />
-          </Tooltip>
+      <div className="drama-sync-center-page__toolbar">
+        <Select
+          aria-label={`${domain === 'catalog' ? '短剧' : '剧集'}同步平台`}
+          value={providerId ?? undefined}
+          placeholder="请选择短剧平台"
+          options={pageProviders.map((provider) => ({
+            value: provider.id,
+            label: provider.providerName,
+          }))}
+          onChange={setProviderId}
+        />
+        <Tooltip title="刷新同步记录">
           <Button
-            type="primary"
-            onClick={() =>
-              domain === 'catalog'
-                ? setCatalogModalOpen(true)
-                : setContentModalOpen(true)
-            }
-          >
-            {domain === 'catalog' ? '发起短剧同步' : '同步免费剧集'}
-          </Button>
-        </Space>
+            aria-label="刷新同步记录"
+            icon={<RefreshCw size={16} />}
+            loading={loading}
+            onClick={() => void loadRecords()}
+          />
+        </Tooltip>
+        <Button
+          type="primary"
+          onClick={() =>
+            domain === 'catalog'
+              ? setCatalogModalOpen(true)
+              : setContentModalOpen(true)
+          }
+        >
+          {domain === 'catalog' ? '发起短剧同步' : '同步免费剧集'}
+        </Button>
       </div>
       <div className="drama-sync-center-page__summary">
         <span>记录 {summary.total}</span>

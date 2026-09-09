@@ -4,8 +4,7 @@
   background: #f2f3f5;
 }
 
-.profileSection,
-.securitySection {
+.profileSection {
   max-width: none;
   margin-right: auto;
   margin-left: auto;
@@ -39,22 +38,36 @@
 .profileTabs {
   display: flex;
   align-items: center;
-  gap: 32px;
-  margin: 0 -24px;
-  padding: 0 24px;
-  border-bottom: 1px solid var(--td-component-stroke);
+  gap: 12px;
+  margin: 0;
+  padding: 20px 0 16px;
+}
+
+.basicPanelHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
 }
 
 .profileTab,
-.profileTabActive,
-.profileTabDisabled {
-  position: relative;
-  padding: 0 0 13px;
-  border: 0;
-  background: transparent;
+.profileTabActive {
+  display: inline-flex;
+  min-height: 36px;
+  align-items: center;
+  justify-content: center;
+  padding: 0 20px;
+  border: 1px solid var(--td-component-stroke);
+  border-radius: 999px;
+  background: #fff;
   color: var(--td-text-color-secondary);
   font: inherit;
   font-size: 14px;
+  line-height: 20px;
+  transition:
+    border-color 0.2s,
+    color 0.2s,
+    box-shadow 0.2s;
 }
 
 .profileTab {
@@ -62,26 +75,15 @@
 }
 
 .profileTab:hover {
+  border-color: var(--td-brand-color);
   color: var(--td-brand-color);
 }
 
 .profileTabActive {
+  border-color: var(--td-brand-color);
   color: var(--td-brand-color);
   font-weight: 600;
-}
-
-.profileTabActive::after {
-  position: absolute;
-  right: 0;
-  bottom: -1px;
-  left: 0;
-  height: 2px;
-  background: var(--td-brand-color);
-  content: '';
-}
-
-.profileTabDisabled {
-  color: var(--td-text-color-placeholder);
+  box-shadow: 0 1px 4px rgb(0 0 0 / 8%);
 }
 
 .avatarEditor {
@@ -116,15 +118,14 @@
   align-items: center;
   justify-content: center;
   border-radius: 50%;
-  background: linear-gradient(135deg, #eef2ff, #dbe5ff);
-  color: var(--td-brand-color);
+  background: var(--td-bg-color-secondarycontainer);
+  color: var(--td-text-color-secondary);
   font-size: 28px;
   font-weight: 600;
-  box-shadow: 0 0 0 4px var(--td-bg-color-secondarycontainer);
 }
 
 .avatarEditor :global(.t-avatar) {
-  box-shadow: 0 0 0 4px var(--td-bg-color-secondarycontainer);
+  box-shadow: none;
 }
 
 .profileIdentity {
@@ -143,16 +144,33 @@
   font-size: 13px;
 }
 
+.userSummary {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.nicknameField {
+  display: inline-block;
+  width: min(340px, calc(100% - 100px));
+  margin-left: 8px;
+  vertical-align: middle;
+}
+
+.nicknameEditButton {
+  margin-left: 4px;
+  color: var(--td-text-color-secondary);
+  vertical-align: middle;
+}
+
+.nicknameEditButton:hover {
+  color: var(--td-brand-color);
+}
+
 .summaryGrid strong {
   margin-left: 8px;
   color: var(--td-text-color-primary);
   font-weight: 400;
-}
-
-.summaryGrid em {
-  margin-left: 8px;
-  color: var(--td-success-color);
-  font-style: normal;
 }
 
 .profileIdentity h1,
@@ -195,13 +213,10 @@
   gap: 12px;
 }
 
-.editActions {
+.basicActions {
   display: flex;
+  flex: 0 0 auto;
   gap: 12px;
-}
-
-.inlineNickname {
-  width: min(100%, 280px);
 }
 
 .inlineField {
@@ -253,7 +268,11 @@
 }
 
 .securitySection {
-  margin-top: 14px;
+  margin-top: 0;
+  padding: 4px 0 0;
+  border: 0;
+  background: transparent;
+  box-shadow: none;
 }
 
 .securitySection h2 {
@@ -285,18 +304,19 @@
     padding: 16px 12px 24px;
   }
 
-  .profileSection,
-  .securitySection {
+  .profileSection {
     padding: 20px 16px;
     border-radius: 2px;
   }
 
   .profileTabs {
-    margin-right: -16px;
-    margin-left: -16px;
-    padding-right: 16px;
-    padding-left: 16px;
-    gap: 24px;
+    gap: 8px;
+    padding-top: 16px;
+  }
+
+  .basicPanelHeader {
+    align-items: flex-start;
+    flex-wrap: wrap;
   }
 
   .basicPanel {
@@ -324,11 +344,11 @@
     min-height: 36px;
   }
 
-  .editActions {
+  .basicActions {
     width: 100%;
   }
 
-  .editActions :global(.t-button) {
+  .basicActions :global(.t-button) {
     flex: 1;
   }
 

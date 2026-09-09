@@ -1,4 +1,4 @@
-import { Form, Input, Tag } from 'antd'
+import { Form, Input, Select, Tag } from 'antd'
 import type { ProColumns } from '@ant-design/pro-components'
 import type { FormInstance } from 'antd/es/form'
 import {
@@ -42,6 +42,18 @@ const columns: ProColumns<UserListItem>[] = [
     renderText: emptyValue,
   },
   {
+    title: '微信号',
+    dataIndex: 'wechatId',
+    width: 150,
+    renderText: emptyValue,
+  },
+  {
+    title: '学员类型',
+    dataIndex: 'studentType',
+    width: 110,
+    render: (_, record) => formatStudentType(record.studentType),
+  },
+  {
     title: '注册来源',
     dataIndex: 'registerSource',
     width: 130,
@@ -78,6 +90,16 @@ const detailSections: DetailSection<UserDetail>[] = [
         render: (record) => emptyValue(record.email),
       },
       {
+        label: '微信号',
+        dataIndex: 'wechatId',
+        render: (record) => emptyValue(record.wechatId),
+      },
+      {
+        label: '学员类型',
+        dataIndex: 'studentType',
+        render: (record) => formatStudentType(record.studentType),
+      },
+      {
         label: '注册来源',
         render: (record) => formatRegisterSource(record.registerSource),
       },
@@ -104,7 +126,6 @@ export function UserManagementPage() {
     <ManagementTablePage<UserListItem, UserDetail>
       title="用户管理"
       entityName="用户"
-      description="管理推广用户资料和状态"
       resourceKey="user"
       columns={columns}
       detailSections={detailSections}
@@ -123,6 +144,8 @@ export function UserManagementPage() {
       formValues={(record) => ({
         mobile: record.mobile ?? undefined,
         email: record.email ?? undefined,
+        wechatId: record.wechatId ?? undefined,
+        studentType: record.studentType ?? 0,
         nickname: record.nickname ?? undefined,
         realName: record.realName ?? undefined,
         avatarUrl: record.avatarUrl ?? undefined,
@@ -166,6 +189,21 @@ function renderUserForm(_form: FormInstance, mode: 'create' | 'edit') {
         rules={[{ type: 'email', message: '邮箱格式不正确' }]}
       >
         <Input />
+      </Form.Item>
+      <Form.Item label="微信号" name="wechatId">
+        <Input />
+      </Form.Item>
+      <Form.Item
+        label="学员类型"
+        name="studentType"
+        initialValue={mode === 'create' ? 0 : undefined}
+      >
+        <Select
+          options={[
+            { label: '基础用户', value: 0 },
+            { label: '基础学员', value: 1 },
+          ]}
+        />
       </Form.Item>
       <Form.Item
         label="昵称"
@@ -226,6 +264,10 @@ function formatDate(value: string | null | undefined) {
 function formatRegisterSource(value: string | null | undefined) {
   if (!value) return '-'
   return value === 'ADMIN' ? '管理员创建' : value
+}
+
+function formatStudentType(value: number | null | undefined) {
+  return value === 1 ? '基础学员' : '基础用户'
 }
 
 function emptyValue(value: unknown) {

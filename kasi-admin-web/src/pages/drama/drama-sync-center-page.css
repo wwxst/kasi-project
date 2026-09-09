@@ -1,29 +1,7 @@
-.drama-sync-center-page__panel {
+.drama-sync-center-page {
   display: flex;
   flex-direction: column;
   gap: 16px;
-}
-.drama-sync-center-page__heading {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 16px;
-  margin-bottom: 8px;
-}
-.drama-sync-center-page__heading h1 {
-  margin: 0;
-  color: var(--ant-color-text);
-  font-size: 24px;
-  line-height: 1.25;
-}
-.drama-sync-center-page__heading p {
-  margin: 6px 0 0;
-  color: var(--ant-color-text-secondary);
-  font-size: 13px;
-}
-.drama-sync-center-page__heading .ant-space {
-  flex-wrap: wrap;
-  justify-content: flex-end;
 }
 .drama-sync-center-page__toolbar {
   display: flex;
@@ -81,13 +59,6 @@
   word-break: break-word;
 }
 @media (max-width: 720px) {
-  .drama-sync-center-page__heading {
-    flex-direction: column;
-  }
-  .drama-sync-center-page__heading .ant-space {
-    width: 100%;
-    justify-content: flex-start;
-  }
   .drama-sync-center-page__toolbar {
     align-items: stretch;
     flex-wrap: wrap;

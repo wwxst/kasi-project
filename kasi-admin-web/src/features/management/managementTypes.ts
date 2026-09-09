@@ -59,6 +59,8 @@ export interface UserListItem {
   realName: string | null
   mobile: string | null
   email: string | null
+  wechatId: string | null
+  studentType: number
   avatarUrl: string | null
   status: number
   registerSource: string | null
@@ -75,6 +77,8 @@ export interface UserDetail extends UserListItem {
 export interface CreateUserRequest {
   mobile?: string
   email?: string
+  wechatId?: string
+  studentType?: number
   nickname: string
   realName?: string
   avatarUrl?: string
