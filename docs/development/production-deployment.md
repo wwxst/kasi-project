@@ -7,6 +7,25 @@
 - 适用环境：阿里云 ECS、宝塔、Apache 2.4、Docker、MySQL 8.0、Redis 7.2、Java 25
 - 说明：本文是交接手册，不是实时探针。每次发布前仍要在服务器执行检查命令。
 
+## 本次生产发布记录（2026-09-09）
+
+### 已验证事实
+
+- 发布代码：`9eb9219d513fbed07d8313759ec20e01ac7d4076`，服务器从 `master` 拉取的提交与本地及 GitHub 远端一致。
+- 生产备份：`/www/wwwroot/kasixm/backups/kasi_promotion-20260909-182951.sql`，`38,376,555` 字节，包含 `19` 张表和 `53` 组插入语句；备份命令成功完成。
+- Flyway：`V1` 至 `V8` 均为 `Success`，生产 schema 当前为 `v8`。本次迁移从 `V1` baseline 保留业务数据，未执行 `clean`、删库重建或重复 baseline。
+- 迁移校验：Flyway 11.14.1 对 `V2` 至 `V8` 的 Pending 状态先按默认规则返回 `FAIL`；使用 `-Dflyway.ignoreMigrationPatterns=*:pending` 后校验 `8` 个迁移成功。
+- 后端发布包：`kasi-backend.jar` SHA-256 为 `BF5DC33ED45C0AF1083F9EB709F13EF52B9DC288B2BA01EA8ECFD42941B34F79`，旧 JAR 已保留用于回滚。
+- 后端服务：`spring_kasi_backend` 为 `active (running)`；`http://127.0.0.1:8080/actuator/health` 返回 HTTP `200`，状态为 `UP`。
+- API 烟囱：用户端和管理端登录接口均通过 HTTPS 返回 HTTP `200` 的 JSON 参数校验响应，`/api/` 代理和后端连通性正常。
+- 前端：用户端和管理端静态目录已按现场操作覆盖；本次记录未收到两个 `/login` 页面 HTTP 检查及真实账号登录结果，因此不将浏览器验收写为已完成。
+
+### 待补验收与安全事项
+
+- 补充 `apachectl -t`、两个站点 `/login` 的 HTTPS 检查、测试账号登录、密码修改和真实短信流程。
+- 清理无效的小型备份文件 `kasi_promotion-20260909-181604.sql`（182 B）和 `kasi_promotion-20260909-182552.sql`（133 B）；有效数据库备份和旧 JAR 回滚备份在验收完成前保留。
+- 当前 MySQL 容器仍曾暴露宿主机 `3307`，SSH 也出现失败登录尝试；需在阿里云安全组和主机防火墙中限制 MySQL 来源并完成 SSH 加固。
+
 ## 一、当前部署拓扑
 
 ~~~text
@@ -23,7 +42,7 @@
 
 | 组件 | 当前名称/地址 | 目录或端口 | 当前状态 |
 |---|---|---|---|
-| MySQL | Docker 容器 kasi_promotion，镜像 mysql:8.0.35 | 宿主机 3307 -> 3306，数据库 kasi_promotion | 已初始化，Flyway V1 |
+| MySQL | Docker 容器 kasi_promotion，镜像 mysql:8.0.35 | 宿主机 3307 -> 3306，数据库 kasi_promotion | 已迁移至 Flyway V8（2026-09-09） |
 | Redis | Docker 容器 kasi_redis，镜像 redis:7.2-alpine | 127.0.0.1:6380 -> 6379，无密码 | 已启用，数据目录 /www/wwwroot/kasixm/redis-data |
 | 后端 | systemd 服务 spring_kasi_backend | 127.0.0.1:8080 | JAR /www/wwwroot/kasixm/backend/kasi-backend.jar |
 | 后端配置 | 外部 properties 文件 | /www/wwwroot/kasixm/backend/kasi-backend.properties | Spring additional-location 读取 |
@@ -51,10 +70,11 @@
 /www/wwwroot/kasixm/admin-web/
 ~~~
 
-本机最近一次用户端发布包：
+本次发布包（本机）：
 
 ~~~text
-E:\JavaProjects\kasi-project-release-20260904-user-web\kasi-user-dist.zip
+E:\JavaProjects\kasi-project-release-20260909\kasi-user-dist.zip
+E:\JavaProjects\kasi-project-release-20260909\kasi-admin-dist.zip
 ~~~
 
 前端压缩包解压后顶层必须直接包含：
@@ -149,7 +169,7 @@ printf '\n'
 export FLYWAY_PASSWORD
 
 ./mvnw -Pmigration flyway:info
-./mvnw -Pmigration flyway:validate
+./mvnw -Pmigration flyway:validate "-Dflyway.ignoreMigrationPatterns=*:pending"
 ./mvnw -Pmigration flyway:migrate
 ~~~
 

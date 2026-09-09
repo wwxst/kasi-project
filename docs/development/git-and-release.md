@@ -20,7 +20,7 @@ $env:FLYWAY_USER='...'
 $env:FLYWAY_PASSWORD='...'
 cd kasi-backend
 .\mvnw.cmd -Pmigration flyway:info
-.\mvnw.cmd -Pmigration flyway:validate
+.\mvnw.cmd -Pmigration flyway:validate "-Dflyway.ignoreMigrationPatterns=*:pending"
 .\mvnw.cmd -Pmigration flyway:migrate
 ```
 
