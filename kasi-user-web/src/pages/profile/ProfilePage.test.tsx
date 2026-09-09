@@ -6,8 +6,10 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import {
   changePassword,
   getCurrentUser,
+  sendChangePasswordCode,
   updateUserProfile,
   uploadUserAvatar,
+  verifyChangePasswordCode,
 } from '../../features/auth/authApi'
 import { useAuthStore } from '../../features/auth/authStore'
 import ProfilePage from './ProfilePage'
@@ -24,8 +26,10 @@ vi.mock('tdesign-react', async () => {
 vi.mock('../../features/auth/authApi', () => ({
   changePassword: vi.fn(),
   getCurrentUser: vi.fn(),
+  sendChangePasswordCode: vi.fn(),
   updateUserProfile: vi.fn(),
   uploadUserAvatar: vi.fn(),
+  verifyChangePasswordCode: vi.fn(),
 }))
 
 const currentUser = {
@@ -224,16 +228,22 @@ describe('ProfilePage', () => {
 
   it('clears the session and returns to login after changing the password', async () => {
     const user = userEvent.setup()
+    vi.mocked(sendChangePasswordCode).mockResolvedValue(undefined)
+    vi.mocked(verifyChangePasswordCode).mockResolvedValue({
+      resetToken: 'change-token',
+      expiresIn: 600,
+    })
     vi.mocked(changePassword).mockResolvedValue(undefined)
     renderPage()
 
     await screen.findByRole('button', { name: '安全设置' })
     await user.click(screen.getByRole('button', { name: '安全设置' }))
     await screen.findByRole('heading', { name: '修改密码' })
-    await user.type(
-      screen.getByPlaceholderText('请输入当前密码'),
-      'old-password',
-    )
+    expect(screen.getByText('136****6000')).toBeTruthy()
+    await user.click(screen.getByRole('button', { name: '发送验证码' }))
+    await user.type(screen.getByPlaceholderText('请输入6位验证码'), '123456')
+    await user.click(screen.getByRole('button', { name: '验证并继续' }))
+    await screen.findByPlaceholderText('请输入新密码')
     await user.type(screen.getByPlaceholderText('请输入新密码'), 'new-password')
     await user.type(
       screen.getByPlaceholderText('请再次输入新密码'),
@@ -243,12 +253,46 @@ describe('ProfilePage', () => {
 
     await waitFor(() =>
       expect(changePassword).toHaveBeenCalledWith({
-        oldPassword: 'old-password',
+        resetToken: 'change-token',
         newPassword: 'new-password',
         confirmPassword: 'new-password',
       }),
     )
     expect(await screen.findByText('登录页')).toBeTruthy()
     expect(useAuthStore.getState().accessToken).toBeNull()
+  })
+
+  it('does not reveal the new-password form before code verification succeeds', async () => {
+    const user = userEvent.setup()
+    vi.mocked(sendChangePasswordCode).mockResolvedValue(undefined)
+    vi.mocked(verifyChangePasswordCode).mockRejectedValue(
+      new Error('验证码错误'),
+    )
+    renderPage()
+
+    await user.click(await screen.findByRole('button', { name: '安全设置' }))
+    await user.click(screen.getByRole('button', { name: '发送验证码' }))
+    await user.type(screen.getByPlaceholderText('请输入6位验证码'), '000000')
+    await user.click(screen.getByRole('button', { name: '验证并继续' }))
+
+    await waitFor(() =>
+      expect(verifyChangePasswordCode).toHaveBeenCalledWith('000000'),
+    )
+    expect(screen.queryByPlaceholderText('请输入新密码')).toBeNull()
+  })
+
+  it('blocks password verification when the account has no mobile bound', async () => {
+    vi.mocked(getCurrentUser).mockResolvedValue({
+      ...currentUser,
+      mobile: null,
+    })
+    renderPage()
+
+    await screen.findByRole('button', { name: '安全设置' })
+    await userEvent.click(screen.getByRole('button', { name: '安全设置' }))
+
+    expect(screen.getByText('请先在基本信息绑定手机号')).toBeTruthy()
+    expect(screen.queryByRole('button', { name: '发送验证码' })).toBeNull()
+    expect(sendChangePasswordCode).not.toHaveBeenCalled()
   })
 })

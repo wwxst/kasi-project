@@ -54,7 +54,7 @@
 - 开发数据库仍可删除重建：schema 变化后对空库重新执行 `kasi_promotion.sql`。生产数据库按版本迁移且不得删库重建；应用启动不自动建表或升级。
 - 会话状态由 Redis（`auth:version:{type}:{userId}`、`auth:session:{jti}`）管理。JWT 携带 `jti`、`sessionVersion`，受保护请求必须同时校验签名、账号状态和 Redis 会话；Redis 不可用时安全失败返回 503，不能降级放行。
 - 修改密码、密码重置等敏感 MySQL 状态变更会先将账号版本切换为 `MUTATING:{nonce}`，事务提交或回滚完成后都按 nonce 恢复新的 `ACTIVE:*` 版本，使旧 Token 失效且数据库异常不会长期遗留 `MUTATING`。普通 logout 只撤销当前 `jti` 会话。
-- 管理员本人通过 `PUT /api/admin/auth/password` 修改密码时只提交新密码和确认密码，不要求原密码；成功后当前账号的旧 Token 全部失效。推广用户本人改密仍要求原密码。
+- 管理员本人通过 `PUT /api/admin/auth/password` 修改密码时只提交新密码和确认密码，不要求原密码；成功后当前账号的旧 Token 全部失效。推广用户本人先调用登录态 `POST /api/user/auth/password/change/code` 和 `POST /api/user/auth/password/change/verify` 验证当前绑定手机号，再通过 `PUT /api/user/auth/password` 提交一次性 `resetToken`、新密码和确认密码；成功后当前账号的旧 Token 全部失效。
 - 当前采用简单的 `is_super_admin` 权限控制，不是 RBAC。数据库只允许一个业务上的超级管理员；`ROLE_SUPER_ADMIN` 由数据库当前记录派生，不信任 JWT 声明。
 - 超级管理员可分页查询、新增、编辑、启禁用、重置密码和物理删除普通管理员；普通管理员不能被提升为超级管理员，管理接口不能操作唯一超级管理员。
 - 普通管理员和超级管理员均可查询 `/api/admin/drama/providers`；只有超级管理员可写入平台 URL、PID、KEY、启用状态或执行连接探测。平台 KEY 只保存 AES-GCM 密文，管理响应不得暴露明文密钥、密文或掩码片段。
@@ -192,7 +192,7 @@ java -version
   - `{action}`：具体操作
 - RESTful 动词：查询=`GET`、创建=`POST`、全量更新=`PUT`、部分更新=`PATCH`、删除=`DELETE`
 - 示例：`POST /api/user/auth/register`、`PUT /api/admin/auth/password`
-- 当前认证端点包括：注册验证码 `POST /api/user/auth/register/code`，忘记密码重置 `POST /api/user/auth/password/reset`。
+- 当前认证端点包括：注册验证码 `POST /api/user/auth/register/code`，登录态改密验证码 `POST /api/user/auth/password/change/code`、`POST /api/user/auth/password/change/verify`，以及忘记密码重置 `POST /api/user/auth/password/reset`。
 - 管理员管理端点统一位于 `/api/admin/management/**`，仅 `ROLE_SUPER_ADMIN` 可访问；本人资料使用 `PUT /api/admin/auth/profile`。
 - 推广用户管理端点统一位于 `/api/user/management/**`，超级管理员和普通管理员均以 `ROLE_ADMIN` 访问。
 - 平台分佣规则使用三个固定端点：`GET/POST /api/admin/drama/providers/{providerId}/commission-rules` 和 `PUT /api/admin/drama/providers/{providerId}/commission-rules/{ruleId}`；`GET` 要求 `ROLE_ADMIN`，写操作要求 `ROLE_SUPER_ADMIN`。

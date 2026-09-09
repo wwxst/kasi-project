@@ -1,7 +1,6 @@
 package com.kasi.backend.user.controller;
 
 import com.kasi.backend.common.response.ApiResponse;
-import com.kasi.backend.auth.dto.ChangePasswordDTO;
 import com.kasi.backend.security.context.AuthContextHolder;
 import com.kasi.backend.security.service.SessionService;
 import jakarta.servlet.http.HttpServletRequest;
@@ -92,12 +91,25 @@ public class UserAuthController {
         return ApiResponse.successMessage("退出成功");
     }
 
+    @PostMapping("/password/change/code")
+    public ApiResponse<Void> sendChangePasswordCode() {
+        userAuthService.sendChangePasswordCode(AuthContextHolder.getUserId());
+        return ApiResponse.successMessage("验证码已发送");
+    }
+
+    @PostMapping("/password/change/verify")
+    public ApiResponse<VerifyCodeVO> verifyChangePasswordCode(
+            @Valid @RequestBody VerifyChangePasswordCodeDTO request) {
+        return ApiResponse.success("验证成功",
+                userAuthService.verifyChangePasswordCode(AuthContextHolder.getUserId(), request));
+    }
+
     /**
      * 修改登录密码
      */
     @PutMapping("/password")
     public ApiResponse<Void> changePassword(
-            @Valid @RequestBody ChangePasswordDTO request) {
+            @Valid @RequestBody ChangeUserPasswordDTO request) {
         Long userId = AuthContextHolder.getUserId();
         userAuthService.changePassword(userId, request);
         return ApiResponse.successMessage("密码修改成功");

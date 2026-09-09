@@ -1,6 +1,12 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { httpClient } from '../../shared/api/httpClient'
-import { changePassword, updateUserProfile, uploadUserAvatar } from './authApi'
+import {
+  changePassword,
+  sendChangePasswordCode,
+  updateUserProfile,
+  uploadUserAvatar,
+  verifyChangePasswordCode,
+} from './authApi'
 
 const updatedUser = {
   userNo: '701804677763',
@@ -20,19 +26,47 @@ const updatedUser = {
 afterEach(() => vi.restoreAllMocks())
 
 describe('changePassword', () => {
+  it('sends the authenticated user password-change code without a phone payload', async () => {
+    const post = vi.spyOn(httpClient, 'post').mockResolvedValue({
+      data: { code: 0, message: '验证码已发送', data: null },
+    })
+
+    await sendChangePasswordCode()
+
+    expect(post).toHaveBeenCalledWith('/api/user/auth/password/change/code')
+  })
+
+  it('verifies the password-change code and returns the reset token', async () => {
+    const post = vi.spyOn(httpClient, 'post').mockResolvedValue({
+      data: {
+        code: 0,
+        message: '验证成功',
+        data: { resetToken: 'change-token', expiresIn: 600 },
+      },
+    })
+
+    await expect(verifyChangePasswordCode('123456')).resolves.toEqual({
+      resetToken: 'change-token',
+      expiresIn: 600,
+    })
+    expect(post).toHaveBeenCalledWith('/api/user/auth/password/change/verify', {
+      code: '123456',
+    })
+  })
+
   it('updates the current user password through the user auth endpoint', async () => {
     const put = vi.spyOn(httpClient, 'put').mockResolvedValue({
       data: { code: 0, message: '密码修改成功', data: null },
     })
 
     await changePassword({
-      oldPassword: 'old-password',
+      resetToken: 'change-token',
       newPassword: 'new-password',
       confirmPassword: 'new-password',
     })
 
     expect(put).toHaveBeenCalledWith('/api/user/auth/password', {
-      oldPassword: 'old-password',
+      resetToken: 'change-token',
       newPassword: 'new-password',
       confirmPassword: 'new-password',
     })

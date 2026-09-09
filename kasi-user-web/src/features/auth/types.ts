@@ -46,7 +46,7 @@ export interface ResetTokenResult {
 }
 
 export interface ChangePasswordRequest {
-  oldPassword: string
+  resetToken: string
   newPassword: string
   confirmPassword: string
 }

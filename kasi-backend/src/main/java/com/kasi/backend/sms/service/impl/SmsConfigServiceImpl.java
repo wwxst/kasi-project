@@ -85,7 +85,7 @@ public class SmsConfigServiceImpl implements SmsConfigService {
         String templateCode = switch (scene) {
             case REGISTER -> config.getRegisterTemplateCode();
             case LOGIN -> config.getLoginTemplateCode();
-            case RESET_PASSWORD -> config.getResetPasswordTemplateCode();
+            case RESET_PASSWORD, CHANGE_PASSWORD -> config.getResetPasswordTemplateCode();
         };
         try {
             return new SmsRuntimeConfig(

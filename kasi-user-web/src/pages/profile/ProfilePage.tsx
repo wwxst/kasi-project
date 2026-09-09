@@ -15,8 +15,10 @@ import { useNavigate } from 'react-router-dom'
 import {
   changePassword,
   getCurrentUser,
+  sendChangePasswordCode,
   updateUserProfile,
   uploadUserAvatar,
+  verifyChangePasswordCode,
 } from '../../features/auth/authApi'
 import { useAuthStore } from '../../features/auth/authStore'
 import { isHandledRequestError } from '../../shared/api/httpClient'
@@ -30,12 +32,26 @@ function studentTypeLabel(value: number) {
   return value === 1 ? '基础学员' : '基础用户'
 }
 
+function maskMobile(mobile: string) {
+  const normalized = mobile.trim()
+  if (normalized.length <= 7) return normalized
+  return `${normalized.slice(0, 3)}****${normalized.slice(-4)}`
+}
+
 export default function ProfilePage({ title: _title }: { title: string }) {
   const navigate = useNavigate()
   const queryClient = useQueryClient()
   const clearSession = useAuthStore((state) => state.clearSession)
   const formRef = useRef<FormInstanceFunctions | null>(null)
   const [submitting, setSubmitting] = useState(false)
+  const [passwordStep, setPasswordStep] = useState<
+    'VERIFY_MOBILE' | 'SET_PASSWORD'
+  >('VERIFY_MOBILE')
+  const [verificationCode, setVerificationCode] = useState('')
+  const [resetToken, setResetToken] = useState<string | null>(null)
+  const [sendingCode, setSendingCode] = useState(false)
+  const [verifyingCode, setVerifyingCode] = useState(false)
+  const [codeCountdown, setCodeCountdown] = useState(0)
   const [editing, setEditing] = useState(false)
   const [activeTab, setActiveTab] = useState<'basic' | 'security'>('basic')
   const [profileSubmitting, setProfileSubmitting] = useState(false)
@@ -56,6 +72,14 @@ export default function ProfilePage({ title: _title }: { title: string }) {
   })
 
   useEffect(() => {
+    if (codeCountdown <= 0) return
+    const timer = window.setInterval(() => {
+      setCodeCountdown((current) => Math.max(0, current - 1))
+    }, 1000)
+    return () => window.clearInterval(timer)
+  }, [codeCountdown])
+
+  useEffect(() => {
     if (userQuery.isError && !isHandledRequestError(userQuery.error)) {
       void MessagePlugin.error('个人资料加载失败，请稍后重试')
     }
@@ -66,8 +90,9 @@ export default function ProfilePage({ title: _title }: { title: string }) {
     validateResult,
   }: SubmitContext) => {
     if (validateResult !== true) return
+    if (!resetToken) return
     const request = {
-      oldPassword: String(fields?.oldPassword ?? ''),
+      resetToken,
       newPassword: String(fields?.newPassword ?? ''),
       confirmPassword: String(fields?.confirmPassword ?? ''),
     }
@@ -86,6 +111,46 @@ export default function ProfilePage({ title: _title }: { title: string }) {
       }
     } finally {
       setSubmitting(false)
+    }
+  }
+
+  const handleSendChangePasswordCode = async () => {
+    if (!user.mobile || sendingCode || codeCountdown > 0) return
+    setSendingCode(true)
+    try {
+      await sendChangePasswordCode()
+      setCodeCountdown(60)
+      void MessagePlugin.success('验证码已发送')
+    } catch (error) {
+      if (!isHandledRequestError(error)) {
+        void MessagePlugin.error(
+          error instanceof Error ? error.message : '验证码发送失败，请稍后重试',
+        )
+      }
+    } finally {
+      setSendingCode(false)
+    }
+  }
+
+  const handleVerifyChangePasswordCode = async () => {
+    const code = verificationCode.trim()
+    if (!/^\d{6}$/.test(code)) {
+      void MessagePlugin.error('请输入6位数字验证码')
+      return
+    }
+    setVerifyingCode(true)
+    try {
+      const result = await verifyChangePasswordCode(code)
+      setResetToken(result.resetToken)
+      setPasswordStep('SET_PASSWORD')
+    } catch (error) {
+      if (!isHandledRequestError(error)) {
+        void MessagePlugin.error(
+          error instanceof Error ? error.message : '验证码验证失败，请重试',
+        )
+      }
+    } finally {
+      setVerifyingCode(false)
     }
   }
 
@@ -447,64 +512,96 @@ export default function ProfilePage({ title: _title }: { title: string }) {
             data-testid="security-panel"
           >
             <h2>修改密码</h2>
-            <Form
-              ref={formRef}
-              className={Style.passwordForm}
-              labelAlign="top"
-              onSubmit={handlePasswordSubmit}
-            >
-              <Form.FormItem
-                label="当前密码"
-                name="oldPassword"
-                rules={[{ required: true, message: '请输入当前密码' }]}
+            {passwordStep === 'VERIFY_MOBILE' ? (
+              user.mobile ? (
+                <div className={Style.passwordForm}>
+                  <div className={Style.mobileVerificationHint}>
+                    <span>验证手机号</span>
+                    <strong>{maskMobile(user.mobile)}</strong>
+                  </div>
+                  <div className={Style.codeRow}>
+                    <label className={Style.codeField}>
+                      <span>短信验证码</span>
+                      <Input
+                        value={verificationCode}
+                        maxlength={6}
+                        placeholder="请输入6位验证码"
+                        onChange={setVerificationCode}
+                      />
+                    </label>
+                    <Button
+                      variant="outline"
+                      loading={sendingCode}
+                      disabled={sendingCode || codeCountdown > 0}
+                      onClick={() => void handleSendChangePasswordCode()}
+                    >
+                      {codeCountdown > 0
+                        ? `${codeCountdown}秒后重发`
+                        : '发送验证码'}
+                    </Button>
+                  </div>
+                  <Button
+                    className={Style.passwordSubmit}
+                    theme="primary"
+                    loading={verifyingCode}
+                    disabled={verifyingCode || verificationCode.length !== 6}
+                    onClick={() => void handleVerifyChangePasswordCode()}
+                  >
+                    验证并继续
+                  </Button>
+                </div>
+              ) : (
+                <p className={Style.mobileRequired}>请先在基本信息绑定手机号</p>
+              )
+            ) : (
+              <Form
+                ref={formRef}
+                className={Style.passwordForm}
+                labelAlign="top"
+                onSubmit={handlePasswordSubmit}
               >
-                <Input
-                  type="password"
-                  autocomplete="current-password"
-                  placeholder="请输入当前密码"
-                />
-              </Form.FormItem>
-              <Form.FormItem
-                label="新密码"
-                name="newPassword"
-                rules={[
-                  { required: true, message: '请输入新密码' },
-                  { min: 8, message: '新密码长度不能少于8位' },
-                ]}
-              >
-                <Input
-                  type="password"
-                  autocomplete="new-password"
-                  placeholder="请输入新密码"
-                />
-              </Form.FormItem>
-              <Form.FormItem
-                label="确认新密码"
-                name="confirmPassword"
-                rules={[
-                  { required: true, message: '请再次输入新密码' },
-                  {
-                    validator: (value) =>
-                      value === formRef.current?.getFieldValue('newPassword'),
-                    message: '两次输入的新密码不一致',
-                  },
-                ]}
-              >
-                <Input
-                  type="password"
-                  autocomplete="new-password"
-                  placeholder="请再次输入新密码"
-                />
-              </Form.FormItem>
-              <Button
-                className={Style.passwordSubmit}
-                theme="primary"
-                type="submit"
-                loading={submitting}
-              >
-                修改密码
-              </Button>
-            </Form>
+                <Form.FormItem
+                  label="新密码"
+                  name="newPassword"
+                  rules={[
+                    { required: true, message: '请输入新密码' },
+                    { min: 8, message: '新密码长度不能少于8位' },
+                  ]}
+                >
+                  <Input
+                    type="password"
+                    autocomplete="new-password"
+                    placeholder="请输入新密码"
+                  />
+                </Form.FormItem>
+                <Form.FormItem
+                  label="确认新密码"
+                  name="confirmPassword"
+                  rules={[
+                    { required: true, message: '请再次输入新密码' },
+                    {
+                      validator: (value) =>
+                        value === formRef.current?.getFieldValue('newPassword'),
+                      message: '两次输入的新密码不一致',
+                    },
+                  ]}
+                >
+                  <Input
+                    type="password"
+                    autocomplete="new-password"
+                    placeholder="请再次输入新密码"
+                  />
+                </Form.FormItem>
+                <Button
+                  className={Style.passwordSubmit}
+                  theme="primary"
+                  type="submit"
+                  loading={submitting}
+                >
+                  修改密码
+                </Button>
+              </Form>
+            )}
           </section>
         )}
       </section>

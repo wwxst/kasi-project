@@ -74,19 +74,22 @@ class SmsConfigServiceTest extends BaseAuthTest {
     }
 
     @Test
-    @DisplayName("三个业务场景使用各自模板并解密运行时密钥")
+    @DisplayName("四个业务场景选择对应模板且改密复用找回密码模板")
     void runtimeConfigSelectsSceneTemplate() {
         smsConfigService.update(1L, request("ak-id", "ak-secret", true));
 
         SmsRuntimeConfig register = smsConfigService.requireRuntimeConfig(VerificationScene.REGISTER);
         SmsRuntimeConfig login = smsConfigService.requireRuntimeConfig(VerificationScene.LOGIN);
         SmsRuntimeConfig reset = smsConfigService.requireRuntimeConfig(VerificationScene.RESET_PASSWORD);
+        SmsRuntimeConfig change = smsConfigService.requireRuntimeConfig(
+                VerificationScene.valueOf("CHANGE_PASSWORD"));
 
         assertThat(register.accessKeyId()).isEqualTo("ak-id");
         assertThat(register.accessKeySecret()).isEqualTo("ak-secret");
         assertThat(register.templateCode()).isEqualTo("SMS_100");
         assertThat(login.templateCode()).isEqualTo("SMS_101");
         assertThat(reset.templateCode()).isEqualTo("SMS_102");
+        assertThat(change.templateCode()).isEqualTo("SMS_102");
     }
 
     @Test

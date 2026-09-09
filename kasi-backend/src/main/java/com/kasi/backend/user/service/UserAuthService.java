@@ -1,11 +1,12 @@
 package com.kasi.backend.user.service;
 
-import com.kasi.backend.auth.dto.ChangePasswordDTO;
 import com.kasi.backend.user.dto.ResetPasswordDTO;
 import com.kasi.backend.user.dto.SendVerificationCodeDTO;
 import com.kasi.backend.user.dto.UserLoginDTO;
 import com.kasi.backend.user.dto.UserRegisterDTO;
 import com.kasi.backend.user.dto.UpdateUserProfileDTO;
+import com.kasi.backend.user.dto.ChangeUserPasswordDTO;
+import com.kasi.backend.user.dto.VerifyChangePasswordCodeDTO;
 import com.kasi.backend.user.dto.VerifyVerificationCodeDTO;
 import com.kasi.backend.user.vo.CurrentUserVO;
 import com.kasi.backend.user.vo.UserLoginVO;
@@ -33,7 +34,11 @@ public interface UserAuthService {
 
     CurrentUserVO updateAvatar(Long userId, MultipartFile file);
 
-    void changePassword(Long userId, ChangePasswordDTO request);
+    void sendChangePasswordCode(Long userId);
+
+    VerifyCodeVO verifyChangePasswordCode(Long userId, VerifyChangePasswordCodeDTO request);
+
+    void changePassword(Long userId, ChangeUserPasswordDTO request);
 
     void sendForgotPasswordCode(SendVerificationCodeDTO request);
 

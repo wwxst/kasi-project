@@ -53,6 +53,7 @@ public enum ErrorCode {
     USER_MEDIA_ACCOUNT_BOUND(3014, "该推广用户已绑定媒体账号，只能禁用"),
     USER_AVATAR_INVALID(3015, "头像文件格式不正确"),
     USER_AVATAR_TOO_LARGE(3016, "头像文件不能超过2MB"),
+    USER_MOBILE_NOT_BOUND(3017, "当前账号未绑定手机号，请先绑定手机号"),
 
     // ========== 验证码错误 ==========
     VERIFICATION_CODE_ERROR(4001, "验证码错误"),

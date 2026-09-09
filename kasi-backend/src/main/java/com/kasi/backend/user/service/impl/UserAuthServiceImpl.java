@@ -2,7 +2,6 @@ package com.kasi.backend.user.service.impl;
 
 import com.kasi.backend.auth.service.PasswordResetTokenService;
 import com.kasi.backend.auth.entity.PasswordResetTokenReservation;
-import com.kasi.backend.auth.dto.ChangePasswordDTO;
 import com.kasi.backend.auth.service.VerificationCodeService;
 import com.kasi.backend.common.enums.SubjectType;
 import com.kasi.backend.common.enums.UserStatus;
@@ -319,33 +318,79 @@ public class UserAuthServiceImpl implements UserAuthService {
         return value == null || value.trim().isEmpty() ? null : value.trim();
     }
 
+    private PromotionUser requireUserWithMobile(Long userId) {
+        PromotionUser user = promotionUserMapper.findById(userId);
+        if (user == null) {
+            throw new BusinessException(ErrorCode.USER_NOT_FOUND);
+        }
+        if (user.getStatus() != null && user.getStatus() == UserStatus.DISABLED.getCode()) {
+            throw new BusinessException(ErrorCode.USER_DISABLED);
+        }
+        if (user.getMobile() == null || user.getMobile().isBlank()) {
+            throw new BusinessException(ErrorCode.USER_MOBILE_NOT_BOUND);
+        }
+        return user;
+    }
+
+    @Override
+    public void sendChangePasswordCode(Long userId) {
+        PromotionUser user = requireUserWithMobile(userId);
+        verificationCodeService.sendVerificationCode(
+                user.getMobile(), VerificationScene.CHANGE_PASSWORD);
+    }
+
+    @Override
+    public VerifyCodeVO verifyChangePasswordCode(
+            Long userId, VerifyChangePasswordCodeDTO request) {
+        PromotionUser user = requireUserWithMobile(userId);
+        verificationCodeService.verifyCode(
+                user.getMobile(), VerificationScene.CHANGE_PASSWORD, request.getCode());
+        String resetToken = passwordResetTokenService.generateResetToken(userId, SubjectType.USER);
+        return VerifyCodeVO.builder()
+                .resetToken(resetToken)
+                .expiresIn(resetTokenExpiration)
+                .build();
+    }
+
     /**
      * 修改登录密码
      */
     @Transactional
     @Override
-    public void changePassword(Long userId, ChangePasswordDTO request) {
-        PromotionUser user = promotionUserMapper.findByIdForUpdate(userId);
-        if (user == null) {
-            throw new BusinessException(ErrorCode.USER_NOT_FOUND);
-        }
-
-        // 验证旧密码
-        if (!passwordEncoder.matches(request.getOldPassword(), user.getPassword())) {
-            throw new BusinessException(ErrorCode.USER_OLD_PASSWORD_ERROR);
-        }
-
-        // 新密码不能与旧密码相同
-        if (passwordEncoder.matches(request.getNewPassword(), user.getPassword())) {
-            throw new BusinessException(ErrorCode.USER_NEW_PASSWORD_SAME);
-        }
-
-        // 确认密码一致性
+    public void changePassword(Long userId, ChangeUserPasswordDTO request) {
         if (!request.getNewPassword().equals(request.getConfirmPassword())) {
             throw new BusinessException(ErrorCode.USER_PASSWORD_NOT_MATCH);
         }
 
-        // 加密并更新
+        PasswordResetTokenReservation reservation =
+                passwordResetTokenService.reserveToken(request.getResetToken());
+        TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+            @Override
+            public void afterCommit() {
+                passwordResetTokenService.completeToken(reservation);
+            }
+
+            @Override
+            public void afterCompletion(int status) {
+                if (status != STATUS_COMMITTED) {
+                    passwordResetTokenService.restoreReady(reservation);
+                }
+            }
+        });
+
+        if (reservation.subjectType() != SubjectType.USER
+                || !reservation.userId().equals(userId)) {
+            throw new BusinessException(ErrorCode.RESET_TOKEN_INVALID);
+        }
+
+        PromotionUser user = promotionUserMapper.findByIdForUpdate(userId);
+        if (user == null) {
+            throw new BusinessException(ErrorCode.RESET_TOKEN_INVALID);
+        }
+        if (passwordEncoder.matches(request.getNewPassword(), user.getPassword())) {
+            throw new BusinessException(ErrorCode.USER_NEW_PASSWORD_SAME);
+        }
+
         SessionMutation mutation = sessionService.beginMutation(SubjectType.USER, userId);
         sessionService.registerMutationCompletion(mutation);
         String encodedPassword = passwordEncoder.encode(request.getNewPassword());

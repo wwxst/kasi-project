@@ -35,6 +35,10 @@ async function postVoid(path: string, data: unknown) {
   if (response.data.code !== 0) throw new Error(response.data.message)
   return
 }
+async function postVoidWithoutBody(path: string) {
+  const response = await httpClient.post<ApiResponse<null>>(path)
+  if (response.data.code !== 0) throw new Error(response.data.message)
+}
 export const sendRegisterCode = (target: string) =>
   postVoid('/api/user/auth/register/code', { target })
 export const registerUser = (request: RegisterRequest) =>
@@ -70,6 +74,17 @@ export const resetPassword = (
     newPassword,
     confirmPassword,
   })
+
+export const sendChangePasswordCode = () =>
+  postVoidWithoutBody('/api/user/auth/password/change/code')
+
+export const verifyChangePasswordCode = async (code: string) => {
+  const response = await httpClient.post<ApiResponse<ResetTokenResult>>(
+    '/api/user/auth/password/change/verify',
+    { code },
+  )
+  return unwrap(response)
+}
 
 export async function changePassword(request: ChangePasswordRequest) {
   const response = await httpClient.put<ApiResponse<null>>(

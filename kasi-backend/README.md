@@ -331,12 +331,14 @@ mysql --host=127.0.0.1 --user=$env:SPRING_DATASOURCE_USERNAME --password --datab
 | PUT | `/api/user/auth/profile` | 修改本人昵称、真实姓名、微信号、手机号和邮箱；手机号或邮箱变更后旧会话失效 | USER |
 | PUT | `/api/user/auth/avatar` | 上传并修改本人头像（multipart 字段 `file`） | USER |
 | POST | `/api/user/auth/logout` | 退出登录 | USER |
-| PUT | `/api/user/auth/password` | 修改密码（需旧密码） | USER |
+| POST | `/api/user/auth/password/change/code` | 向当前账号绑定手机号发送改密验证码 | USER |
+| POST | `/api/user/auth/password/change/verify` | 校验当前账号改密验证码，返回 10 分钟一次性重置 Token | USER |
+| PUT | `/api/user/auth/password` | 使用登录态改密重置 Token、新密码和确认密码修改密码；成功后旧 Token 失效 | USER |
 | POST | `/api/user/auth/password/forgot/code` | 发送忘记密码验证码 | 否 |
 | POST | `/api/user/auth/password/forgot/verify` | 校验验证码，返回重置 Token | 否 |
 | POST | `/api/user/auth/password/reset` | 使用重置 Token 修改密码 | 否 |
 
-推广用户没有独立 `username`。`userNo` 是 12 位随机数字展示编号，不参与登录、鉴权或数据库关联；内部关联继续使用自增 `id`。普通用户注册时由后端在写入 `promotion_user.nickname` 前生成 `卡司用户` 加 5 位数字后缀（取本次随机 `userNo` 的末 5 位，保留前导零），该昵称随账号持久化，并由登录和 `/api/user/auth/me` 返回；管理员创建或编辑用户时仍使用请求中的昵称。推广用户本人可修改昵称、真实姓名、微信号、手机号和邮箱，头像只能通过上传端点修改；`studentType` 由 `/api/user/auth/me` 返回并在个人中心只读展示（`0=基础用户`、`1=基础学员`），不在本人资料修改契约内。管理员用户管理接口的列表、详情、新建和编辑均支持 `wechatId` 与 `studentType`，其中学员类型只能为 `0`（基础用户）或 `1`（基础学员），新建默认 `0`。用户编号、状态和登录信息也不在本人资料修改契约内。手机号或邮箱变更会使旧会话失效，仅修改其他资料时当前会话保持有效。普通用户登录和 `/api/user/auth/me` 的 JSON 不返回内部 `id`，但 JWT `sub` 仍按现有认证契约保存内部 `id`。手机号和邮箱至少保留一个，用户同时拥有两者时均可登录。手机号统一 `trim`，邮箱统一 `trim` 后转小写。
+推广用户没有独立 `username`。`userNo` 是 12 位随机数字展示编号，不参与登录、鉴权或数据库关联；内部关联继续使用自增 `id`。普通用户注册时由后端在写入 `promotion_user.nickname` 前生成 `卡司用户` 加 5 位数字后缀（取本次随机 `userNo` 的末 5 位，保留前导零），该昵称随账号持久化，并由登录和 `/api/user/auth/me` 返回；管理员创建或编辑用户时仍使用请求中的昵称。推广用户本人可修改昵称、真实姓名、微信号、手机号和邮箱，头像只能通过上传端点修改；`studentType` 由 `/api/user/auth/me` 返回并在个人中心只读展示（`0=基础用户`、`1=基础学员`），不在本人资料修改契约内。管理员用户管理接口的列表、详情、新建和编辑均支持 `wechatId` 与 `studentType`，其中学员类型只能为 `0`（基础用户）或 `1`（基础学员），新建默认 `0`。用户编号、状态和登录信息也不在本人资料修改契约内。手机号或邮箱变更会使旧会话失效，仅修改其他资料时当前会话保持有效。普通用户登录和 `/api/user/auth/me` 的 JSON 不返回内部 `id`，但 JWT `sub` 仍按现有认证契约保存内部 `id`。手机号和邮箱至少保留一个，用户同时拥有两者时均可登录。手机号统一 `trim`，邮箱统一 `trim` 后转小写。个人中心改密必须先通过当前绑定手机号的 `CHANGE_PASSWORD` 验证码，再使用 10 分钟一次性 `resetToken` 提交新密码；验证码验证和凭证均不接受前端指定其他手机号。
 
 ### 6.5 推广用户管理 API
 
@@ -575,6 +577,6 @@ Unit/Integration 的 JaCoCo HTML/XML 报告分别位于 `target/site/jacoco-unit
 用户通过 `/api/user/promotion/links` 提交 `providerId`、`dramaId`、不重复的 `mediaTypes`、可选 `linkVariant` 和 `requestKey`。`linkVariant` 只允许 `LANDING`（落地页）或 `ONELINK`（OneLink），每个选中的媒体平台只生成用户选择的一条链接和一个口令；未传时兼容旧客户端默认生成 `LANDING`。每条记录保留独立的内部 `trackingNo`；发送 GoodShort 时 `customParams` 固定使用该推广用户的稳定 `user_no`，订单同步再按 `customParams -> user_no -> user_id` 直接归因，不通过推广链接追踪号反查。同一 `requestKey` 只代表同一组平台、短剧、媒体和链接类型，内容变化返回业务冲突。用户重新发起推广时使用新的 `requestKey` 创建新任务。
 # 手机验证码（阿里云短信）
 
-超级管理员通过 `PUT/GET /api/admin/system/sms-config` 配置阿里云 AccessKey、签名和注册/登录/找回密码模板；AccessKey 仅以 AES-GCM 密文保存，响应不返回密钥。用户端手机号验证码接口为注册发码、验证码登录发码/校验和找回密码发码/校验，发送失败返回 HTTP 503。邮箱密码登录保持可用，邮箱验证码流程暂未开放。
+超级管理员通过 `PUT/GET /api/admin/system/sms-config` 配置阿里云 AccessKey、签名和注册/登录/找回密码模板；AccessKey 仅以 AES-GCM 密文保存，响应不返回密钥。用户端手机号验证码接口为注册发码、验证码登录发码/校验、个人中心改密发码/校验和找回密码发码/校验；个人中心改密使用独立 `CHANGE_PASSWORD` 场景并复用找回密码模板，发送失败返回 HTTP 503。邮箱密码登录保持可用，邮箱验证码流程暂未开放。
 
 \n

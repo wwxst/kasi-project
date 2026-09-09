@@ -6,5 +6,6 @@ package com.kasi.backend.common.enums;
 public enum VerificationScene {
     REGISTER,
     LOGIN,
-    RESET_PASSWORD
+    RESET_PASSWORD,
+    CHANGE_PASSWORD
 }

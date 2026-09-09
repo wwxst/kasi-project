@@ -411,14 +411,15 @@ class UserAuthControllerTest extends BaseAuthTest {
     void changePasswordInvalidatesAllExistingSessions() throws Exception {
         String firstToken = loginAsUser();
         String secondToken = loginAsUser();
+        String resetToken = verifyChangePasswordCode(firstToken, "13800138000");
 
         mockMvc.perform(MockMvcRequestBuilders
                         .put("/api/user/auth/password")
                         .header("Authorization", "Bearer " + firstToken)
                         .contentType("application/json")
                         .content("""
-                                {"oldPassword":"user123456","newPassword":"newuserpass","confirmPassword":"newuserpass"}
-                                """))
+                                {"resetToken":"%s","newPassword":"newuserpass","confirmPassword":"newuserpass"}
+                                """.formatted(resetToken)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.code").value(0));
 
@@ -435,16 +436,17 @@ class UserAuthControllerTest extends BaseAuthTest {
     // ==================== 修改密码 ====================
 
     @Test
-    @DisplayName("修改密码成功")
-    void changePasswordSuccess() throws Exception {
+    @DisplayName("手机验证码通过后修改密码成功")
+    void changePasswordAfterMobileVerification() throws Exception {
         String token = loginAsUser();
+        String resetToken = verifyChangePasswordCode(token, "13800138000");
         mockMvc.perform(MockMvcRequestBuilders
                         .put("/api/user/auth/password")
                         .header("Authorization", "Bearer " + token)
                         .contentType("application/json")
                         .content("""
-                                {"oldPassword":"user123456","newPassword":"newuserpass","confirmPassword":"newuserpass"}
-                                """))
+                                {"resetToken":"%s","newPassword":"newuserpass","confirmPassword":"newuserpass"}
+                                """.formatted(resetToken)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.code").value(0));
 
@@ -457,6 +459,95 @@ class UserAuthControllerTest extends BaseAuthTest {
                                 """))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.code").value(0));
+    }
+
+    @Test
+    @DisplayName("改密验证码接口必须登录")
+    void changePasswordVerificationRequiresLogin() throws Exception {
+        mockMvc.perform(MockMvcRequestBuilders.post("/api/user/auth/password/change/code"))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.code").value(1002));
+        mockMvc.perform(MockMvcRequestBuilders
+                        .post("/api/user/auth/password/change/verify")
+                        .contentType("application/json")
+                        .content("{\"code\":\"123456\"}"))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.code").value(1002));
+    }
+
+    @Test
+    @DisplayName("未绑定手机号不能发送改密验证码")
+    void changePasswordCodeRequiresBoundMobile() throws Exception {
+        String token = loginAsUser();
+        jdbcTemplate.update("UPDATE promotion_user SET mobile = NULL WHERE user_no = ?", PRIMARY_USER_NO);
+
+        mockMvc.perform(MockMvcRequestBuilders
+                        .post("/api/user/auth/password/change/code")
+                        .header("Authorization", "Bearer " + token))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(3017));
+    }
+
+    @Test
+    @DisplayName("原密码不能替代手机验证凭证")
+    void oldPasswordCannotReplaceVerificationToken() throws Exception {
+        String token = loginAsUser();
+
+        mockMvc.perform(MockMvcRequestBuilders
+                        .put("/api/user/auth/password")
+                        .header("Authorization", "Bearer " + token)
+                        .contentType("application/json")
+                        .content("""
+                                {"oldPassword":"user123456","newPassword":"newuserpass","confirmPassword":"newuserpass"}
+                                """))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(1006));
+    }
+
+    @Test
+    @DisplayName("改密凭证只能由所属用户使用且失败后恢复可用")
+    void changePasswordTokenCannotCrossUsers() throws Exception {
+        String ownerToken = loginAsUser();
+        String resetToken = verifyChangePasswordCode(ownerToken, "13800138000");
+        String otherToken = loginAsUser("13900139000", USER_PASSWORD);
+
+        String body = """
+                {"resetToken":"%s","newPassword":"newuserpass","confirmPassword":"newuserpass"}
+                """.formatted(resetToken);
+        mockMvc.perform(MockMvcRequestBuilders
+                        .put("/api/user/auth/password")
+                        .header("Authorization", "Bearer " + otherToken)
+                        .contentType("application/json")
+                        .content(body))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(5001));
+
+        mockMvc.perform(MockMvcRequestBuilders
+                        .put("/api/user/auth/password")
+                        .header("Authorization", "Bearer " + ownerToken)
+                        .contentType("application/json")
+                        .content(body))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(0));
+    }
+
+    @Test
+    @DisplayName("验证码错误不能进入修改密码")
+    void invalidChangePasswordCodeDoesNotIssueToken() throws Exception {
+        String token = loginAsUser();
+        mockMvc.perform(MockMvcRequestBuilders
+                        .post("/api/user/auth/password/change/code")
+                        .header("Authorization", "Bearer " + token))
+                .andExpect(jsonPath("$.code").value(0));
+
+        mockMvc.perform(MockMvcRequestBuilders
+                        .post("/api/user/auth/password/change/verify")
+                        .header("Authorization", "Bearer " + token)
+                        .contentType("application/json")
+                        .content("{\"code\":\"000000\"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(4001))
+                .andExpect(jsonPath("$.data").doesNotExist());
     }
 
     // ==================== 忘记密码流程 ====================
@@ -513,5 +604,29 @@ class UserAuthControllerTest extends BaseAuthTest {
     private byte[] pngBytes() {
         return Base64.getDecoder().decode(
                 "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=");
+    }
+
+    private String verifyChangePasswordCode(String token, String mobile) throws Exception {
+        mockMvc.perform(MockMvcRequestBuilders
+                        .post("/api/user/auth/password/change/code")
+                        .header("Authorization", "Bearer " + token))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(0));
+
+        var result = mockMvc.perform(MockMvcRequestBuilders
+                        .post("/api/user/auth/password/change/verify")
+                        .header("Authorization", "Bearer " + token)
+                        .contentType("application/json")
+                        .content("""
+                                {"code":"%s"}
+                                """.formatted(verificationCodeSender.latestCode(mobile))))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(0))
+                .andExpect(jsonPath("$.data.resetToken").isNotEmpty())
+                .andExpect(jsonPath("$.data.expiresIn").value(600))
+                .andReturn();
+
+        return objectMapper.readTree(result.getResponse().getContentAsString())
+                .get("data").get("resetToken").stringValue();
     }
 }
