@@ -234,7 +234,7 @@ public class GoodShortAdapter implements AccountFilingProviderAdapter, DramaCata
         FilingStatus status = switch (data.getStatus() == null ? -1 : data.getStatus()) {
             case 0 -> FilingStatus.PENDING;
             case 1 -> FilingStatus.APPROVED;
-            case 2 -> FilingStatus.FAILED;
+            case 2 -> FilingStatus.REJECTED;
             default -> throw new ProviderRemoteRejectedException("GoodShort 返回未知报备状态");
         };
         return new AccountFilingResult(status, String.valueOf(data.getStatus()),

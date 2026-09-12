@@ -73,6 +73,7 @@ const provider = {
     credentialConfigured: true,
     createdAt: '2026-08-18T10:00:00',
     updatedAt: '2026-08-18T10:00:00',
+    apiFilingMediaTypes: ['TIKTOK', 'YOUTUBE'],
   },
 }
 
@@ -155,6 +156,47 @@ describe('ProviderManagementPage', () => {
     )
   })
 
+  it('shows four filing media choices and saves an explicitly empty API set', async () => {
+    const user = userEvent.setup()
+    let requestBody: any
+    server.use(
+      http.get('/api/admin/drama/providers', () =>
+        HttpResponse.json({ code: 0, message: 'ok', data: [provider] }),
+      ),
+      http.put(
+        '/api/admin/drama/providers/1/connection',
+        async ({ request }) => {
+          requestBody = await request.json()
+          return HttpResponse.json({
+            code: 0,
+            message: 'ok',
+            data: { ...provider.connection, apiFilingMediaTypes: [] },
+          })
+        },
+      ),
+    )
+
+    render(
+      <AntdApp>
+        <ProviderManagementPage />
+      </AntdApp>,
+    )
+
+    expect(
+      await screen.findByRole('checkbox', { name: 'TikTok' }),
+    ).toBeChecked()
+    expect(screen.getByRole('checkbox', { name: 'YouTube' })).toBeChecked()
+    expect(screen.getByRole('checkbox', { name: 'Facebook' })).not.toBeChecked()
+    expect(
+      screen.getByRole('checkbox', { name: 'Instagram' }),
+    ).not.toBeChecked()
+    await user.click(screen.getByRole('checkbox', { name: 'TikTok' }))
+    await user.click(screen.getByRole('checkbox', { name: 'YouTube' }))
+    await user.click(screen.getByRole('button', { name: '提交' }))
+
+    await waitFor(() => expect(requestBody.apiFilingMediaTypes).toEqual([]))
+  })
+
   it('allows an empty configuration only while the connection is disabled', async () => {
     const user = userEvent.setup()
     let requestBody: unknown
@@ -167,6 +209,7 @@ describe('ProviderManagementPage', () => {
         partnerId: null,
         status: 0,
         credentialConfigured: false,
+        apiFilingMediaTypes: [],
       },
     }
     server.use(
@@ -198,7 +241,9 @@ describe('ProviderManagementPage', () => {
     await screen.findByText('GoodShort API 接入')
     await user.click(screen.getByRole('button', { name: '提交' }))
 
-    await waitFor(() => expect(requestBody).toEqual({ status: 0 }))
+    await waitFor(() =>
+      expect(requestBody).toEqual({ status: 0, apiFilingMediaTypes: [] }),
+    )
     expect(screen.queryByText('请输入域名白名单')).not.toBeInTheDocument()
     expect(screen.queryByText('请输入接口 URL')).not.toBeInTheDocument()
     expect(screen.queryByText('请输入 PID')).not.toBeInTheDocument()

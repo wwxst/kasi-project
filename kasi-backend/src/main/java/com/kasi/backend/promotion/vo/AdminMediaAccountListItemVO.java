@@ -1,5 +1,6 @@
 package com.kasi.backend.promotion.vo;
 
+import com.kasi.backend.promotion.enums.FilingMethod;
 import com.kasi.backend.promotion.enums.FilingStatus;
 import com.kasi.backend.promotion.enums.MediaType;
 import lombok.Builder;
@@ -19,6 +20,7 @@ public class AdminMediaAccountListItemVO {
     private String accountName;
     private Long providerId;
     private Integer status;
+    private FilingMethod filingMethod;
     private FilingStatus filingStatus;
     private String filingRemoteStatus;
     private LocalDateTime filingLastSubmittedAt;

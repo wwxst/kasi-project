@@ -1,0 +1,55 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.kasi.backend.promotion.mapper.MediaAccountFilingExportMapper">
+    <resultMap id="ExportRowMap" type="com.kasi.backend.promotion.vo.MediaAccountFilingExportRow">
+        <result column="created_at" property="createdAt"/>
+        <result column="nickname" property="nickname"/>
+        <result column="real_name" property="realName"/>
+        <result column="mobile" property="mobile"/>
+        <result column="wechat_id" property="wechatId"/>
+        <result column="media_type" property="mediaType"/>
+        <result column="external_account_id" property="externalAccountId"/>
+        <result column="account_name" property="accountName"/>
+        <result column="account_link" property="accountLink"/>
+        <result column="filing_status" property="filingStatus"/>
+        <result column="provider_name" property="providerName"/>
+    </resultMap>
+
+    <select id="findForExport" resultMap="ExportRowMap">
+        SELECT a.created_at, u.nickname, u.real_name, u.mobile, u.wechat_id,
+               a.media_type, a.external_account_id, a.account_name, a.account_link,
+               COALESCE(f.status, 'NOT_SUBMITTED') AS filing_status, p.provider_name
+        FROM promotion_media_account a
+        JOIN promotion_user u ON u.id = a.user_id
+        LEFT JOIN provider_media_filing f ON f.media_account_id = a.id
+        LEFT JOIN short_drama_connection c ON c.id = f.connection_id
+        LEFT JOIN short_drama_provider p ON p.id = c.provider_id
+        WHERE 1 = 1
+        <if test="query.userNo != null and query.userNo != ''">
+            AND u.user_no = #{query.userNo}
+        </if>
+        <if test="query.mediaType != null">
+            AND a.media_type = #{query.mediaType}
+        </if>
+        <if test="query.accountStatus != null">
+            AND a.status = #{query.accountStatus}
+        </if>
+        <if test="query.providerId != null">
+            AND c.provider_id = #{query.providerId}
+        </if>
+        <if test="query.filingMethod != null">
+            AND f.filing_method = #{query.filingMethod}
+        </if>
+        <if test="query.filingStatus != null and query.filingStatus != ''">
+            <choose>
+                <when test="query.filingStatus == 'NOT_SUBMITTED'">
+                    AND (f.status = 'NOT_SUBMITTED' OR f.id IS NULL)
+                </when>
+                <otherwise>
+                    AND f.status = #{query.filingStatus}
+                </otherwise>
+            </choose>
+        </if>
+        ORDER BY a.id DESC, f.id ASC
+    </select>
+</mapper>

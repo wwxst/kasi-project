@@ -10,6 +10,8 @@ export type ProviderCapability =
   | 'ORDER_SYNC'
   | 'ANALYTICS_SYNC'
 
+export type FilingMediaType = 'FACEBOOK' | 'TIKTOK' | 'YOUTUBE' | 'INSTAGRAM'
+
 export interface ProviderConnection {
   id: number
   connectionName: string
@@ -19,6 +21,7 @@ export interface ProviderConnection {
   currency: string
   status: number
   credentialConfigured: boolean
+  apiFilingMediaTypes: FilingMediaType[]
   createdAt: string
   updatedAt: string
 }
@@ -38,6 +41,7 @@ export interface UpsertProviderConnectionRequest {
   partnerId?: string
   apiKey?: string
   status: number
+  apiFilingMediaTypes: FilingMediaType[]
 }
 
 export interface ProviderConnectionTestResult {

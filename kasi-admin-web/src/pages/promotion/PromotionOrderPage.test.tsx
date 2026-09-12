@@ -50,6 +50,7 @@ afterAll(() => server.close())
 describe('PromotionOrderPage', () => {
   it('lists orders and manually synchronizes a selected provider window', async () => {
     let syncBody: unknown
+    let exportUrl: URL | undefined
     const orderRequestUrls: string[] = []
     server.use(
       http.get('/api/admin/drama/providers', () =>
@@ -123,6 +124,10 @@ describe('PromotionOrderPage', () => {
           },
         })
       }),
+      http.get('/api/admin/promotion/orders/export.xlsx', ({ request }) => {
+        exportUrl = new URL(request.url)
+        return new HttpResponse(new Blob(['xlsx']))
+      }),
     )
 
     const user = userEvent.setup()
@@ -158,6 +163,24 @@ describe('PromotionOrderPage', () => {
     const filterUrl = new URL(orderRequestUrls[1])
     expect(filterUrl.searchParams.get('startDate')).toBe('2025-07-01T00:00:00')
     expect(filterUrl.searchParams.get('endDate')).toBe('2025-07-01T23:59:59')
+
+    Object.defineProperty(URL, 'createObjectURL', {
+      configurable: true,
+      value: vi.fn(() => 'blob:promotion-orders'),
+    })
+    Object.defineProperty(URL, 'revokeObjectURL', {
+      configurable: true,
+      value: vi.fn(),
+    })
+    const anchorClick = vi
+      .spyOn(HTMLAnchorElement.prototype, 'click')
+      .mockImplementation(() => undefined)
+    await user.click(screen.getByRole('button', { name: '导出 Excel' }))
+    await waitFor(() => expect(exportUrl).toBeDefined())
+    expect(exportUrl?.searchParams.get('startDate')).toBe('2025-07-01T00:00:00')
+    expect(exportUrl?.searchParams.get('endDate')).toBe('2025-07-01T23:59:59')
+    const download = anchorClick.mock.instances.at(-1) as HTMLAnchorElement
+    expect(download.download).toBe('promotion-orders.xlsx')
 
     await user.click(screen.getByRole('button', { name: '手动同步' }))
     const dialog = (await screen.findByText('手动同步订单')).closest(

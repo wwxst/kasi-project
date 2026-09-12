@@ -21,4 +21,5 @@ public class ShortDramaConnection {
     private Long updatedBy;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
+    private String apiFilingMediaTypes;
 }

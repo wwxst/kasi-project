@@ -1,10 +1,12 @@
 export type MediaType = 'TIKTOK' | 'FACEBOOK' | 'YOUTUBE' | 'INSTAGRAM'
 
-export type FilingStatus = 'PENDING' | 'APPROVED' | 'FAILED'
+export type FilingStatus = 'NOT_SUBMITTED' | 'PENDING' | 'APPROVED' | 'REJECTED'
+export type FilingMethod = 'API' | 'MANUAL'
 
 export interface MediaFiling {
   providerId: number | null
   providerName: string | null
+  filingMethod: FilingMethod
   status: FilingStatus
   remoteStatus: string | null
   externalFilingId: string | null
@@ -14,8 +16,6 @@ export interface MediaFiling {
   lastSubmittedAt: string | null
   lastQueriedAt: string | null
   nextActionAt: string | null
-  lastErrorCode: string | null
-  lastErrorMessage: string | null
 }
 
 export interface MediaAccount {

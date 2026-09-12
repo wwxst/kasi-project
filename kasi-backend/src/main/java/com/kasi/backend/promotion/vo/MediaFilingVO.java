@@ -1,5 +1,6 @@
 package com.kasi.backend.promotion.vo;
 
+import com.kasi.backend.promotion.enums.FilingMethod;
 import com.kasi.backend.promotion.enums.FilingStatus;
 import lombok.Builder;
 import lombok.Data;
@@ -11,6 +12,7 @@ import java.time.LocalDateTime;
 public class MediaFilingVO {
     private Long providerId;
     private String providerName;
+    private FilingMethod filingMethod;
     private FilingStatus status;
     private String remoteStatus;
     private String externalFilingId;

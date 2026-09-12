@@ -295,6 +295,7 @@ export function DramaCatalogPage() {
       width: 210,
       render: (_, record) => {
         const publishing = record.localStatus !== 'PUBLISHED'
+        const publishingDisabled = publishing && record.remoteShowStatus !== '1'
         return (
           <Space size={4}>
             <Button
@@ -343,6 +344,7 @@ export function DramaCatalogPage() {
                 size="small"
                 danger={!publishing}
                 loading={statusUpdatingId === record.id}
+                disabled={publishingDisabled}
                 data-testid={`drama-status-${record.id}`}
               >
                 {publishing ? '上架' : '下架'}
@@ -607,7 +609,9 @@ function DramaDetail({
           <Descriptions.Item label="远端状态">
             <Space size={6}>
               <RemoteStatusTag status={detail.remoteShowStatus} />
-              {detail.remoteShowStatus ? (
+              {detail.remoteShowStatus === 'MISSING' ? (
+                <span>本地判断：最近一次完整目录未返回</span>
+              ) : detail.remoteShowStatus ? (
                 <span>原始值：{detail.remoteShowStatus}</span>
               ) : null}
             </Space>
@@ -753,11 +757,9 @@ function LocalStatusTag({ status }: { status: DramaLocalStatus }) {
 
 function RemoteStatusTag({ status }: { status: string | null }) {
   if (!status) return <Tag>未知</Tag>
-  return status === '1' ? (
-    <Tag color="success">在线</Tag>
-  ) : (
-    <Tag color="warning">已下架</Tag>
-  )
+  if (status === '1') return <Tag color="success">在线</Tag>
+  if (status === 'MISSING') return <Tag>全量未返回</Tag>
+  return <Tag color="warning">已下架</Tag>
 }
 
 function hasCatalogConnection(provider: DramaProvider) {

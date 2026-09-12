@@ -3,6 +3,8 @@ package com.kasi.backend.provider.service;
 import com.kasi.backend.common.crypto.CredentialCipher;
 import com.kasi.backend.common.exception.BusinessException;
 import com.kasi.backend.provider.dto.UpsertProviderConnectionDTO;
+import com.kasi.backend.promotion.enums.MediaType;
+import com.kasi.backend.promotion.service.MediaFilingMethodService;
 import com.kasi.backend.provider.entity.ShortDramaConnection;
 import com.kasi.backend.provider.entity.ShortDramaProvider;
 import com.kasi.backend.provider.enums.ProviderCapability;
@@ -26,10 +28,14 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import java.time.LocalDateTime;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Set;
+
+import tools.jackson.databind.json.JsonMapper;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -42,12 +48,14 @@ class ProviderConnectionServiceTest {
     @Mock private ShortDramaConnectionMapper connectionMapper;
     @Mock private CredentialCipher credentialCipher;
     @Mock private ProviderAdapter adapter;
+    @Mock private MediaFilingMethodService filingMethodService;
     private ProviderConnectionServiceImpl service;
 
     @BeforeEach
     void setUp() {
         service = new ProviderConnectionServiceImpl(
-                providerMapper, connectionMapper, credentialCipher, List.of(adapter));
+                providerMapper, connectionMapper, credentialCipher, List.of(adapter),
+                filingMethodService, JsonMapper.builder().build());
     }
 
     @Test
@@ -71,7 +79,7 @@ class ProviderConnectionServiceTest {
     @DisplayName("首次配置接入账号必须提供平台密钥")
     void createRequiresApiKey() {
         when(providerMapper.findById(1L)).thenReturn(provider());
-        when(connectionMapper.findByProviderId(1L)).thenReturn(null);
+        when(connectionMapper.lockByProviderId(1L)).thenReturn(null);
 
         assertThatThrownBy(() -> service.upsert(9L, 1L, request("  ", 1)))
                 .isInstanceOfSatisfying(BusinessException.class,
@@ -85,7 +93,7 @@ class ProviderConnectionServiceTest {
         ShortDramaConnection existing = connection(null);
         existing.setStatus(0);
         when(providerMapper.findById(1L)).thenReturn(provider());
-        when(connectionMapper.findByProviderId(1L)).thenReturn(existing);
+        when(connectionMapper.lockByProviderId(1L)).thenReturn(existing);
 
         assertThatThrownBy(() -> service.upsert(9L, 1L, request("  ", 1)))
                 .isInstanceOfSatisfying(BusinessException.class,
@@ -106,10 +114,48 @@ class ProviderConnectionServiceTest {
     }
 
     @Test
+    @DisplayName("首次配置必须显式提交API报白媒体集合")
+    void createRequiresExplicitApiFilingMediaTypes() {
+        when(providerMapper.findById(1L)).thenReturn(provider());
+        when(connectionMapper.lockByProviderId(1L)).thenReturn(null);
+        UpsertProviderConnectionDTO request = request("secret", 0);
+        request.setApiFilingMediaTypes(null);
+
+        assertThatThrownBy(() -> service.upsert(9L, 1L, request))
+                .isInstanceOfSatisfying(BusinessException.class,
+                        exception -> assertThat(exception.getCode()).isEqualTo(1006));
+        verify(connectionMapper, never()).insert(any());
+    }
+
+    @Test
+    @DisplayName("更新缺省媒体集合保留原配置且重复媒体被拒绝")
+    void updateRetainsOmittedMediaTypesAndRejectsDuplicates() {
+        ShortDramaConnection existing = connection("v1:old-ciphertext");
+        existing.setApiFilingMediaTypes("[\"FACEBOOK\"]");
+        when(providerMapper.findById(1L)).thenReturn(provider());
+        when(connectionMapper.lockByProviderId(1L)).thenReturn(existing);
+        when(connectionMapper.update(any())).thenReturn(1);
+        when(connectionMapper.findByProviderId(1L)).thenReturn(existing);
+        UpsertProviderConnectionDTO request = request("  ", 1);
+        request.setApiFilingMediaTypes(null);
+
+        service.upsert(9L, 1L, request);
+
+        verify(connectionMapper).update(argThat(value -> "[\"FACEBOOK\"]".equals(value.getApiFilingMediaTypes())));
+        verify(filingMethodService).switchMethods(2L, Set.of(), Set.of());
+
+        request.setApiFilingMediaTypes(List.of(MediaType.TIKTOK, MediaType.TIKTOK));
+        assertThatThrownBy(() -> service.upsert(9L, 1L, request))
+                .isInstanceOfSatisfying(BusinessException.class,
+                        exception -> assertThat(exception.getCode()).isEqualTo(1006));
+    }
+
+    @Test
     @DisplayName("首次配置会规范化资料并只向Mapper传递密文")
     void createNormalizesAndEncryptsCredential() {
         when(providerMapper.findById(1L)).thenReturn(provider());
-        when(connectionMapper.findByProviderId(1L)).thenReturn(null, connection("v1:encrypted"));
+        when(connectionMapper.lockByProviderId(1L)).thenReturn(null);
+        when(connectionMapper.findByProviderId(1L)).thenReturn(connection("v1:encrypted"));
         when(credentialCipher.encrypt("secret-key")).thenReturn("v1:encrypted");
         when(connectionMapper.insert(any())).thenReturn(1);
 
@@ -130,16 +176,18 @@ class ProviderConnectionServiceTest {
         assertThat(inserted.getCreatedBy()).isEqualTo(9L);
         assertThat(inserted.getUpdatedBy()).isEqualTo(9L);
         assertThat(inserted.getApiKeyCiphertext()).isEqualTo("v1:encrypted");
+        assertThat(inserted.getApiFilingMediaTypes()).isEqualTo("[\"TIKTOK\",\"FACEBOOK\"]");
         assertThat(inserted.toString()).doesNotContain("secret-key");
         assertThat(result.isCredentialConfigured()).isTrue();
+        assertThat(result.getApiFilingMediaTypes()).containsExactly(MediaType.FACEBOOK);
     }
 
     @Test
     @DisplayName("更新未提供密钥时不覆盖原密文")
     void updateRetainsOmittedCredential() {
         when(providerMapper.findById(1L)).thenReturn(provider());
-        when(connectionMapper.findByProviderId(1L))
-                .thenReturn(connection("v1:old-ciphertext"), connection("v1:old-ciphertext"));
+        when(connectionMapper.lockByProviderId(1L)).thenReturn(connection("v1:old-ciphertext"));
+        when(connectionMapper.findByProviderId(1L)).thenReturn(connection("v1:old-ciphertext"));
         when(connectionMapper.update(any())).thenReturn(1);
 
         service.upsert(9L, 1L, request("  ", 1));
@@ -154,8 +202,8 @@ class ProviderConnectionServiceTest {
     @DisplayName("更新提供新密钥时使用新密文替换")
     void updateReplacesSuppliedCredential() {
         when(providerMapper.findById(1L)).thenReturn(provider());
-        when(connectionMapper.findByProviderId(1L))
-                .thenReturn(connection("v1:old-ciphertext"), connection("v1:new-ciphertext"));
+        when(connectionMapper.lockByProviderId(1L)).thenReturn(connection("v1:old-ciphertext"));
+        when(connectionMapper.findByProviderId(1L)).thenReturn(connection("v1:new-ciphertext"));
         when(credentialCipher.encrypt("new-secret")).thenReturn("v1:new-ciphertext");
         when(connectionMapper.update(any())).thenReturn(1);
 
@@ -305,6 +353,7 @@ class ProviderConnectionServiceTest {
         connection.setApiKeyCiphertext(ciphertext);
         connection.setCurrency("USD");
         connection.setStatus(1);
+        connection.setApiFilingMediaTypes("[\"FACEBOOK\"]");
         connection.setCreatedAt(LocalDateTime.of(2026, 8, 17, 10, 0));
         connection.setUpdatedAt(LocalDateTime.of(2026, 8, 17, 11, 0));
         return connection;
@@ -323,6 +372,7 @@ class ProviderConnectionServiceTest {
         request.setApiKey(apiKey);
         request.setCurrency(" usd ");
         request.setStatus(status);
+        request.setApiFilingMediaTypes(List.of(MediaType.TIKTOK, MediaType.FACEBOOK));
         return request;
     }
 }

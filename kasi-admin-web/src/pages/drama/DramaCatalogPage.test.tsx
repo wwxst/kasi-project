@@ -212,6 +212,27 @@ const draftDrama = {
   localStatus: 'DRAFT',
 }
 
+const missingDrama = {
+  ...publishedDrama,
+  id: 10,
+  externalDramaId: 'book-1003',
+  title: 'Removed From Catalog',
+  originalTitle: null,
+  titleZh: null,
+  remoteShowStatus: 'MISSING',
+  localStatus: 'OFFLINE',
+}
+
+const onlineOfflineDrama = {
+  ...publishedDrama,
+  id: 11,
+  externalDramaId: 'book-1004',
+  title: 'Returned To Catalog',
+  originalTitle: null,
+  titleZh: null,
+  localStatus: 'OFFLINE',
+}
+
 function contentTask(
   dramaId: number,
   status: 'REQUESTED' | 'RUNNING' | 'SUCCESS' | 'FAILED',
@@ -256,10 +277,10 @@ function useCatalogHandlers() {
         code: 0,
         message: 'ok',
         data: {
-          list: [publishedDrama, draftDrama],
+          list: [publishedDrama, draftDrama, missingDrama, onlineOfflineDrama],
           page: 1,
           size: 20,
-          total: 2,
+          total: 4,
         },
       })
     }),
@@ -306,6 +327,9 @@ describe('DramaCatalogPage', () => {
     ).toBeInTheDocument()
     expect(
       within(await screen.findByTestId('mock-row-9')).getByText('已下架'),
+    ).toBeInTheDocument()
+    expect(
+      within(await screen.findByTestId('mock-row-10')).getByText('全量未返回'),
     ).toBeInTheDocument()
   })
 
@@ -406,6 +430,56 @@ describe('DramaCatalogPage', () => {
     expect(within(drawer).getByText('2026-08-19 09:15')).toBeInTheDocument()
   })
 
+  it('explains a locally detected missing remote drama in detail', async () => {
+    useCatalogHandlers()
+    server.use(
+      http.get('/api/admin/drama/catalog/10', () =>
+        HttpResponse.json({
+          code: 0,
+          message: 'ok',
+          data: {
+            ...missingDrama,
+            description: null,
+            createdAt: '2026-08-20T10:35:00',
+            contents: [],
+          },
+        }),
+      ),
+      http.get('/api/admin/drama/catalog/10/contents/sync/status', () =>
+        HttpResponse.json({
+          code: 6017,
+          message: '短剧剧集同步任务不存在',
+          data: null,
+        }),
+      ),
+    )
+    const user = userEvent.setup()
+    renderPage()
+    await screen.findByTestId('mock-row-10')
+
+    await user.click(screen.getByTestId('drama-detail-10'))
+
+    const drawer = await screen.findByTestId('drama-detail-drawer')
+    expect(
+      within(drawer).getByText('本地判断：最近一次完整目录未返回'),
+    ).toBeInTheDocument()
+    expect(
+      within(drawer).queryByText('原始值：MISSING'),
+    ).not.toBeInTheDocument()
+  })
+
+  it('only enables publishing for remote online dramas while keeping offline available', async () => {
+    useCatalogHandlers()
+
+    renderPage()
+
+    expect(await screen.findByTestId('drama-status-10')).toBeDisabled()
+    expect(screen.getByTestId('drama-status-9')).toBeDisabled()
+    expect(screen.getByTestId('drama-status-11')).toBeEnabled()
+    expect(screen.getByTestId('drama-status-8')).toBeEnabled()
+    expect(screen.getByTestId('drama-status-8')).toHaveTextContent('下架')
+  })
+
   it('confirms publish and offline status changes then reloads the table', async () => {
     const requests = useCatalogHandlers()
     const statusBodies: Record<number, unknown> = {}
@@ -415,7 +489,7 @@ describe('DramaCatalogPage', () => {
         async ({ params, request }) => {
           const id = Number(params.id)
           statusBodies[id] = await request.json()
-          const source = id === 8 ? publishedDrama : draftDrama
+          const source = id === 8 ? publishedDrama : onlineOfflineDrama
           return HttpResponse.json({
             code: 0,
             message: 'ok',
@@ -441,10 +515,10 @@ describe('DramaCatalogPage', () => {
       expect(statusBodies[8]).toEqual({ localStatus: 'OFFLINE' }),
     )
 
-    await user.click(screen.getByTestId('drama-status-9'))
-    await user.click(await screen.findByTestId('drama-status-confirm-9'))
+    await user.click(screen.getByTestId('drama-status-11'))
+    await user.click(await screen.findByTestId('drama-status-confirm-11'))
     await waitFor(() =>
-      expect(statusBodies[9]).toEqual({ localStatus: 'PUBLISHED' }),
+      expect(statusBodies[11]).toEqual({ localStatus: 'PUBLISHED' }),
     )
     await waitFor(() =>
       expect(requests.getListRequestCount()).toBeGreaterThan(2),

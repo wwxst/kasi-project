@@ -175,6 +175,51 @@ public class DramaCatalogSyncServiceImpl implements DramaCatalogSyncService {
 
     @Override
     @Transactional
+    public List<DramaSyncTaskVO> requestScheduledFull(Long providerId, List<String> languages) {
+        ProviderRuntimeConnection runtime;
+        try {
+            runtime = runtimeService.resolve(providerId, ProviderCapability.FULL_DRAMA_SYNC);
+        } catch (BusinessException exception) {
+            return List.of();
+        }
+        if (!(runtime.adapter() instanceof DramaCatalogProviderAdapter)) {
+            return List.of();
+        }
+        connectionMapper.lockById(runtime.connectionId());
+        List<DramaSyncTaskVO> tasks = new ArrayList<>();
+        List<Long> checkpointIds = new ArrayList<>();
+        LocalDateTime now = LocalDateTime.now(clock);
+        for (String language : normalizeLanguages(languages)) {
+            if (!checkpointMapper.findActive(runtime.connectionId(), language).isEmpty()) {
+                continue;
+            }
+            ProviderSyncCheckpoint checkpoint = ensureCheckpoint(
+                    runtime.connectionId(), DramaSyncType.FULL, language);
+            if (checkpointMapper.requestRun(checkpoint.getId(), now, true) != 1) {
+                continue;
+            }
+            ProviderSyncCheckpoint requested = checkpointMapper.findById(checkpoint.getId());
+            if (requested == null) {
+                throw new IllegalStateException("Requested catalog checkpoint cannot be reloaded");
+            }
+            tasks.add(DramaSyncTaskVO.from(requested));
+            checkpointIds.add(requested.getId());
+        }
+        if (tasks.isEmpty()) {
+            return tasks;
+        }
+        DramaSyncDisplayRun run = displayRunService.createRun(providerId, null, DramaSyncDomain.CATALOG,
+                DramaSyncTaskType.FULL, SyncTriggerSource.SCHEDULED, now);
+        displayRunService.createRun(providerId, run.getId(), DramaSyncDomain.CONTENT,
+                DramaSyncTaskType.CATALOG_AUTO, SyncTriggerSource.SCHEDULED, now);
+        for (Long checkpointId : checkpointIds) {
+            displayRunService.attachTask(run.getId(), DramaSyncDomain.CATALOG, checkpointId);
+        }
+        return tasks;
+    }
+
+    @Override
+    @Transactional
     public List<DramaSyncTaskVO> requestScheduledIncremental(Long providerId, List<String> languages) {
         ProviderRuntimeConnection runtime;
         try {
@@ -344,10 +389,22 @@ public class DramaCatalogSyncServiceImpl implements DramaCatalogSyncService {
             updateTime = nextUpdateTime;
             hasNext = page.hasNext();
         } while (hasNext);
-        if (checkpointMapper.markSuccess(checkpoint.getId(), workerId,
-                LocalDateTime.now(clock), pageNo, updateTime) != 1) {
-            throw new LeaseLostException();
-        }
+        LocalDateTime finishedAt = LocalDateTime.now(clock);
+        int finishedPageNo = pageNo;
+        Long finishedUpdateTime = updateTime;
+        transactionTemplate.executeWithoutResult(status -> {
+            if (checkpointMapper.markSuccess(checkpoint.getId(), workerId,
+                    finishedAt, finishedPageNo, finishedUpdateTime) != 1) {
+                throw new LeaseLostException();
+            }
+            if (effectiveType == DramaSyncType.FULL) {
+                if (checkpoint.getRequestedAt() == null) {
+                    throw new IllegalStateException("Full catalog snapshot start time is missing");
+                }
+                dramaMapper.markMissingAfterFullSync(runtime.connectionId(),
+                        checkpoint.getLanguage(), checkpoint.getRequestedAt());
+            }
+        });
     }
 
     private PageStats persistPage(Long connectionId, List<ProviderDramaRecord> records, String contentRunId) {

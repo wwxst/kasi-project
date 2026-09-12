@@ -8,6 +8,7 @@ import type {
   MediaAccountPageQuery,
   MediaAccountPageResult,
   MediaFiling,
+  FilingStatus,
 } from './mediaAccountTypes'
 
 const basePath = '/api/admin/promotion/media-accounts'
@@ -19,6 +20,16 @@ export async function listAdminMediaAccounts(
     ApiResponse<MediaAccountPageResult<AdminMediaAccountListItem>>
   >(basePath, { params: query })
   return unwrapApiResponse(response.data)
+}
+
+export async function exportAdminMediaAccounts(
+  query: MediaAccountPageQuery,
+): Promise<Blob> {
+  const response = await httpClient.get<Blob>(`${basePath}/export.xlsx`, {
+    params: query,
+    responseType: 'blob',
+  })
+  return response.data
 }
 
 export async function getAdminMediaAccount(
@@ -36,6 +47,30 @@ export async function retryMediaFiling(
 ): Promise<MediaFiling> {
   const response = await httpClient.post<ApiResponse<MediaFiling>>(
     `${basePath}/${id}/filings/${providerId}/retry`,
+  )
+  return unwrapApiResponse(response.data)
+}
+
+export async function updateManualMediaFilingStatus(
+  id: number,
+  providerId: number,
+  status: Extract<FilingStatus, 'APPROVED' | 'REJECTED'>,
+): Promise<MediaFiling> {
+  const response = await httpClient.patch<ApiResponse<MediaFiling>>(
+    `${basePath}/${id}/filings/${providerId}/status`,
+    { status },
+  )
+  return unwrapApiResponse(response.data)
+}
+
+export async function resolveMediaFilingSubmission(
+  id: number,
+  providerId: number,
+  resolution: 'RECEIVED' | 'NOT_RECEIVED',
+): Promise<MediaFiling> {
+  const response = await httpClient.post<ApiResponse<MediaFiling>>(
+    `${basePath}/${id}/filings/${providerId}/submission-resolution`,
+    { resolution },
   )
   return unwrapApiResponse(response.data)
 }

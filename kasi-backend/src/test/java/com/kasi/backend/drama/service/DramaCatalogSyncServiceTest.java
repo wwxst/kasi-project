@@ -191,6 +191,49 @@ class DramaCatalogSyncServiceTest {
     }
 
     @Test
+    @DisplayName("定时全量从第一页创建新的完整快照和展示记录")
+    void scheduledFullStartsFreshSnapshot() {
+        when(runtimeService.resolve(7L, ProviderCapability.FULL_DRAMA_SYNC)).thenReturn(runtime());
+        when(connectionMapper.lockById(3L))
+                .thenReturn(mock(com.kasi.backend.provider.entity.ShortDramaConnection.class));
+        ProviderSyncCheckpoint failed = checkpoint(11L, DramaSyncType.FULL);
+        failed.setStatus(DramaSyncStatus.FAILED);
+        failed.setPageNo(3);
+        when(checkpointMapper.find(3L, DramaSyncType.FULL, "ENGLISH")).thenReturn(failed);
+        when(checkpointMapper.findById(11L)).thenReturn(failed);
+
+        var tasks = service.requestScheduledFull(7L, List.of("ENGLISH"));
+
+        assertThat(tasks).singleElement()
+                .extracting(task -> task.syncType()).isEqualTo(DramaSyncType.FULL);
+        verify(checkpointMapper).requestRun(
+                11L, LocalDateTime.of(2026, 8, 20, 8, 0), true);
+        verify(displayRunService).createRun(7L, null, DramaSyncDomain.CATALOG,
+                DramaSyncTaskType.FULL, SyncTriggerSource.SCHEDULED,
+                LocalDateTime.of(2026, 8, 20, 8, 0));
+    }
+
+    @Test
+    @DisplayName("定时全量只跳过存在活动任务的语言")
+    void scheduledFullSkipsOnlyActiveLanguage() {
+        when(runtimeService.resolve(7L, ProviderCapability.FULL_DRAMA_SYNC)).thenReturn(runtime());
+        when(connectionMapper.lockById(3L))
+                .thenReturn(mock(com.kasi.backend.provider.entity.ShortDramaConnection.class));
+        when(checkpointMapper.findActive(3L, "ENGLISH"))
+                .thenReturn(List.of(checkpoint(12L, DramaSyncType.INCREMENTAL)));
+        ProviderSyncCheckpoint spanish = checkpoint(13L, DramaSyncType.FULL);
+        spanish.setLanguage("SPANISH");
+        when(checkpointMapper.find(3L, DramaSyncType.FULL, "SPANISH")).thenReturn(spanish);
+        when(checkpointMapper.findById(13L)).thenReturn(spanish);
+
+        var tasks = service.requestScheduledFull(7L, List.of("ENGLISH", "SPANISH"));
+
+        assertThat(tasks).singleElement().extracting(task -> task.language()).isEqualTo("SPANISH");
+        verify(checkpointMapper, never()).requestRun(eq(12L), any(), anyBoolean());
+        verify(checkpointMapper).requestRun(eq(13L), any(), eq(true));
+    }
+
+    @Test
     @DisplayName("定时增量在没有成功全量基线时不创建任务")
     void scheduledIncrementalWithoutBaselineIsSkipped() {
         when(runtimeService.resolve(7L, ProviderCapability.INCREMENTAL_DRAMA_SYNC)).thenReturn(runtime());
@@ -283,6 +326,35 @@ class DramaCatalogSyncServiceTest {
         order.verify(checkpointMapper).updateProgress(11L, "worker-test", 2, null, 1, 1, 1, 0, 0, 0);
         order.verify(checkpointMapper).markSuccess(11L, "worker-test",
                 LocalDateTime.of(2026, 8, 20, 8, 0), 2, null);
+        order.verify(dramaMapper).markMissingAfterFullSync(
+                3L, "ENGLISH", LocalDateTime.of(2026, 8, 20, 7, 0));
+    }
+
+    @Test
+    @DisplayName("增量同步成功不执行全量缺失对账")
+    void incrementalSuccessDoesNotMarkMissingDramas() {
+        ProviderSyncCheckpoint checkpoint = checkpoint(12L, DramaSyncType.INCREMENTAL);
+        ProviderSyncCheckpoint full = checkpoint(11L, DramaSyncType.FULL);
+        full.setStatus(DramaSyncStatus.SUCCESS);
+        full.setLastSuccessAt(LocalDateTime.of(2026, 8, 19, 8, 0));
+        when(checkpointMapper.findDue(any(), eq(10))).thenReturn(List.of(checkpoint));
+        when(checkpointMapper.claimLease(eq(12L), eq("worker-test"), any(), any())).thenReturn(1);
+        when(checkpointMapper.findById(12L)).thenReturn(checkpoint);
+        when(checkpointMapper.find(3L, DramaSyncType.FULL, "ENGLISH")).thenReturn(full);
+        var connection = new com.kasi.backend.provider.entity.ShortDramaConnection();
+        connection.setProviderId(7L);
+        when(connectionMapper.findById(3L)).thenReturn(connection);
+        when(runtimeService.resolve(7L, ProviderCapability.INCREMENTAL_DRAMA_SYNC)).thenReturn(runtime());
+        when(adapter.fetchIncrementalDramas(any(), any())).thenReturn(
+                new DramaCatalogPage(List.of(), 1, 50, 0, false, 1700000000123L));
+        when(checkpointMapper.updateProgress(anyLong(), anyString(), anyInt(), any(), anyInt(), anyInt(),
+                anyInt(), anyInt(), anyInt(), anyInt())).thenReturn(1);
+        when(checkpointMapper.markSuccess(anyLong(), anyString(), any(), anyInt(), any())).thenReturn(1);
+
+        service.processDueBatch();
+
+        verify(checkpointMapper).markSuccess(eq(12L), eq("worker-test"), any(), anyInt(), any());
+        verify(dramaMapper, never()).markMissingAfterFullSync(anyLong(), any(), any());
     }
 
     @Test
@@ -379,6 +451,7 @@ class DramaCatalogSyncServiceTest {
         verify(checkpointMapper).markFailure(eq(11L), eq("worker-test"), any(), eq("TASK_ERROR"),
                 eq("page two failed"));
         verify(checkpointMapper, never()).markSuccess(anyLong(), anyString(), any(), anyInt(), any());
+        verify(dramaMapper, never()).markMissingAfterFullSync(anyLong(), any(), any());
     }
 
     @Test
@@ -405,6 +478,7 @@ class DramaCatalogSyncServiceTest {
         verify(dramaMapper).upsert(any(ProviderDrama.class));
         verify(checkpointMapper, never()).markSuccess(anyLong(), anyString(), any(), anyInt(), any());
         verify(checkpointMapper, never()).markFailure(anyLong(), anyString(), any(), anyString(), anyString());
+        verify(dramaMapper, never()).markMissingAfterFullSync(anyLong(), any(), any());
     }
 
     @Test
@@ -518,6 +592,7 @@ class DramaCatalogSyncServiceTest {
         checkpoint.setId(id); checkpoint.setConnectionId(3L); checkpoint.setSyncType(type);
         checkpoint.setLanguage("ENGLISH"); checkpoint.setStatus(DramaSyncStatus.REQUESTED);
         checkpoint.setPageNo(1); checkpoint.setPageSize(100);
+        checkpoint.setRequestedAt(LocalDateTime.of(2026, 8, 20, 7, 0));
         return checkpoint;
     }
 

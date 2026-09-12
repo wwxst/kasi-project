@@ -1,13 +1,8 @@
 export type MediaType = 'FACEBOOK' | 'TIKTOK' | 'YOUTUBE' | 'INSTAGRAM'
 
-export type FilingStatus = 'PENDING' | 'APPROVED' | 'FAILED'
-export type FilingDisplayStatus =
-  | 'NOT_SUBMITTED'
-  | 'SUBMIT_FAILED'
-  | 'PENDING'
-  | 'APPROVED'
-  | 'FAILED'
-  | 'QUERY_FAILED'
+export type FilingStatus =
+  'NOT_SUBMITTED' | 'SUBMIT_FAILED' | 'PENDING' | 'APPROVED' | 'REJECTED'
+export type FilingMethod = 'API' | 'MANUAL'
 
 export interface MediaAccountPageQuery {
   page: number
@@ -16,7 +11,8 @@ export interface MediaAccountPageQuery {
   mediaType?: MediaType
   accountStatus?: number
   providerId?: number
-  filingStatus?: FilingDisplayStatus
+  filingMethod?: FilingMethod
+  filingStatus?: FilingStatus
 }
 
 export interface MediaAccountPageResult<T> {
@@ -36,6 +32,7 @@ export interface AdminMediaAccountListItem {
   accountName: string | null
   providerId: number | null
   status: number
+  filingMethod: FilingMethod | null
   filingStatus: FilingStatus | null
   filingRemoteStatus?: string | null
   filingLastSubmittedAt?: string | null
@@ -47,6 +44,7 @@ export interface AdminMediaAccountListItem {
 export interface MediaFiling {
   providerId: number | null
   providerName: string | null
+  filingMethod: FilingMethod
   status: FilingStatus
   remoteStatus: string | null
   externalFilingId: string | null
@@ -57,6 +55,10 @@ export interface MediaFiling {
   lastQueriedAt: string | null
   lastErrorCode: string | null
   lastErrorMessage: string | null
+  manualUpdatedBy: number | null
+  manualUpdatedAt: string | null
+  retryAllowed: boolean
+  submissionResolutionAllowed: boolean
 }
 
 export interface MediaAccountDetail {

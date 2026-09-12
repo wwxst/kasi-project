@@ -6,9 +6,9 @@
 
 管理端通过 `GET /api/admin/promotion/links` 按已成功生成的推广链接查看任务级转化，支持用户编号、短剧平台、口令和 `trackingNo` 筛选，并返回用户、短剧、推广名称、媒体、口令、推广链接及七项累计指标，不返回 `orderAmount`。该查询与用户端使用相同的 PID、bookId、用户编号和口令四维匹配。原始日报接口继续保留：`POST /api/admin/promotion/analytical-reports/sync` 手动补拉（日期范围及可选 `code`、`bookId`、`customParams`），`GET /api/admin/promotion/analytical-reports` 分页查询（日期范围、达人 `customParams/user_no`、短剧 `bookId`、口令 `code`）。系统任务 `GOODSHORT_ANALYTICAL_REPORT_SYNC` 使用 `Asia/Shanghai` 每日 08:00 滚动同步最近 3 个已经结束的自然日。
 
-生产库通过 Flyway 独立执行 `src/main/resources/db/migration/V2__promotion_analytical_report.sql`；已部署 Docker 数据库不要重新执行 `kasi_promotion.sql` 或删库重建。
+推广转化日报结构由 `V2__promotion_analytical_report.sql` 引入。生产数据库统一通过独立 Flyway 发布步骤按顺序执行完整迁移链，当前应升级至 `V9__media_filing_api_manual.sql`；已部署数据库不得重新执行 `kasi_promotion.sql` 或删库重建。
 
-最后核对时间：2026-09-08
+最后核对时间：2026-09-12
 
 跨项目工程规则、CI 和 Real Verification 语义以根级 [DEVELOPMENT.md](../DEVELOPMENT.md) 与 [测试规范](../docs/development/testing.md) 为准；本文只维护后端业务和运行边界。
 
@@ -18,7 +18,7 @@
 
 项目管理 CRUD 已实现：管理员通过 `/api/admin/promotion/projects` 维护项目名称、后端上传封面、HTTPS 项目文档 URL、启用状态和排序字段；封面保存在 `/uploads/promotion-projects/**`，删除为物理删除。用户端通过 `GET /api/user/promotion/projects` 只读取启用项目，服务端按 `sort_order ASC, id ASC` 返回。
 
-**当前已完成**：管理员（ADMIN）和推广用户（USER）双认证体系、两类账号管理 CRUD、短剧平台接入与 GoodShort 账号报备、GoodShort 短剧目录全量/增量同步、推广链接、GoodShort 订单每分钟自动同步最近 3 天及管理员按时间范围手动补拉、按 `customParams=user_no` 直接归因、CPS 费率快照、订单佣金及按月查询/CSV 导出。详见 [§6 API、认证与业务边界](#6-api认证与业务边界)。
+**当前已完成**：管理员（ADMIN）和推广用户（USER）双认证体系、两类账号管理 CRUD、短剧平台接入与 GoodShort API/人工账号报白、GoodShort 短剧目录全量/增量同步、推广链接、GoodShort 订单每分钟自动同步最近 3 天及管理员按时间范围手动补拉、按 `customParams=user_no` 直接归因、CPS 费率快照、订单佣金及按月查询；管理端账号报白和推广订单使用 XLSX 导出。详见 [§6 API、认证与业务边界](#6-api认证与业务边界)。
 
 ## 2. 当前结构
 
@@ -85,6 +85,7 @@ src/
         kasi_promotion.sql                  # 开发空库最终结构重建脚本
         migration/
           V1__baseline.sql                 # 不可变生产 Flyway 基线
+          V2__...sql .. V9__...sql         # 不可变增量迁移，当前最新为 V9
       mapper/                               # MyBatis XML 映射文件
   test/
     java/com/kasi/backend/
@@ -149,7 +150,7 @@ $env:Path = "$env:JAVA_HOME\bin;$env:Path"
 | 短剧目录同步 | 留空时覆盖 GoodShort 全部 13 种支持语言、每页最多 50 条、每 5 分钟兜底执行已入队任务；支持指定语言、批量、分页、租约和调度开关 |
 | 免费剧集同步 | 手动同步创建任务后立即异步唤醒现有 worker，并在批次未消费完时继续后台处理；定时任务每 1 分钟兜底处理；每批 50 部、候选分页 500 部、租约 2 分钟、最多失败 5 次；视频 URL 永久保存到 MySQL |
 | 同步记录展示 | 管理端短剧同步与剧集同步保持两个独立页面；展示层按一次触发聚合多语言/多短剧子任务，统一展示创建时间、触发方式、任务类型、状态、新增数、更新数、总处理数和操作，详情查看子任务并支持失败重试；不改变 checkpoint、worker、租约或任务执行模型 |
-| 固定定时任务 | `GOODSHORT_DRAMA_INCREMENTAL_SYNC` 默认每 60 分钟入队；`GOODSHORT_DRAMA_CONTENT_SYNC` 每 1 分钟处理免费剧集队列；GoodShort 订单拆分为 `GOODSHORT_ORDER_TODAY_SYNC` 每 5 分钟同步今天、`GOODSHORT_ORDER_SYNC` 每 60 分钟同步昨天加今天、`GOODSHORT_ORDER_RECENT_SYNC` 每 3 天补偿最近 7 天 |
+| 固定定时任务 | `GOODSHORT_DRAMA_FULL_SYNC` 默认每天 03:00 为配置语言入队完整目录快照；`GOODSHORT_DRAMA_INCREMENTAL_SYNC` 默认每 60 分钟入队；`GOODSHORT_DRAMA_CONTENT_SYNC` 每 1 分钟处理免费剧集队列；GoodShort 订单拆分为 `GOODSHORT_ORDER_TODAY_SYNC` 每 5 分钟同步今天、`GOODSHORT_ORDER_SYNC` 每 60 分钟同步昨天加今天、`GOODSHORT_ORDER_RECENT_SYNC` 每 3 天补偿最近 7 天 |
 | 账户头像 | JPG/PNG/WebP，最大 2 MB；管理员和推广用户头像分别保存到 `./data/uploads/admin-avatars`、`./data/uploads/user-avatars`，可通过 `APP_UPLOAD_DIR` 修改根目录 |
 
 应用要连接 MySQL，至少需要提供：
@@ -185,7 +186,7 @@ SOURCE E:/JavaProjects/kasi-project/kasi-backend/src/main/resources/db/kasi_prom
 
 ### 生产数据库迁移
 
-生产 schema 的版本真相是 `src/main/resources/db/migration/V*.sql`。当前完整结构为不可变 `V1__baseline.sql`；以后只新增 `V2__...sql`、`V3__...sql`，禁止修改已经执行的文件。Flyway 只由 Maven `migration` profile 独立执行，应用无 Flyway 运行时依赖且 `spring.flyway.enabled=false`。
+生产 schema 的版本真相是 `src/main/resources/db/migration/V*.sql`。当前完整迁移链为不可变 `V1__baseline.sql` 到 `V9__media_filing_api_manual.sql`；以后只新增更高版本，禁止修改已经执行的文件。Flyway 只由 Maven `migration` profile 独立执行，应用无 Flyway 运行时依赖且 `spring.flyway.enabled=false`。
 
 发布平台通过密钥环境注入连接参数，不把真实值写入仓库、配置文件或命令历史：
 
@@ -227,9 +228,9 @@ mysql --host=127.0.0.1 --user=$env:SPRING_DATASOURCE_USERNAME --password --datab
 | MySQL | `sys_admin_user` | 后台管理员用户 | username, password(BCrypt), real_name, mobile, email, status, is_super_admin |
 | MySQL | `promotion_user` | 推广用户 | user_no(12位随机数字字符串), password(BCrypt), nickname, real_name, wechat_id, student_type(0基础用户/1基础学员), mobile, email, status, register_source |
 | MySQL | `short_drama_provider` | 短剧平台定义 | provider_code, provider_name, status |
-| MySQL | `short_drama_connection` | 平台机构接入账号（仅保存密钥密文） | provider_id, base_url, partner_id, api_key_ciphertext, status |
+| MySQL | `short_drama_connection` | 平台机构接入账号（仅保存密钥密文） | provider_id, base_url, partner_id, api_key_ciphertext, api_filing_media_types, status |
 | MySQL | `promotion_media_account` | 推广用户绑定的全局唯一媒体账号 | user_id, media_type, external_account_id, account_name, account_link, status, data_version |
-| MySQL | `provider_media_filing` | 媒体账号按平台保存的报备状态和任务信息 | connection_id, media_account_id, status, next_action, retry_count |
+| MySQL | `provider_media_filing` | 媒体账号按平台保存的报白状态、方式和任务信息 | connection_id, media_account_id, filing_method, status, next_action, task_data_version, lease_owner, lease_until, last_submit_attempt_at, manual_updated_by, manual_updated_at |
 | MySQL | `provider_drama` | 按接入账号保存的短剧目录，本地状态、远端状态与本地推广元数据分离 | connection_id, external_drama_id, language, remote_show_status, local_status, commission_scope, promotion_description |
 | MySQL | `provider_drama_content` | 短剧剧集元数据和永久视频地址 | drama_id, external_content_id, sequence_no, is_free, duration_seconds, content_url |
 | MySQL | `provider_drama_content_sync_task` | 免费剧集同步状态、重试和数据库租约 | drama_id, status, next_run_at, retry_count, lease_owner, lease_until |
@@ -244,11 +245,11 @@ mysql --host=127.0.0.1 --user=$env:SPRING_DATASOURCE_USERNAME --password --datab
 | Redis | `auth:version:*` | 账号会话版本（含 `ACTIVE:*` 或 `MUTATING:*`） | TTL 不超过 JWT 有效期加宽限期 |
 | Redis | `auth:session:*` | 单个 JWT 会话（按 `jti`） | TTL 与 JWT 有效期一致，退出时删除 |
 
-`kasi_promotion.sql` 和生产 `V1` 均按当前完整结构一次建库，并在建表后直接插入 `admin` 超级管理员和一个启用的初始推广用户。管理员固定写入 `status=1`、`is_super_admin=1`；推广用户使用邮箱登录，密码和管理员密码均只以 BCrypt 哈希保存。两条路径都不会在应用启动时自动执行，也不植入任何平台接入密钥。
+`kasi_promotion.sql` 按当前最终结构一次重建开发空库；生产数据库从 `V1` 基线按顺序执行到当前 `V11` 后达到相同目标结构。开发重建脚本和 `V1` 基线都会插入 `admin` 超级管理员和一个启用的初始推广用户；管理员固定写入 `status=1`、`is_super_admin=1`，推广用户使用邮箱登录，两类密码均只以 BCrypt 哈希保存。两条路径都不会在应用启动时自动执行，也不植入任何平台接入密钥。
 
-当前已完成平台定义与接入账号持久层、AES-GCM 密钥加密、不暴露密钥的管理服务和管理员 API，以及 GoodShort 签名和连接探测适配器。GoodShort 接入配置同时保存一个媒体根域名，未知域名不会自动加入白名单；官方文档未保证媒体资源固定属于 `novelopen.com`，`novelopen.com` 是当前实际配置值而非官方契约。媒体账号绑定与通用报白模块也已完成闭环：推广用户可创建多个媒体账号，同一媒体平台和账号 ID 全局唯一，创建后用户端和管理端均不可编辑。系统为所有已启用、接入配置完整且适配器声明支持账号报白的平台分别建立记录，并在本地事务提交后立即调用 GoodShort `/creek/open/filing/report`；成功只表示进入审核中，提交失败保存错误且不自动重试，只有管理员可以重试技术提交失败。后台任务只查询已成功提交且仍在审核中的记录：甲方状态 `0` 继续查询，`1` 记为已加白并停止，`2` 记为已拒绝并停止；连续 5 次查询技术失败后显示“查询失败”并停止。管理端可删除技术提交失败或甲方已拒绝的账号；存在多个报白记录时必须全部可删，删除会同时清理报白记录并释放全局唯一账号。平台接入仅保留 API 自动报白；停用配置允许不填写接入资料，启用配置必须具备接口 URL、媒体根域名、PID 和 KEY。
+当前已完成平台定义与接入账号持久层、AES-GCM 密钥加密、不暴露密钥的管理服务和管理员 API，以及 GoodShort 签名和连接探测适配器。GoodShort 接入配置同时保存一个媒体根域名，并可分别选择 Facebook、TikTok、YouTube、Instagram 使用 API 自动报白；未选媒体使用人工报白。未知域名不会自动加入白名单；官方文档未保证媒体资源固定属于 `novelopen.com`，`novelopen.com` 是当前实际配置值而非官方契约。媒体账号绑定与通用报白模块已支持 `API`/`MANUAL` 双向切换和 `NOT_SUBMITTED`、`PENDING`、`APPROVED`、`REJECTED`、`SUBMIT_FAILED` 五种持久状态；已有终态和远端证据在切换时保留，已发出但尚未收敛的提交禁止切换。API 新建账号仍在本地事务提交后立即尝试调用 GoodShort `/creek/open/filing/report`，后台 Worker 使用独立租约 token 分批接续到期的提交与查询任务；提交结果不确定时停止自动重报，管理员可确认甲方已收到或未收到。MANUAL 新建记录直接进入 `PENDING` 等待甲方审核，不调用 GoodShort，管理员根据甲方结果直接更新为 `APPROVED` 或 `REJECTED`。用户端只展示四种业务状态，将技术提交失败显示为审核中且不暴露错误；管理端展示真实五状态、报白方式、错误、人工操作信息和可用操作，并可单条删除任意状态/方式的账号及其本地报白记录，删除不影响甲方记录。管理端可按当前筛选条件全量导出账号报白和推广订单 XLSX。停用配置允许不填写接入资料，启用配置必须具备接口 URL、媒体根域名、PID 和 KEY。
 
-当前已实现 GoodShort 短剧目录全量 `initBooks`、增量 `incrementBooks`、断点恢复、数据库租约、定时/手动触发、固定定时任务入队、管理员查询详情和本地上下架；首次全量同步仍由管理员手动发起，只有成功全量基线存在时才自动创建增量任务。新同步的甲方在线短剧默认上架，甲方下架会同步我方下架，甲方恢复在线后需管理员手动重新上架。平台分佣规则按平台保存一条默认配置，POST 首次设置、PUT 直接覆盖；每次写入都会产生不可变 `provider_commission_rule_history` 快照，订单同时保存当次五费率和计算结果。规则计算器使用 `BigDecimal`，最终金额保留两位并按 `HALF_UP` 四舍五入。
+当前已实现 GoodShort 短剧目录全量 `initBooks`、增量 `incrementBooks`、断点恢复、数据库租约、定时/手动触发、固定定时任务入队、管理员查询详情和本地上下架。`GOODSHORT_DRAMA_FULL_SYNC` 默认每天 03:00 为配置中的全部语言创建全量任务；单语言全量完整成功后，本轮未返回的历史短剧标记为 `MISSING / OFFLINE`，同步失败不批量下架，也不物理删除短剧、剧集或推广元数据。短剧重新出现时恢复甲方真实远端状态和最近可见时间，本地仍保持下架，由管理员手动决定是否重新上架。增量任务仍要求成功全量基线。平台分佣规则按平台保存一条默认配置，POST 首次设置、PUT 直接覆盖；每次写入都会产生不可变 `provider_commission_rule_history` 快照，订单同时保存当次五费率和计算结果。规则计算器使用 `BigDecimal`，最终金额保留两位并按 `HALF_UP` 四舍五入。
 
 推广用户可查询已上架短剧、查看剧集并生成 GoodShort 推广链接/口令。用户前端直接下载免费剧集资源接口返回的媒体文件；后端不创建下载任务、不运行 FFmpeg、不生成 ZIP，也不保存下载文件。Chrome 使用 `hls.js` 播放 HLS。当前只同步 GoodShort 免费剧集；GoodShort 文档没有提供收费剧集列表或收费资源接口，因此不创建收费剧集占位记录。推广任务页已接入 GoodShort 转化日报的七项人数/次数指标；正式账单、钱包和提现仍未实现。
 
@@ -368,6 +369,22 @@ mysql --host=127.0.0.1 --user=$env:SPRING_DATASOURCE_USERNAME --password --datab
 | PUT | `/api/admin/drama/providers/{providerId}/connection` | SUPER_ADMIN | 新增或更新平台 URL、PID、KEY 和启用状态；停用时接入资料可空，启用时必须完整；更新时可省略 KEY 以保留原密文 |
 | POST | `/api/admin/drama/providers/{providerId}/connection/test` | SUPER_ADMIN | 解密现有凭据并执行 GoodShort 最小连接探测，不保存返回短剧 |
 
+#### 媒体账号报白 API
+
+平台连接可分别配置 Facebook、TikTok、YouTube、Instagram 使用 `API` 自动报白，未选媒体使用 `MANUAL` 人工报白。报白记录保存 `NOT_SUBMITTED`、`PENDING`、`APPROVED`、`REJECTED`、`SUBMIT_FAILED` 五种真实状态；用户端将 `SUBMIT_FAILED` 显示为 `PENDING` 且不返回技术错误。MANUAL 新建记录直接为 `PENDING`，等待甲方审核，由管理员直接更新通过或未通过，不调用 GoodShort。API 记录由 Worker 使用独立 lease token 分批处理到期的提交和查询。提交结果不确定时停止自动重报，等待管理员核实。
+
+| 方法 | 路径 | 权限 | 说明 |
+|------|------|------|------|
+| GET | `/api/admin/promotion/media-accounts` | ADMIN | 按用户、媒体、平台、报白方式和真实五状态分页查询 |
+| GET | `/api/admin/promotion/media-accounts/export.xlsx` | ADMIN | 按相同筛选条件全量导出 11 列 XLSX，不受列表分页限制 |
+| GET | `/api/admin/promotion/media-accounts/{id}` | ADMIN | 查询账号及各平台报白详情、错误和人工操作信息 |
+| POST | `/api/admin/promotion/media-accounts/{id}/filings/{providerId}/retry` | ADMIN | 重试允许重试的 API 技术提交失败 |
+| PATCH | `/api/admin/promotion/media-accounts/{id}/filings/{providerId}/status` | ADMIN | 按人工确认矩阵更新 MANUAL 报白状态 |
+| POST | `/api/admin/promotion/media-accounts/{id}/filings/{providerId}/submission-resolution` | ADMIN | 核实不确定提交为甲方已收到或未收到 |
+| DELETE | `/api/admin/promotion/media-accounts/{id}` | ADMIN | 删除任意状态/方式的本地账号及报白记录，不调用甲方删除接口 |
+
+方式切换由平台连接配置驱动。已有终态和远端证据会保留；report 已发出但尚未收敛时禁止切换，以避免重复提交。单条新建 API 账号在本地事务提交后立即尝试提交，批量排队只入队并由 Worker 接续。
+
 ### 6.7 短剧目录管理 API
 
 以下端点要求 `ROLE_ADMIN`，普通管理员和超级管理员均可使用；推广用户返回 403，未登录返回 401。
@@ -415,11 +432,11 @@ mysql --host=127.0.0.1 --user=$env:SPRING_DATASOURCE_USERNAME --password --datab
 |------|------|------|------|
 | POST | `/api/admin/promotion/orders/sync` | ADMIN | 按平台和时间窗口手动同步订单，返回获取/新增/更新/未归因数量 |
 | GET | `/api/admin/promotion/orders` | ADMIN | 按平台、用户、订单状态、归因状态和支付时间分页查询 |
-| GET | `/api/admin/promotion/orders/export.csv` | ADMIN | 按相同筛选条件导出 CSV |
+| GET | `/api/admin/promotion/orders/export.xlsx` | ADMIN | 按相同筛选条件导出 XLSX |
 | GET | `/api/user/promotion/orders` | USER | 按月份查询本人已归因订单 |
 | GET | `/api/user/promotion/orders/monthly` | USER | 查询本人月度已支付订单数及收益汇总，不返回订单总额 |
 
-GoodShort 订单同步只按甲方订单字段接收数据：`orderId`、`userId`、`payMoney`、`payTime`、`payStatus`、`customParams`、`bookId`、`searchCode`、`channelCode`、`pid`、`utime`。本地订单状态包含 `UNPAID`（未支付）、`PAID`（已支付）、`REFUNDED`（已退款）和 `UNKNOWN`（未知）；四种状态均写入本地订单。`payMoney` 仅用于后台分佣计算和管理员核对。用户订单 JSON 只返回甲方订单号、币种快照、未支付/已支付/已退款状态、支付时间和该用户的收益，过滤 `UNKNOWN`；`customParams` 仅作为服务端原始字段保存，用户归因直接使用 `customParams -> user_no -> user_id`，不通过内部 `trackingNo` 反查链接。用户端不提供订单导出，管理员查询仍保留内部核对字段并支持 CSV 导出。
+GoodShort 订单同步只按甲方订单字段接收数据：`orderId`、`userId`、`payMoney`、`payTime`、`payStatus`、`customParams`、`bookId`、`searchCode`、`channelCode`、`pid`、`utime`。本地订单状态包含 `UNPAID`（未支付）、`PAID`（已支付）、`REFUNDED`（已退款）和 `UNKNOWN`（未知）；四种状态均写入本地订单。`payMoney` 仅用于后台分佣计算和管理员核对。用户订单 JSON 只返回甲方订单号、币种快照、未支付/已支付/已退款状态、支付时间和该用户的收益，过滤 `UNKNOWN`；`customParams` 仅作为服务端原始字段保存，用户归因直接使用 `customParams -> user_no -> user_id`，不通过内部 `trackingNo` 反查链接。用户端不提供订单导出，管理员查询仍保留内部核对字段，并按相同筛选条件全量导出 XLSX，不受列表分页限制。
 
 订单 upsert 使用 `READ_COMMITTED` 事务隔离级别：已有订单继续通过 `FOR UPDATE` 串行更新；两个事务同时插入同一 `(connection_id, external_order_id)` 时由唯一键确定唯一记录，竞争事务回读已提交订单，避免默认 `REPEATABLE_READ` 对不存在行加 gap lock 后并发插入产生死锁。
 
@@ -430,7 +447,7 @@ GoodShort 订单同步只按甲方订单字段接收数据：`orderId`、`userId
 | GET | `/api/admin/system/scheduled-tasks` | ADMIN | 查询后端固定任务配置 |
 | PUT | `/api/admin/system/scheduled-tasks/{taskCode}` | SUPER_ADMIN | 修改执行周期、任务说明和启停状态 |
 
-当前固定任务为 `GOODSHORT_DRAMA_INCREMENTAL_SYNC`、`GOODSHORT_DRAMA_CONTENT_SYNC`、`GOODSHORT_ORDER_TODAY_SYNC`、`GOODSHORT_ORDER_SYNC`、`GOODSHORT_ORDER_RECENT_SYNC` 和 `GOODSHORT_ANALYTICAL_REPORT_SYNC`。页面可编辑周期类型、间隔值及小时/分钟余量、执行时间、星期/日期、说明和是否开启，不能新增、删除、修改标题、任务编码或执行程序。普通管理员只读；首次全量同步不由目录任务自动完成。订单任务分别按 5 分钟今日、60 分钟昨日加今天、3 天最近 7 天补偿执行。`INTERVAL_HOURS` 使用小时数加分钟余量，`INTERVAL_DAYS` 使用天数加小时和分钟余量。
+当前固定任务为 `GOODSHORT_DRAMA_FULL_SYNC`、`GOODSHORT_DRAMA_INCREMENTAL_SYNC`、`GOODSHORT_DRAMA_CONTENT_SYNC`、`GOODSHORT_ORDER_TODAY_SYNC`、`GOODSHORT_ORDER_SYNC`、`GOODSHORT_ORDER_RECENT_SYNC` 和 `GOODSHORT_ANALYTICAL_REPORT_SYNC`。页面可编辑周期类型、间隔值及小时/分钟余量、执行时间、星期/日期、说明和是否开启，不能新增、删除、修改标题、任务编码或执行程序。普通管理员只读；目录全量任务默认每天 03:00 为全部配置语言入队。订单任务分别按 5 分钟今日、60 分钟昨日加今天、3 天最近 7 天补偿执行。`INTERVAL_HOURS` 使用小时数加分钟余量，`INTERVAL_DAYS` 使用天数加小时和分钟余量。
 
 ### 6.11 统一响应格式
 
@@ -479,7 +496,7 @@ GoodShort 订单同步只按甲方订单字段接收数据：`orderId`、`userId
 | `AdminAvatarStorageServiceTest` | 头像格式、大小、服务端文件名和安全清理边界 |
 | `SysAdminUserStructureTest` | 管理员表、Entity 和 Mapper 不保留软删除字段 |
 | `ApplicationLayerStructureTest` | 自动扫描 Service/Impl、DTO/VO 和 Controller 的可机器判断分层规则 |
-| `DatabaseSchemaSourceTest` | 保护 Maven-only Flyway、安全开关、不可变 V1 和无应用启动迁移的契约 |
+| `DatabaseSchemaSourceTest` | 保护 Maven-only Flyway、安全开关、不可变历史迁移和无应用启动迁移的契约 |
 | `MigrationSchemaParityMySqlContractIT` | 在 MySQL 8.4 比较开发重建与完整 Flyway 链的结构和固定数据 |
 | `TransactionBoundaryIntegrationTest` | 通过 production Spring proxy 验证独立事务和 commit 后 Worker 唤醒 |
 | `UserAuthControllerTest` | 用户注册、登录、获取信息、退出、修改密码、忘记密码流程（13 个用例） |
@@ -490,7 +507,7 @@ GoodShort 订单同步只按甲方订单字段接收数据：`orderId`、`userId
 | `ProviderDramaPromotionMetadataMigrationTest` | 验证初始化 SQL 包含 GoodShort 短剧完整字段 |
 | `GoodShortOrderAdapterTest` | 验证订单签名请求、分页、金额和状态映射 |
 | `PromotionOrderServiceTest` | 验证订单幂等、`customParams -> user_no` 归因、费率快照和退款冲销 |
-| `AdminPromotionOrderControllerTest` / `UserPromotionOrderControllerTest` | 验证管理员订单 CSV、用户订单端点/权限及用户字段隔离 |
+| `AdminPromotionOrderControllerTest` / `UserPromotionOrderControllerTest` | 验证管理员订单 XLSX、用户订单端点/权限及用户字段隔离 |
 | `ProviderCommissionRulePersistenceTest` | 五项费率精度、平台查询、指定时间匹配和相邻区间 |
 | `ProviderCommissionCalculatorTest` | `BigDecimal` 五费率公式与最终两位 `HALF_UP` |
 | `ProviderCommissionRuleServiceTest` | 首次设置、覆盖更新、权限边界和不可变历史快照 |
@@ -524,6 +541,8 @@ GoodShort 订单同步只按甲方订单字段接收数据：`orderId`、`userId
 ```
 
 Unit/Integration 的 JaCoCo HTML/XML 报告分别位于 `target/site/jacoco-unit` 和 `target/site/jacoco-integration`，当前不设置覆盖率阈值。Java 21 下编译会因 `release 25` 失败，必须使用 Java 25。真实 MySQL Contract、手动 GoodShort smoke 和 CI 阻断语义见根级 [测试规范](../docs/development/testing.md)。
+
+本地 canonical Gate 覆盖 H2、服务/控制器/持久层回归和应用构建。真实 MySQL 存量与 V1..V9 结构契约、生产 Flyway 迁移、真实 GoodShort report/query 必须在获得对应环境和授权后单独验证；未配置或未授权时记录为 `SKIP`，不能据本地 Gate 宣称通过。
 
 ## 8. 开发优先级
 

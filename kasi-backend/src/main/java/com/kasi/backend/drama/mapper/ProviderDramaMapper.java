@@ -26,6 +26,9 @@ public interface ProviderDramaMapper {
                                            @Param("missingOnly") boolean missingOnly,
                                            @Param("afterId") Long afterId,
                                            @Param("limit") int limit);
+    int markMissingAfterFullSync(@Param("connectionId") Long connectionId,
+                                 @Param("language") String language,
+                                 @Param("snapshotStartedAt") LocalDateTime snapshotStartedAt);
     int updateLocalStatus(@Param("id") Long id, @Param("localStatus") DramaLocalStatus localStatus);
     int updatePromotionMetadata(@Param("id") Long id, @Param("commissionScope") String commissionScope,
                                 @Param("promotionDescription") String promotionDescription);

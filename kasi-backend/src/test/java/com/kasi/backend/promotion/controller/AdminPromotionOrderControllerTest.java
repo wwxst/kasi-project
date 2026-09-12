@@ -65,14 +65,12 @@ class AdminPromotionOrderControllerTest extends BaseAuthTest {
     }
 
     @Test
-    @DisplayName("管理员订单接口拒绝推广用户并提供CSV下载")
+    @DisplayName("管理员订单接口拒绝推广用户并只提供 XLSX 下载")
     void orderEndpointsEnforceAdminRole() throws Exception {
         when(adminService.getPage(any())).thenReturn(PromotionOrderPageVO.builder()
                 .list(List.of(PromotionOrderVO.builder().id(1L)
                         .trackingNo("tracking-admin-order").build()))
                 .page(1).size(20).total(1).build());
-        when(adminService.exportCsv(any())).thenReturn("\uFEFF订单ID\n".getBytes(java.nio.charset.StandardCharsets.UTF_8));
-
         mockMvc.perform(get("/api/admin/promotion/orders")
                         .header("Authorization", "Bearer " + loginAsAdmin("operator", ADMIN_PASSWORD)))
                 .andExpect(status().isOk())
@@ -80,9 +78,15 @@ class AdminPromotionOrderControllerTest extends BaseAuthTest {
         mockMvc.perform(get("/api/admin/promotion/orders")
                         .header("Authorization", "Bearer " + loginAsUser()))
                 .andExpect(status().isForbidden());
-        mockMvc.perform(get("/api/admin/promotion/orders/export.csv")
+        mockMvc.perform(get("/api/admin/promotion/orders/export.xlsx")
                         .header("Authorization", "Bearer " + loginAsAdmin("operator", ADMIN_PASSWORD)))
                 .andExpect(status().isOk())
-                .andExpect(header().string("Content-Type", "text/csv;charset=UTF-8"));
+                .andExpect(header().string("Content-Type",
+                        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"))
+                .andExpect(header().string("Content-Disposition",
+                        "attachment; filename=promotion-orders.xlsx"));
+        mockMvc.perform(get("/api/admin/promotion/orders/export.csv")
+                        .header("Authorization", "Bearer " + loginAsAdmin("operator", ADMIN_PASSWORD)))
+                .andExpect(status().isNotFound());
     }
 }

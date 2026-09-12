@@ -131,6 +131,7 @@ public class ScheduledTaskDispatchServiceImpl implements ScheduledTaskDispatchSe
 
     private void dispatch(SystemScheduledTask task) {
         switch (task.getTaskCode()) {
+            case GOODSHORT_DRAMA_FULL_SYNC -> dispatchGoodShortDramaFull();
             case GOODSHORT_DRAMA_INCREMENTAL_SYNC -> dispatchGoodShortDramaIncremental();
             case GOODSHORT_DRAMA_CONTENT_SYNC -> contentSyncService.processDueBatch();
             case GOODSHORT_ORDER_TODAY_SYNC -> dispatchGoodShortOrderSync(0);
@@ -138,6 +139,14 @@ public class ScheduledTaskDispatchServiceImpl implements ScheduledTaskDispatchSe
             case GOODSHORT_ORDER_RECENT_SYNC -> dispatchGoodShortOrderSync(2);
             case GOODSHORT_ANALYTICAL_REPORT_SYNC -> dispatchGoodShortAnalyticalReportSync();
         }
+    }
+
+    private void dispatchGoodShortDramaFull() {
+        ShortDramaProvider provider = providerMapper.findByCode("GOODSHORT");
+        if (provider == null) {
+            return;
+        }
+        syncService.requestScheduledFull(provider.getId(), dramaProperties.getLanguages());
     }
 
     private void dispatchGoodShortDramaIncremental() {

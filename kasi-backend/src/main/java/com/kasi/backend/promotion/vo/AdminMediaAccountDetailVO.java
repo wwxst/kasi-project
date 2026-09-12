@@ -10,5 +10,5 @@ public class AdminMediaAccountDetailVO {
     private String userNo;
     private String nickname;
     private String realName;
-    private MediaAccountDetailVO mediaAccount;
+    private AdminMediaAccountVO mediaAccount;
 }

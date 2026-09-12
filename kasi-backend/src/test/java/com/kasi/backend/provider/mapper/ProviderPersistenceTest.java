@@ -42,13 +42,17 @@ class ProviderPersistenceTest extends BaseAuthTest {
     void connectionIsUniquePerProviderAndUpdatable() {
         ShortDramaProvider provider = providerMapper.findByCode("GOODSHORT");
         ShortDramaConnection connection = connection(provider.getId(), "v1:ciphertext");
+        connection.setApiFilingMediaTypes("[\"FACEBOOK\"]");
 
         assertThat(connection.toString()).doesNotContain("v1:ciphertext");
         assertThat(connectionMapper.insert(connection)).isEqualTo(1);
+        assertThat(connectionMapper.findByProviderId(provider.getId()).getApiFilingMediaTypes())
+                .isEqualTo("[\"FACEBOOK\"]");
         connection.setConnectionName("GoodShort默认账号");
         connection.setPartnerId("partner-2");
         connection.setMediaRootDomain("novelopen.com");
         connection.setCurrency("EUR");
+        connection.setApiFilingMediaTypes("[]");
         connection.setStatus(0);
         connection.setUpdatedBy(2L);
         connection.setApiKeyCiphertext(null);
@@ -60,6 +64,7 @@ class ProviderPersistenceTest extends BaseAuthTest {
         assertThat(stored.getMediaRootDomain()).isEqualTo("novelopen.com");
         assertThat(stored.getApiKeyCiphertext()).isEqualTo("v1:ciphertext");
         assertThat(stored.getCurrency()).isEqualTo("EUR");
+        assertThat(stored.getApiFilingMediaTypes()).isEqualTo("[]");
         assertThat(stored.getStatus()).isZero();
         assertThat(stored.getUpdatedBy()).isEqualTo(2L);
         assertThat(stored.getUpdatedAt()).isNotNull();

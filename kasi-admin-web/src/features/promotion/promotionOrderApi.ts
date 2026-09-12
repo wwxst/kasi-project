@@ -33,7 +33,7 @@ export async function syncPromotionOrders(
 export async function exportPromotionOrders(
   query: PromotionOrderQuery,
 ): Promise<Blob> {
-  const response = await httpClient.get<Blob>(`${basePath}/export.csv`, {
+  const response = await httpClient.get<Blob>(`${basePath}/export.xlsx`, {
     params: query,
     responseType: 'blob',
   })

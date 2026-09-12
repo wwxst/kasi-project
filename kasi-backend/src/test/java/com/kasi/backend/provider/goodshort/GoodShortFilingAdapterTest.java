@@ -94,7 +94,7 @@ class GoodShortFilingAdapterTest {
             assertThat(adapter.queryAccountFiling(CONNECTION,
                     new AccountFilingQuery(MediaType.FACEBOOK, "creator-2")).status())
                     .isEqualTo(remoteStatus == 0 ? FilingStatus.PENDING
-                            : remoteStatus == 1 ? FilingStatus.APPROVED : FilingStatus.FAILED);
+                            : remoteStatus == 1 ? FilingStatus.APPROVED : FilingStatus.REJECTED);
         }
         server.verify();
     }

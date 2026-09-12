@@ -1,31 +1,38 @@
 import type { ActionType, ProColumns } from '@ant-design/pro-components'
 import { PageContainer, ProTable } from '@ant-design/pro-components'
+import type { MenuProps } from 'antd'
 import {
   App as AntdApp,
   Avatar,
   Button,
   Descriptions,
   Drawer,
-  Popconfirm,
+  Dropdown,
   Space,
   Spin,
   Tag,
 } from 'antd'
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { DownOutlined } from '@ant-design/icons'
+import type { Key } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { isUnauthorizedError } from '../../api/http'
+import { Check, Download, X } from 'lucide-react'
 import {
+  exportAdminMediaAccounts,
   getAdminMediaAccount,
   listAdminMediaAccounts,
   listDramaProviderOptions,
   deleteAdminMediaAccount,
+  resolveMediaFilingSubmission,
   retryMediaFiling,
+  updateManualMediaFilingStatus,
 } from '../../features/promotion/mediaAccountApi'
 import type {
   AdminMediaAccountDetail,
   AdminMediaAccountListItem,
   DramaProviderOption,
+  FilingMethod,
   FilingStatus,
-  FilingDisplayStatus,
   MediaAccountPageQuery,
   MediaType,
 } from '../../features/promotion/mediaAccountTypes'
@@ -38,18 +45,26 @@ const mediaTypeLabels: Record<MediaType, string> = {
   INSTAGRAM: 'Instagram',
 }
 
-const filingStatusLabels: Record<FilingDisplayStatus, string> = {
+const filingStatusLabels: Record<FilingStatus, string> = {
   NOT_SUBMITTED: '待提交',
-  SUBMIT_FAILED: '提交失败',
   PENDING: '审核中',
   APPROVED: '已加白',
-  FAILED: '已拒绝',
-  QUERY_FAILED: '查询失败',
+  REJECTED: '未通过',
+  SUBMIT_FAILED: '提交失败',
 }
 
+const filingMethodLabels: Record<FilingMethod, string> = {
+  API: 'API',
+  MANUAL: '人工',
+}
+
+type ManualFilingStatus = Extract<FilingStatus, 'APPROVED' | 'REJECTED'>
+
 export function MediaAccountFilingPage() {
-  const { message } = AntdApp.useApp()
+  const { message, modal } = AntdApp.useApp()
   const actionRef = useRef<ActionType | undefined>(undefined)
+  const exportQueryRef = useRef<MediaAccountPageQuery>({ page: 1, size: 20 })
+  const queryContextRef = useRef({ key: '', version: 0 })
   const [providers, setProviders] = useState<DramaProviderOption[]>([])
   const [detail, setDetail] = useState<AdminMediaAccountDetail | null>(null)
   const [detailOpen, setDetailOpen] = useState(false)
@@ -57,6 +72,13 @@ export function MediaAccountFilingPage() {
   const [retryingProviderId, setRetryingProviderId] = useState<number | null>(
     null,
   )
+  const [operatingFiling, setOperatingFiling] = useState<string | null>(null)
+  const [selectedRowKeys, setSelectedRowKeys] = useState<Key[]>([])
+  const [selectedRows, setSelectedRows] = useState<AdminMediaAccountListItem[]>(
+    [],
+  )
+  const [bulkOperatingStatus, setBulkOperatingStatus] =
+    useState<ManualFilingStatus | null>(null)
 
   useEffect(() => {
     void listDramaProviderOptions()
@@ -107,17 +129,144 @@ export function MediaAccountFilingPage() {
     }
   }
 
-  const handleDelete = async () => {
+  const refreshDetail = async () => {
     if (!detail) return
+    setDetail(await getAdminMediaAccount(detail.id))
+    actionRef.current?.reload()
+  }
+
+  const handleManualStatus = async (
+    accountId: number,
+    providerId: number | null,
+    status: ManualFilingStatus,
+  ) => {
+    if (providerId === null) return
+    setOperatingFiling(`${accountId}:${providerId}:${status}`)
     try {
-      await deleteAdminMediaAccount(detail.id)
-      setDetailOpen(false)
-      actionRef.current?.reload()
-      message.success('媒体账号删除成功')
+      await updateManualMediaFilingStatus(accountId, providerId, status)
+      if (detail?.id === accountId) {
+        await refreshDetail()
+      } else {
+        actionRef.current?.reload()
+      }
+      message.success('人工报白状态已更新')
     } catch (error) {
       if (isUnauthorizedError(error)) return
-      message.error(error instanceof Error ? error.message : '删除失败')
+      message.error(error instanceof Error ? error.message : '状态更新失败')
+    } finally {
+      setOperatingFiling(null)
     }
+  }
+
+  const handleBulkManualStatus = (status: ManualFilingStatus) => {
+    const batchQueryContext = queryContextRef.current
+    const action = manualStatusActions.find(
+      (candidate) => candidate.status === status,
+    )
+    const actionableRows = selectedRows.filter(
+      (record) =>
+        isManualFilingSelectable(record) && record.filingStatus !== status,
+    )
+    if (!action || actionableRows.length === 0) {
+      message.info('所选记录已是目标状态')
+      return
+    }
+
+    modal.confirm({
+      title: `确认将 ${actionableRows.length} 条记录设为${action.label}？`,
+      content: '每条记录独立更新，失败记录将保留选择。',
+      okText: '确认',
+      cancelText: '取消',
+      onOk: async () => {
+        setBulkOperatingStatus(status)
+        try {
+          const results = await Promise.allSettled(
+            actionableRows.map((record) =>
+              updateManualMediaFilingStatus(
+                record.id,
+                record.providerId as number,
+                status,
+              ),
+            ),
+          )
+          const failedRows = actionableRows.filter(
+            (_, index) => results[index].status === 'rejected',
+          )
+          const successCount = results.length - failedRows.length
+          const queryContextBeforeReload = queryContextRef.current
+          await actionRef.current?.reload()
+          const queryContextAfterReload = queryContextRef.current
+          const canRestoreFailedRows =
+            queryContextBeforeReload.version === batchQueryContext.version &&
+            queryContextBeforeReload.key === batchQueryContext.key &&
+            queryContextAfterReload.version === batchQueryContext.version + 1 &&
+            queryContextAfterReload.key === batchQueryContext.key
+
+          if (failedRows.length === 0) {
+            setSelectedRowKeys([])
+            setSelectedRows([])
+            message.success(`已批量更新 ${successCount} 条记录`)
+            return
+          }
+
+          setSelectedRowKeys(
+            canRestoreFailedRows ? failedRows.map((record) => record.id) : [],
+          )
+          setSelectedRows(canRestoreFailedRows ? failedRows : [])
+          const onlyUnauthorizedFailures = results.every(
+            (result) =>
+              result.status === 'fulfilled' ||
+              isUnauthorizedError(result.reason),
+          )
+          if (!onlyUnauthorizedFailures) {
+            message.error(
+              `批量更新完成：成功 ${successCount} 条，失败 ${failedRows.length} 条`,
+            )
+          }
+        } finally {
+          setBulkOperatingStatus(null)
+        }
+      },
+    })
+  }
+
+  const handleSubmissionResolution = async (
+    providerId: number | null,
+    resolution: 'RECEIVED' | 'NOT_RECEIVED',
+  ) => {
+    if (!detail || providerId === null) return
+    setOperatingFiling(`${detail.id}:${providerId}:${resolution}`)
+    try {
+      await resolveMediaFilingSubmission(detail.id, providerId, resolution)
+      await refreshDetail()
+      message.success('提交结果已核实')
+    } catch (error) {
+      if (isUnauthorizedError(error)) return
+      message.error(error instanceof Error ? error.message : '提交结果核实失败')
+    } finally {
+      setOperatingFiling(null)
+    }
+  }
+
+  const confirmDelete = (record: AdminMediaAccountListItem) => {
+    modal.confirm({
+      title: '确认删除这个媒体账号？',
+      content: '仅删除本系统账号及报白记录，不会删除甲方记录。',
+      okText: '删除',
+      okButtonProps: { danger: true },
+      cancelText: '取消',
+      onOk: async () => {
+        try {
+          await deleteAdminMediaAccount(record.id)
+          if (detail?.id === record.id) setDetailOpen(false)
+          actionRef.current?.reload()
+          message.success('媒体账号删除成功')
+        } catch (error) {
+          if (isUnauthorizedError(error)) return
+          message.error(error instanceof Error ? error.message : '删除失败')
+        }
+      },
+    })
   }
 
   const columns: ProColumns<AdminMediaAccountListItem>[] = [
@@ -165,14 +314,20 @@ export function MediaAccountFilingPage() {
         ]),
       ),
       width: 110,
-      render: (_, record) => (
-        <FilingStatusTag
-          status={record.filingStatus}
-          lastSubmittedAt={record.filingLastSubmittedAt}
-          lastErrorMessage={record.filingLastErrorMessage}
-          remoteStatus={record.filingRemoteStatus}
-        />
+      render: (_, record) => <FilingStatusTag status={record.filingStatus} />,
+    },
+    {
+      title: '报白方式',
+      dataIndex: 'filingMethod',
+      valueEnum: Object.fromEntries(
+        Object.entries(filingMethodLabels).map(([value, text]) => [
+          value,
+          { text },
+        ]),
       ),
+      width: 100,
+      renderText: (value) =>
+        value ? filingMethodLabels[value as FilingMethod] : '-',
     },
     {
       title: '短剧平台',
@@ -198,21 +353,25 @@ export function MediaAccountFilingPage() {
       title: '操作',
       valueType: 'option',
       fixed: 'right',
-      width: 80,
-      render: (_, record) => (
+      width: 150,
+      render: (_, record) => [
         <Button
+          key="detail"
           type="link"
           size="small"
           data-testid={`media-account-detail-${record.id}`}
           onClick={() => void openDetail(record)}
         >
           详情
-        </Button>
-      ),
+        </Button>,
+        renderMoreAction(record),
+      ],
     },
   ]
 
-  const loadPage = async (params: Record<string, unknown>) => {
+  const loadPage = useCallback(async (params: Record<string, unknown>) => {
+    setSelectedRowKeys([])
+    setSelectedRows([])
     const query: MediaAccountPageQuery = {
       page: Number(params.current ?? 1),
       size: Number(params.pageSize ?? 20),
@@ -220,10 +379,81 @@ export function MediaAccountFilingPage() {
       mediaType: params.mediaType as MediaType | undefined,
       accountStatus: numberValue(params.accountStatus),
       providerId: numberValue(params.providerId),
-      filingStatus: params.filingStatus as FilingDisplayStatus | undefined,
+      filingMethod: params.filingMethod as FilingMethod | undefined,
+      filingStatus: params.filingStatus as FilingStatus | undefined,
     }
+    queryContextRef.current = {
+      key: JSON.stringify(query),
+      version: queryContextRef.current.version + 1,
+    }
+    exportQueryRef.current = query
     const result = await listAdminMediaAccounts(query)
     return { data: result.list, total: result.total, success: true }
+  }, [])
+
+  const handleExport = async () => {
+    try {
+      const blob = await exportAdminMediaAccounts(exportQueryRef.current)
+      const url = URL.createObjectURL(blob)
+      const anchor = document.createElement('a')
+      anchor.href = url
+      anchor.download = 'media-account-filings.xlsx'
+      anchor.click()
+      URL.revokeObjectURL(url)
+    } catch (error) {
+      if (isUnauthorizedError(error)) return
+      message.error(error instanceof Error ? error.message : '账号报白导出失败')
+    }
+  }
+
+  const renderMoreAction = (record: AdminMediaAccountListItem) => {
+    const items: MenuProps['items'] = []
+    if (record.filingMethod === 'MANUAL' && record.providerId !== null) {
+      items.push(
+        ...manualStatusActions
+          .filter((action) => action.status !== record.filingStatus)
+          .map((action) => ({
+            key: action.status,
+            label: action.label,
+          })),
+        { type: 'divider' },
+      )
+    }
+    items.push({ key: 'delete', label: '删除', danger: true })
+
+    return (
+      <Dropdown
+        key="more"
+        trigger={['click']}
+        menu={{
+          items,
+          onClick: ({ key }) => {
+            if (key === 'delete') {
+              confirmDelete(record)
+              return
+            }
+            const action = manualStatusActions.find(
+              (candidate) => candidate.status === key,
+            )
+            if (action) {
+              void handleManualStatus(
+                record.id,
+                record.providerId,
+                action.status,
+              )
+            }
+          },
+        }}
+      >
+        <Button
+          type="link"
+          size="small"
+          data-testid={`media-account-more-${record.id}`}
+        >
+          更多 <DownOutlined />
+        </Button>
+      </Dropdown>
+    )
   }
 
   return (
@@ -236,7 +466,48 @@ export function MediaAccountFilingPage() {
         rowKey="id"
         columns={columns}
         request={loadPage}
-        toolBarRender={false}
+        rowSelection={{
+          selectedRowKeys,
+          onChange: (keys, rows) => {
+            setSelectedRowKeys(keys)
+            setSelectedRows(rows)
+          },
+          getCheckboxProps: (record) => ({
+            disabled: !isManualFilingSelectable(record),
+          }),
+        }}
+        toolBarRender={() => [
+          <Button
+            key="bulk-approve"
+            icon={<Check size={16} />}
+            disabled={
+              selectedRowKeys.length === 0 || bulkOperatingStatus !== null
+            }
+            loading={bulkOperatingStatus === 'APPROVED'}
+            onClick={() => handleBulkManualStatus('APPROVED')}
+          >
+            批量通过
+          </Button>,
+          <Button
+            key="bulk-reject"
+            danger
+            icon={<X size={16} />}
+            disabled={
+              selectedRowKeys.length === 0 || bulkOperatingStatus !== null
+            }
+            loading={bulkOperatingStatus === 'REJECTED'}
+            onClick={() => handleBulkManualStatus('REJECTED')}
+          >
+            批量未通过
+          </Button>,
+          <Button
+            key="export"
+            icon={<Download size={16} />}
+            onClick={() => void handleExport()}
+          >
+            导出 Excel
+          </Button>,
+        ]}
         search={{ labelWidth: 88 }}
         options={{
           density: true,
@@ -284,19 +555,6 @@ export function MediaAccountFilingPage() {
                 <div className="media-account-filing-page__section-title">
                   <span className="media-account-filing-page__marker" />
                   媒体账号资料
-                  {canDeleteAccount(detail.mediaAccount.filings) ? (
-                    <Popconfirm
-                      title="确认删除这个媒体账号？"
-                      description="删除后可重新提交相同平台和账号 ID。"
-                      okText="删除"
-                      cancelText="取消"
-                      onConfirm={() => void handleDelete()}
-                    >
-                      <Button type="link" danger size="small">
-                        删除
-                      </Button>
-                    </Popconfirm>
-                  ) : null}
                 </div>
                 <Descriptions column={2} size="small">
                   <Descriptions.Item label="媒体平台">
@@ -335,6 +593,7 @@ export function MediaAccountFilingPage() {
                     <div
                       className="media-account-filing-page__filing"
                       key={filing.providerId}
+                      data-testid={`filing-${filing.providerId}`}
                     >
                       <div className="media-account-filing-page__filing-header">
                         <Space>
@@ -343,22 +602,56 @@ export function MediaAccountFilingPage() {
                               providerNames.get(filing.providerId ?? 0) ||
                               '-'}
                           </strong>
-                          <FilingStatusTag
-                            status={filing.status}
-                            lastSubmittedAt={filing.lastSubmittedAt}
-                            lastErrorMessage={filing.lastErrorMessage}
-                            remoteStatus={filing.remoteStatus}
-                          />
+                          <Tag>{filingMethodLabels[filing.filingMethod]}</Tag>
+                          <FilingStatusTag status={filing.status} />
                         </Space>
-                        {!filing.lastSubmittedAt && filing.lastErrorMessage ? (
-                          <Button
-                            type="link"
-                            loading={retryingProviderId === filing.providerId}
-                            onClick={() => void handleRetry(filing.providerId)}
-                          >
-                            重新提交
-                          </Button>
-                        ) : null}
+                        <Space>
+                          {filing.submissionResolutionAllowed ? (
+                            <>
+                              <Button
+                                type="link"
+                                loading={
+                                  operatingFiling ===
+                                  `${detail.id}:${filing.providerId}:RECEIVED`
+                                }
+                                onClick={() =>
+                                  void handleSubmissionResolution(
+                                    filing.providerId,
+                                    'RECEIVED',
+                                  )
+                                }
+                              >
+                                确认已收到
+                              </Button>
+                              <Button
+                                type="link"
+                                loading={
+                                  operatingFiling ===
+                                  `${detail.id}:${filing.providerId}:NOT_RECEIVED`
+                                }
+                                onClick={() =>
+                                  void handleSubmissionResolution(
+                                    filing.providerId,
+                                    'NOT_RECEIVED',
+                                  )
+                                }
+                              >
+                                确认未收到
+                              </Button>
+                            </>
+                          ) : null}
+                          {filing.retryAllowed ? (
+                            <Button
+                              type="link"
+                              loading={retryingProviderId === filing.providerId}
+                              onClick={() =>
+                                void handleRetry(filing.providerId)
+                              }
+                            >
+                              重新提交
+                            </Button>
+                          ) : null}
+                        </Space>
                       </div>
                       <div className="media-account-filing-page__filing-meta">
                         <span>
@@ -398,27 +691,12 @@ function AccountStatusTag({ status }: { status: number }) {
   return status === 1 ? <Tag color="success">启用</Tag> : <Tag>禁用</Tag>
 }
 
-function FilingStatusTag({
-  status,
-  lastSubmittedAt,
-  lastErrorMessage,
-  remoteStatus,
-}: {
-  status: FilingStatus | null
-  lastSubmittedAt?: string | null
-  lastErrorMessage?: string | null
-  remoteStatus?: string | null
-}) {
-  const label = getFilingStatusLabel(
-    status,
-    lastSubmittedAt,
-    lastErrorMessage,
-    remoteStatus,
-  )
+function FilingStatusTag({ status }: { status: FilingStatus | null }) {
+  const label = status ? filingStatusLabels[status] : '待提交'
   const color =
     label === '已加白'
       ? 'success'
-      : label === '已拒绝' || label === '提交失败' || label === '查询失败'
+      : label === '未通过' || label === '提交失败'
         ? 'error'
         : label === '审核中'
           ? 'processing'
@@ -426,37 +704,16 @@ function FilingStatusTag({
   return <Tag color={color}>{label}</Tag>
 }
 
-function getFilingStatusLabel(
-  status: FilingStatus | null,
-  lastSubmittedAt?: string | null,
-  lastErrorMessage?: string | null,
-  remoteStatus?: string | null,
-) {
-  if (lastSubmittedAt && lastErrorMessage) return '查询失败'
-  if (!lastSubmittedAt) {
-    if (lastErrorMessage) return '提交失败'
-    if (status === 'APPROVED') return '已加白'
-    if (status === 'FAILED') return '已拒绝'
-    return '待提交'
-  }
-  if (status === 'APPROVED' || remoteStatus === '1') return '已加白'
-  if (remoteStatus === '2') return '已拒绝'
-  return '审核中'
-}
+const manualStatusActions: Array<{
+  status: ManualFilingStatus
+  label: string
+}> = [
+  { status: 'APPROVED', label: '报白通过' },
+  { status: 'REJECTED', label: '报白未通过' },
+]
 
-function canDeleteAccount(
-  filings: AdminMediaAccountDetail['mediaAccount']['filings'],
-) {
-  return (
-    filings.length > 0 &&
-    filings.every(
-      (filing) =>
-        (filing.lastSubmittedAt == null &&
-          filing.nextActionAt == null &&
-          filing.lastErrorMessage != null) ||
-        (filing.remoteStatus === '2' && filing.nextActionAt == null),
-    )
-  )
+function isManualFilingSelectable(record: AdminMediaAccountListItem) {
+  return record.filingMethod === 'MANUAL' && record.providerId !== null
 }
 
 function stringValue(value: unknown) {

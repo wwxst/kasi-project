@@ -37,6 +37,7 @@ const providers: DramaProvider[] = [
       currency: 'USD',
       status: 1,
       credentialConfigured: true,
+      apiFilingMediaTypes: [],
       createdAt: '2026-08-20T08:00:00',
       updatedAt: '2026-08-20T08:00:00',
     },

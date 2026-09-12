@@ -14,6 +14,9 @@ import com.kasi.backend.provider.mapper.ShortDramaConnectionMapper;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.NullSource;
+import org.junit.jupiter.params.provider.ValueSource;
 
 import java.util.List;
 
@@ -92,6 +95,40 @@ class DramaCatalogAdminServiceTest {
                 .isInstanceOf(BusinessException.class);
     }
 
+    @ParameterizedTest(name = "远端状态 {0} 不允许上架")
+    @NullSource
+    @ValueSource(strings = {"MISSING", "0", "OFFLINE"})
+    @DisplayName("远端非在线短剧不能上架")
+    void remoteUnavailableDramaCannotBePublished(String remoteShowStatus) {
+        ProviderDrama drama = drama();
+        drama.setRemoteShowStatus(remoteShowStatus);
+        drama.setLocalStatus(DramaLocalStatus.OFFLINE);
+        when(dramaMapper.findById(21L)).thenReturn(drama);
+        when(dramaMapper.updateLocalStatus(21L, DramaLocalStatus.PUBLISHED)).thenReturn(1);
+        when(dramaMapper.findContents(21L)).thenReturn(List.of());
+
+        assertThatThrownBy(() -> service.updateLocalStatus(21L, DramaLocalStatus.PUBLISHED))
+                .isInstanceOfSatisfying(BusinessException.class,
+                        exception -> assertThat(exception.getCode()).isEqualTo(6018));
+
+        verify(dramaMapper, never()).updateLocalStatus(21L, DramaLocalStatus.PUBLISHED);
+    }
+
+    @Test
+    @DisplayName("远端在线且本地下架的短剧仍允许上架")
+    void remoteOnlineDramaCanBePublished() {
+        ProviderDrama drama = drama();
+        drama.setRemoteShowStatus("1");
+        drama.setLocalStatus(DramaLocalStatus.OFFLINE);
+        when(dramaMapper.findById(21L)).thenReturn(drama);
+        when(dramaMapper.updateLocalStatus(21L, DramaLocalStatus.PUBLISHED)).thenReturn(1);
+        when(dramaMapper.findContents(21L)).thenReturn(List.of());
+
+        service.updateLocalStatus(21L, DramaLocalStatus.PUBLISHED);
+
+        verify(dramaMapper).updateLocalStatus(21L, DramaLocalStatus.PUBLISHED);
+    }
+
     @Test
     @DisplayName("推广元数据更新会规范化范围并清理空说明")
     void updatePromotionMetadataNormalizesScopes() {
@@ -109,7 +146,7 @@ class DramaCatalogAdminServiceTest {
         ProviderDrama drama = new ProviderDrama();
         drama.setId(21L); drama.setConnectionId(3L); drama.setExternalDramaId("book-1");
         drama.setTitle("Time Story"); drama.setLanguage("ENGLISH");
-        drama.setRemoteShowStatus("ONLINE"); drama.setLocalStatus(DramaLocalStatus.PUBLISHED);
+        drama.setRemoteShowStatus("1"); drama.setLocalStatus(DramaLocalStatus.PUBLISHED);
         return drama;
     }
 }

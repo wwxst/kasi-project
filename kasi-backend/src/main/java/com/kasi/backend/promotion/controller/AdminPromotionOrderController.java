@@ -21,7 +21,8 @@ import org.springframework.web.bind.annotation.RestController;
 @RequestMapping("/api/admin/promotion/orders")
 @RequiredArgsConstructor
 public class AdminPromotionOrderController {
-    private static final MediaType CSV_MEDIA_TYPE = MediaType.parseMediaType("text/csv;charset=UTF-8");
+    private static final MediaType XLSX_MEDIA_TYPE = MediaType.parseMediaType(
+            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
     private final PromotionOrderAdminService adminService;
 
     @PostMapping("/sync")
@@ -34,11 +35,11 @@ public class AdminPromotionOrderController {
         return ApiResponse.success(adminService.getPage(query));
     }
 
-    @GetMapping("/export.csv")
+    @GetMapping("/export.xlsx")
     public ResponseEntity<byte[]> export(@Valid PromotionOrderPageQueryDTO query) {
         return ResponseEntity.ok()
-                .contentType(CSV_MEDIA_TYPE)
-                .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=promotion-orders.csv")
-                .body(adminService.exportCsv(query));
+                .contentType(XLSX_MEDIA_TYPE)
+                .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=promotion-orders.xlsx")
+                .body(adminService.exportXlsx(query));
     }
 }

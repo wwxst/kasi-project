@@ -12,6 +12,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 
 import java.time.LocalDateTime;
+import java.time.temporal.ChronoUnit;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -101,15 +102,82 @@ class DramaCatalogPersistenceTest extends BaseAuthTest {
     void remoteRepublishDoesNotOverrideManualOfflineStatus() {
         Long connectionId = insertConnection();
         ProviderDrama drama = drama(connectionId, "republished-book");
-        drama.setRemoteShowStatus("0");
+        LocalDateTime previousSeenAt = LocalDateTime.of(2026, 8, 20, 3, 0);
+        drama.setRemoteShowStatus("MISSING");
+        drama.setLastSeenAt(previousSeenAt);
         dramaMapper.upsert(drama);
         Long id = dramaMapper.findByConnectionAndExternalId(connectionId, "republished-book").getId();
-        assertThat(dramaMapper.updateLocalStatus(id, DramaLocalStatus.OFFLINE)).isEqualTo(1);
 
+        LocalDateTime reappearedAt = LocalDateTime.of(2026, 8, 21, 3, 5);
         drama.setRemoteShowStatus("1");
+        drama.setLastSeenAt(reappearedAt);
         dramaMapper.upsert(drama);
 
-        assertThat(dramaMapper.findById(id).getLocalStatus()).isEqualTo(DramaLocalStatus.OFFLINE);
+        ProviderDrama stored = dramaMapper.findById(id);
+        assertThat(stored.getRemoteShowStatus()).isEqualTo("1");
+        assertThat(stored.getLocalStatus()).isEqualTo(DramaLocalStatus.OFFLINE);
+        assertThat(stored.getLastSeenAt()).isEqualTo(reappearedAt);
+    }
+
+    @Test
+    @DisplayName("全量成功只下架同连接同语言本轮未返回的短剧")
+    void fullSnapshotMarksOnlyMissingDramasOffline() {
+        Long connectionId = insertConnection();
+        LocalDateTime snapshotStartedAt = LocalDateTime.of(2026, 8, 21, 3, 0);
+
+        ProviderDrama missing = drama(connectionId, "missing-book");
+        missing.setRemoteShowStatus("1");
+        missing.setLastSeenAt(snapshotStartedAt.minusMinutes(1));
+        missing.setCommissionScope("ORDER");
+        missing.setPromotionDescription("保留推广说明");
+        dramaMapper.upsert(missing);
+        Long missingId = dramaMapper.findByConnectionAndExternalId(connectionId, "missing-book").getId();
+        assertThat(dramaMapper.updatePromotionMetadata(
+                missingId, "ORDER", "保留推广说明")).isEqualTo(1);
+
+        ProviderDrama seen = drama(connectionId, "seen-book");
+        seen.setRemoteShowStatus("1");
+        seen.setLastSeenAt(snapshotStartedAt.plusMinutes(1));
+        dramaMapper.upsert(seen);
+
+        ProviderDrama otherLanguage = drama(connectionId, "other-language-book");
+        otherLanguage.setLanguage("SPANISH");
+        otherLanguage.setRemoteShowStatus("1");
+        otherLanguage.setLastSeenAt(snapshotStartedAt.minusMinutes(1));
+        dramaMapper.upsert(otherLanguage);
+
+        jdbcTemplate.update("""
+                INSERT INTO short_drama_provider (provider_code, provider_name, status)
+                VALUES ('OTHER', 'Other provider', 1)
+                """);
+        Long otherProviderId = jdbcTemplate.queryForObject(
+                "SELECT id FROM short_drama_provider WHERE provider_code='OTHER'", Long.class);
+        jdbcTemplate.update("""
+                INSERT INTO short_drama_connection (provider_id, connection_name, currency)
+                VALUES (?, 'Other connection', 'USD')
+                """, otherProviderId);
+        Long otherConnectionId = jdbcTemplate.queryForObject(
+                "SELECT id FROM short_drama_connection WHERE provider_id=?", Long.class, otherProviderId);
+        ProviderDrama otherConnection = drama(otherConnectionId, "other-connection-book");
+        otherConnection.setRemoteShowStatus("1");
+        otherConnection.setLastSeenAt(snapshotStartedAt.minusMinutes(1));
+        dramaMapper.upsert(otherConnection);
+
+        assertThat(dramaMapper.markMissingAfterFullSync(
+                connectionId, "ENGLISH", snapshotStartedAt)).isEqualTo(1);
+
+        ProviderDrama missingStored = dramaMapper.findByConnectionAndExternalId(connectionId, "missing-book");
+        assertThat(missingStored.getRemoteShowStatus()).isEqualTo("MISSING");
+        assertThat(missingStored.getLocalStatus()).isEqualTo(DramaLocalStatus.OFFLINE);
+        assertThat(missingStored.getLastSeenAt()).isEqualTo(snapshotStartedAt.minusMinutes(1));
+        assertThat(missingStored.getCommissionScope()).isEqualTo("ORDER");
+        assertThat(missingStored.getPromotionDescription()).isEqualTo("保留推广说明");
+        assertThat(dramaMapper.findByConnectionAndExternalId(connectionId, "seen-book").getRemoteShowStatus())
+                .isEqualTo("1");
+        assertThat(dramaMapper.findByConnectionAndExternalId(connectionId,
+                "other-language-book").getRemoteShowStatus()).isEqualTo("1");
+        assertThat(dramaMapper.findByConnectionAndExternalId(otherConnectionId,
+                "other-connection-book").getRemoteShowStatus()).isEqualTo("1");
     }
 
     @Test
@@ -142,7 +210,7 @@ class DramaCatalogPersistenceTest extends BaseAuthTest {
         checkpoint.setLanguage("ENGLISH"); checkpoint.setStatus(DramaSyncStatus.IDLE);
         checkpoint.setPageNo(1); checkpoint.setPageSize(100);
         assertThat(checkpointMapper.insert(checkpoint)).isEqualTo(1);
-        LocalDateTime now = LocalDateTime.now();
+        LocalDateTime now = LocalDateTime.now().truncatedTo(ChronoUnit.MICROS);
         assertThat(checkpointMapper.requestRun(checkpoint.getId(), now, true)).isEqualTo(1);
         assertThat(checkpointMapper.claimLease(checkpoint.getId(), "worker-a", now, now.plusMinutes(2))).isEqualTo(1);
         assertThat(checkpointMapper.claimLease(checkpoint.getId(), "worker-b", now, now.plusMinutes(2))).isZero();
@@ -193,7 +261,7 @@ class DramaCatalogPersistenceTest extends BaseAuthTest {
         checkpoint.setLanguage("ENGLISH"); checkpoint.setStatus(DramaSyncStatus.IDLE);
         checkpoint.setPageNo(1); checkpoint.setPageSize(100);
         checkpointMapper.insert(checkpoint);
-        LocalDateTime now = LocalDateTime.now();
+        LocalDateTime now = LocalDateTime.now().truncatedTo(ChronoUnit.MICROS);
         checkpointMapper.requestRun(checkpoint.getId(), now, true);
         checkpointMapper.claimLease(checkpoint.getId(), "worker-a", now, now.plusMinutes(2));
         checkpointMapper.updateProgress(checkpoint.getId(), "worker-a", 3, 1700000000123L,
@@ -205,6 +273,7 @@ class DramaCatalogPersistenceTest extends BaseAuthTest {
         assertThat(restarted.getPageNo()).isEqualTo(1);
         assertThat(restarted.getUpdateTime()).isNull();
         assertThat(restarted.getTotalFetched()).isZero();
+        assertThat(restarted.getRequestedAt()).isEqualTo(now.plusMinutes(1));
 
         checkpointMapper.claimLease(checkpoint.getId(), "worker-b", now.plusMinutes(1), now.plusMinutes(3));
         checkpointMapper.updateProgress(checkpoint.getId(), "worker-b", 2, null,
@@ -215,6 +284,7 @@ class DramaCatalogPersistenceTest extends BaseAuthTest {
         ProviderSyncCheckpoint resumed = checkpointMapper.findById(checkpoint.getId());
         assertThat(resumed.getPageNo()).isEqualTo(2);
         assertThat(resumed.getTotalFetched()).isEqualTo(5);
+        assertThat(resumed.getRequestedAt()).isEqualTo(now.plusMinutes(1));
     }
 
     @Test

@@ -51,7 +51,7 @@ class AdminDramaCatalogControllerTest extends BaseAuthTest {
                 "SELECT id FROM short_drama_connection WHERE provider_id=?", Long.class, providerId);
         jdbcTemplate.update("INSERT INTO provider_drama (connection_id,external_drama_id,title,title_zh,description,cover_url,label_names,category_name,language,remote_rank,novel_type,novel_sub_type,remote_created_at,remote_updated_at,remote_show_status,local_status) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
                 connectionId, "book-1", "Time Story", "时间故事", "Intro", "https://img/1", "[\"爱情\"]", "爱情", "ENGLISH", 3, "ORIGINAL", 1,
-                java.sql.Timestamp.valueOf("2025-08-27 11:26:18"), java.sql.Timestamp.valueOf("2025-08-28 11:26:18"), "ONLINE", "DRAFT");
+                java.sql.Timestamp.valueOf("2025-08-27 11:26:18"), java.sql.Timestamp.valueOf("2025-08-28 11:26:18"), "1", "DRAFT");
         dramaId = jdbcTemplate.queryForObject("SELECT id FROM provider_drama WHERE external_drama_id='book-1'", Long.class);
         jdbcTemplate.update("INSERT INTO provider_drama_content (drama_id,sequence_no,title,is_free) VALUES (?,?,?,?)",
                 dramaId, 1, "Episode 1", 1);

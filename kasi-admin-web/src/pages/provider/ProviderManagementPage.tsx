@@ -3,6 +3,7 @@ import {
   Alert,
   App,
   Button,
+  Checkbox,
   Form,
   Input,
   Modal,
@@ -25,6 +26,7 @@ import {
 } from '../../features/provider/providerApi'
 import type {
   DramaProvider,
+  FilingMediaType,
   ProviderConnectionTestResult,
   UpsertProviderConnectionRequest,
 } from '../../features/provider/providerTypes'
@@ -36,7 +38,15 @@ interface ProviderFormValues {
   partnerId?: string
   apiKey?: string
   status: boolean
+  apiFilingMediaTypes: FilingMediaType[]
 }
+
+const filingMediaOptions = [
+  { label: 'Facebook', value: 'FACEBOOK' },
+  { label: 'TikTok', value: 'TIKTOK' },
+  { label: 'YouTube', value: 'YOUTUBE' },
+  { label: 'Instagram', value: 'INSTAGRAM' },
+] satisfies { label: string; value: FilingMediaType }[]
 
 export function ProviderManagementPage() {
   const [form] = Form.useForm<ProviderFormValues>()
@@ -93,6 +103,7 @@ export function ProviderManagementPage() {
       partnerId: activeProvider.connection?.partnerId ?? '',
       apiKey: undefined,
       status: activeProvider.connection?.status !== 0,
+      apiFilingMediaTypes: activeProvider.connection?.apiFilingMediaTypes ?? [],
     })
   }, [activeProvider, form])
 
@@ -105,6 +116,7 @@ export function ProviderManagementPage() {
       const partnerId = values.partnerId?.trim()
       const request: UpsertProviderConnectionRequest = {
         status: values.status ? 1 : 0,
+        apiFilingMediaTypes: values.apiFilingMediaTypes ?? [],
         ...(mediaRootDomain ? { mediaRootDomain } : {}),
         ...(baseUrl ? { baseUrl } : {}),
         ...(partnerId ? { partnerId } : {}),
@@ -279,6 +291,13 @@ export function ProviderManagementPage() {
                           placeholder="请输入平台提供的 KEY"
                           autoComplete="new-password"
                         />
+                      </Form.Item>
+                      <Form.Item
+                        label="API 报白媒体"
+                        name="apiFilingMediaTypes"
+                        extra="勾选的媒体使用 API 报白，未勾选的媒体使用人工报白"
+                      >
+                        <Checkbox.Group options={filingMediaOptions} />
                       </Form.Item>
                     </>
                     <Form.Item

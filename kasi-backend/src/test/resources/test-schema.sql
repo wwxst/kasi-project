@@ -22,6 +22,7 @@ CREATE TABLE IF NOT EXISTS short_drama_connection (
     updated_by BIGINT DEFAULT NULL,
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    api_filing_media_types VARCHAR(256) NOT NULL DEFAULT '["FACEBOOK"]',
     UNIQUE (provider_id));
 
 MERGE INTO short_drama_provider (provider_code, provider_name, status)
@@ -127,7 +128,8 @@ CREATE TABLE IF NOT EXISTS provider_media_filing (
     id BIGINT AUTO_INCREMENT PRIMARY KEY,
     connection_id BIGINT NOT NULL,
     media_account_id BIGINT NOT NULL,
-    status VARCHAR(16) NOT NULL DEFAULT 'PENDING',
+    filing_method VARCHAR(16) NOT NULL DEFAULT 'API',
+    status VARCHAR(16) NOT NULL DEFAULT 'NOT_SUBMITTED',
     submitted_data_version INT DEFAULT NULL,
     task_data_version INT NOT NULL DEFAULT 1,
     remote_status VARCHAR(64) DEFAULT NULL,
@@ -137,8 +139,11 @@ CREATE TABLE IF NOT EXISTS provider_media_filing (
     next_action VARCHAR(16) NOT NULL DEFAULT 'SUBMIT',
     next_action_at TIMESTAMP DEFAULT NULL,
     retry_count INT NOT NULL DEFAULT 0,
+    last_submit_attempt_at TIMESTAMP DEFAULT NULL,
     last_submitted_at TIMESTAMP DEFAULT NULL,
     last_queried_at TIMESTAMP DEFAULT NULL,
+    manual_updated_by BIGINT DEFAULT NULL,
+    manual_updated_at TIMESTAMP DEFAULT NULL,
     last_error_code VARCHAR(64) DEFAULT NULL,
     last_error_message VARCHAR(512) DEFAULT NULL,
     lease_owner VARCHAR(64) DEFAULT NULL,

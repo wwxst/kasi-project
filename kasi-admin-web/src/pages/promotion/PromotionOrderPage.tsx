@@ -162,7 +162,7 @@ export function PromotionOrderPage() {
       const url = URL.createObjectURL(blob)
       const anchor = document.createElement('a')
       anchor.href = url
-      anchor.download = 'promotion-orders.csv'
+      anchor.download = 'promotion-orders.xlsx'
       anchor.click()
       URL.revokeObjectURL(url)
     } catch (error) {
@@ -304,7 +304,7 @@ export function PromotionOrderPage() {
             icon={<Download size={16} />}
             onClick={() => void handleExport()}
           >
-            导出 CSV
+            导出 Excel
           </Button>
           <Button
             type="primary"

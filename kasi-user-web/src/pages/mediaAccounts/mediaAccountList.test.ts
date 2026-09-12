@@ -27,7 +27,7 @@ const accounts: MediaAccount[] = [
     filings: [
       {
         providerName: 'GoodShort',
-        status: 'FAILED',
+        status: 'REJECTED',
       } as MediaAccount['filings'][number],
     ],
   },

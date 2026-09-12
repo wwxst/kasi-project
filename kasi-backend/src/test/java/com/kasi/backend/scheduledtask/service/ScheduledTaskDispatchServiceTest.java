@@ -78,6 +78,26 @@ class ScheduledTaskDispatchServiceTest {
     }
 
     @Test
+    @DisplayName("到期GoodShort全量任务按配置语言入队并推进到次日三点")
+    void dueGoodShortFullTaskIsDispatchedAndAdvanced() {
+        SystemScheduledTask task = scheduledFullTask();
+        when(taskMapper.findDue(NOW, 10)).thenReturn(List.of(task));
+        when(taskMapper.claimLease(ScheduledTaskCode.GOODSHORT_DRAMA_FULL_SYNC,
+                "scheduled-worker-test", NOW, NOW.plusMinutes(2))).thenReturn(1);
+        ShortDramaProvider provider = new ShortDramaProvider();
+        provider.setId(7L);
+        provider.setProviderCode("GOODSHORT");
+        provider.setStatus(1);
+        when(providerMapper.findByCode("GOODSHORT")).thenReturn(provider);
+
+        service.processDueBatch();
+
+        verify(syncService).requestScheduledFull(7L, DramaSyncProperties.DEFAULT_LANGUAGES);
+        verify(taskMapper).completeRun(ScheduledTaskCode.GOODSHORT_DRAMA_FULL_SYNC,
+                "scheduled-worker-test", LocalDateTime.of(2026, 8, 21, 3, 0));
+    }
+
+    @Test
     @DisplayName("到期免费剧集任务领取后处理同步队列并推进一分钟周期")
     void dueDramaContentTaskIsDispatchedAndAdvanced() {
         SystemScheduledTask task = scheduledContentTask();
@@ -187,6 +207,15 @@ class ScheduledTaskDispatchServiceTest {
 
         task.setIntervalValue(60);
         task.setCycleType(com.kasi.backend.scheduledtask.enums.ScheduledTaskCycleType.INTERVAL_MINUTES);
+        return task;
+    }
+
+    private SystemScheduledTask scheduledFullTask() {
+        SystemScheduledTask task = scheduledTask();
+        task.setTaskCode(ScheduledTaskCode.GOODSHORT_DRAMA_FULL_SYNC);
+        task.setCycleType(ScheduledTaskCycleType.DAILY);
+        task.setIntervalValue(null);
+        task.setTimeOfDay(java.time.LocalTime.of(3, 0));
         return task;
     }
 

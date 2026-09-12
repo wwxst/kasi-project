@@ -175,6 +175,113 @@ export FLYWAY_PASSWORD
 
 characterEncoding 必须写 UTF-8，不能写 utf8mb4。
 
+### 4.5 宝塔自动备份
+
+生产数据库通过宝塔“计划任务 -> Shell 脚本”每天自动生成逻辑备份。备份使用独立的 MySQL 只读账号 `kasi_backup@localhost`，不复用 MySQL root 或业务账号 `kasi_app`。备份目录为 `/www/wwwroot/kasixm/backups`，目录权限为 `700`；密码文件为该目录下的 `.mysql-backup-password`，权限为 `600`，不得把密码直接写入计划任务、仓库或日志。
+
+一次性创建或校准备份账号时，通过 MySQL root 交互登录；`<独立强密码>` 必须与随后写入密码文件的值一致：
+
+~~~bash
+docker exec -it -e MYSQL_HISTFILE=/dev/null kasi_promotion mysql -uroot -p
+~~~
+
+~~~sql
+CREATE USER IF NOT EXISTS 'kasi_backup'@'localhost'
+IDENTIFIED BY '<独立强密码>';
+
+ALTER USER 'kasi_backup'@'localhost'
+IDENTIFIED BY '<独立强密码>';
+
+GRANT SELECT, SHOW VIEW, TRIGGER, EVENT
+ON kasi_promotion.*
+TO 'kasi_backup'@'localhost';
+
+GRANT SHOW_ROUTINE
+ON *.*
+TO 'kasi_backup'@'localhost';
+
+SHOW GRANTS FOR 'kasi_backup'@'localhost';
+~~~
+
+在服务器终端交互写入密码文件，输入过程不会回显：
+
+~~~bash
+mkdir -p /www/wwwroot/kasixm/backups
+chmod 700 /www/wwwroot/kasixm/backups
+read -r -s -p '请输入数据库备份账号密码: ' DB_BACKUP_PASSWORD
+printf '\n'
+printf '%s' "$DB_BACKUP_PASSWORD" > /www/wwwroot/kasixm/backups/.mysql-backup-password
+unset DB_BACKUP_PASSWORD
+chmod 600 /www/wwwroot/kasixm/backups/.mysql-backup-password
+~~~
+
+在宝塔中新增 Shell 脚本任务，任务名使用 `kasi_promotion每日数据库备份`，执行用户为 root，周期设置为每天的业务低峰时段（例如 01:30）。脚本内容完整使用以下版本，不再额外包裹 `bash -c`：
+
+~~~bash
+set -eu
+umask 077
+
+BACKUP_DIR="/www/wwwroot/kasixm/backups"
+PASSWORD_FILE="$BACKUP_DIR/.mysql-backup-password"
+CONTAINER="kasi_promotion"
+DATABASE="kasi_promotion"
+MYSQL_USER="kasi_backup"
+KEEP_DAYS="14"
+
+mkdir -p "$BACKUP_DIR"
+chmod 700 "$BACKUP_DIR"
+
+if [ ! -s "$PASSWORD_FILE" ]; then
+    echo "备份失败：密码文件不存在或为空"
+    exit 1
+fi
+
+if [ "$(docker inspect -f '{{.State.Running}}' "$CONTAINER" 2>/dev/null)" != "true" ]; then
+    echo "备份失败：MySQL容器未运行"
+    exit 1
+fi
+
+MYSQL_PASSWORD="$(<"$PASSWORD_FILE")"
+STAMP="$(date '+%Y%m%d-%H%M%S')"
+SQL_TEMP="$BACKUP_DIR/.${DATABASE}-${STAMP}.sql.tmp"
+GZIP_TEMP="$BACKUP_DIR/.${DATABASE}-${STAMP}.sql.gz.tmp"
+OUTPUT="$BACKUP_DIR/${DATABASE}-${STAMP}.sql.gz"
+
+cleanup() {
+    rm -f "$SQL_TEMP" "$GZIP_TEMP"
+    unset MYSQL_PASSWORD
+}
+
+trap cleanup EXIT
+
+docker exec -e MYSQL_PWD="$MYSQL_PASSWORD" "$CONTAINER" mysqldump -u"$MYSQL_USER" --single-transaction --quick --routines --events --triggers --hex-blob --set-gtid-purged=OFF --no-tablespaces --default-character-set=utf8mb4 "$DATABASE" > "$SQL_TEMP"
+
+test -s "$SQL_TEMP"
+gzip -c "$SQL_TEMP" > "$GZIP_TEMP"
+gzip -t "$GZIP_TEMP"
+
+mv "$GZIP_TEMP" "$OUTPUT"
+sha256sum "$OUTPUT" > "$OUTPUT.sha256"
+
+find "$BACKUP_DIR" -maxdepth 1 -type f -name "${DATABASE}-*.sql.gz" -mtime +"$KEEP_DAYS" -delete
+find "$BACKUP_DIR" -maxdepth 1 -type f -name "${DATABASE}-*.sql.gz.sha256" -mtime +"$KEEP_DAYS" -delete
+
+echo "数据库备份成功：$OUTPUT"
+ls -lh "$OUTPUT" "$OUTPUT.sha256"
+exit 0
+~~~
+
+保存计划任务后先手工执行一次，再在服务器终端验证最新文件。`gzip -t` 成功时不输出内容，`sha256sum -c` 必须返回 `OK`：
+
+~~~bash
+cd /www/wwwroot/kasixm/backups
+LATEST="$(ls -1t kasi_promotion-*.sql.gz | head -n 1)"
+gzip -t "$LATEST"
+sha256sum -c "$LATEST.sha256"
+~~~
+
+2026-09-12 现场验证已生成约 15 MB 的 `.sql.gz` 和对应 `.sha256` 文件，压缩结构与 SHA-256 校验均通过。当前任务自动删除超过 14 天的这两类文件，但备份成功不等于恢复成功；发布前仍须将备份恢复到隔离数据库完成恢复演练，禁止直接在生产库上验证恢复。
+
 ## 五、Redis Docker
 
 已有容器只检查，不要重复创建：

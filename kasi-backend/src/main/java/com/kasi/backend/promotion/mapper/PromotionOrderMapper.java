@@ -42,6 +42,15 @@ public interface PromotionOrderMapper {
             @Param("size") int size,
             @Param("excludeUnknown") boolean excludeUnknown);
 
+    java.util.List<PromotionOrder> findForExport(
+            @Param("providerId") Long providerId,
+            @Param("userId") Long userId,
+            @Param("status") PromotionOrderStatus status,
+            @Param("attributionStatus") PromotionAttributionStatus attributionStatus,
+            @Param("startDate") java.time.LocalDateTime startDate,
+            @Param("endDate") java.time.LocalDateTime endDate,
+            @Param("excludeUnknown") boolean excludeUnknown);
+
     PromotionOrderMonthlySummary summarizeMonth(
             @Param("userId") Long userId,
             @Param("startDate") java.time.LocalDateTime startDate,

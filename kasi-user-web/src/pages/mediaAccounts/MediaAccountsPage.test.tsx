@@ -89,7 +89,7 @@ describe('MediaAccountsPage', () => {
           {
             providerId: 3,
             providerName: 'GoodShort',
-            status: 'PENDING',
+            status: 'NOT_SUBMITTED',
             lastSubmittedAt: null,
             nextActionAt: '2026-09-05T11:00:00',
           } as never,
@@ -103,7 +103,7 @@ describe('MediaAccountsPage', () => {
     expect(screen.queryByText('\u5ba1\u6838\u4e2d')).toBeNull()
   })
 
-  it('labels a terminal query error as query failed', async () => {
+  it('uses only the public four statuses and ignores internal error evidence', async () => {
     vi.mocked(getMediaAccounts).mockResolvedValueOnce([
       {
         id: 3,
@@ -116,9 +116,10 @@ describe('MediaAccountsPage', () => {
           {
             providerId: 3,
             providerName: 'GoodShort',
-            status: 'FAILED',
+            status: 'PENDING',
             remoteStatus: null,
             lastSubmittedAt: '2026-09-05T10:00:00',
+            lastErrorCode: 'SUBMIT_OUTCOME_UNKNOWN',
             lastErrorMessage: '查询超时',
           } as never,
         ],
@@ -127,7 +128,10 @@ describe('MediaAccountsPage', () => {
 
     renderPage()
 
-    expect(await screen.findByText('查询失败')).toBeTruthy()
+    expect(await screen.findByText('审核中')).toBeTruthy()
+    expect(screen.queryByText('提交失败')).toBeNull()
+    expect(screen.queryByText('查询失败')).toBeNull()
+    expect(screen.queryByText('查询超时')).toBeNull()
   })
 
   it('uses the Starter message for ordinary API errors', async () => {

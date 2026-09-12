@@ -1,9 +1,11 @@
 package com.kasi.backend.promotion.service.impl;
 
+import com.kasi.backend.common.exception.BusinessException;
 import com.kasi.backend.promotion.config.MediaFilingProperties;
 import com.kasi.backend.promotion.entity.PromotionMediaAccount;
 import com.kasi.backend.promotion.entity.ProviderMediaFiling;
 import com.kasi.backend.promotion.enums.FilingAction;
+import com.kasi.backend.promotion.enums.FilingMethod;
 import com.kasi.backend.promotion.enums.FilingStatus;
 import com.kasi.backend.promotion.mapper.PromotionMediaAccountMapper;
 import com.kasi.backend.promotion.mapper.ProviderMediaFilingMapper;
@@ -20,6 +22,7 @@ import com.kasi.backend.provider.spi.AccountFilingResult;
 import com.kasi.backend.provider.spi.AccountFilingSubmission;
 import com.kasi.backend.provider.spi.ProviderRuntimeConnection;
 import org.springframework.stereotype.Service;
+import org.springframework.beans.factory.annotation.Value;
 
 import java.time.Clock;
 import java.time.Duration;
@@ -35,19 +38,21 @@ public class MediaFilingTaskServiceImpl implements MediaFilingTaskService {
     private final ProviderRuntimeConnectionService runtimeService;
     private final MediaFilingProperties properties;
     private final Clock clock;
-    private final String workerId = UUID.randomUUID().toString();
+    private final String instanceId;
 
     public MediaFilingTaskServiceImpl(ProviderMediaFilingMapper filingMapper,
                                       PromotionMediaAccountMapper mediaMapper,
                                       ShortDramaConnectionMapper connectionMapper,
                                       ProviderRuntimeConnectionService runtimeService,
-                                      MediaFilingProperties properties, Clock clock) {
+                                      MediaFilingProperties properties, Clock clock,
+                                      @Value("${app.promotion.filing.instance-id:${random.long}}") String instanceId) {
         this.filingMapper = filingMapper;
         this.mediaMapper = mediaMapper;
         this.connectionMapper = connectionMapper;
         this.runtimeService = runtimeService;
         this.properties = properties;
         this.clock = clock;
+        this.instanceId = instanceId;
     }
 
     @Override
@@ -55,8 +60,14 @@ public class MediaFilingTaskServiceImpl implements MediaFilingTaskService {
         LocalDateTime now = now();
         List<Long> dueIds = filingMapper.findDueIds(now, properties.getBatchSize());
         for (Long id : dueIds) {
-            if (filingMapper.claimLease(id, workerId, now, now.plus(properties.getLeaseDuration())) == 1) {
-                processClaimed(id, now);
+            ProviderMediaFiling filing = filingMapper.findById(id);
+            if (!isApiTask(filing)) {
+                continue;
+            }
+            String leaseToken = leaseToken();
+            if (filingMapper.claimLease(id, leaseToken, FilingMethod.API, filing.getNextAction(),
+                    filing.getTaskDataVersion(), now, now.plus(properties.getLeaseDuration())) == 1) {
+                processClaimed(id, leaseToken, now);
             }
         }
     }
@@ -65,36 +76,53 @@ public class MediaFilingTaskServiceImpl implements MediaFilingTaskService {
     public void submitNow(Long filingId) {
         LocalDateTime now = now();
         ProviderMediaFiling filing = filingMapper.findById(filingId);
-        if (filing == null || filing.getNextAction() != FilingAction.SUBMIT) {
+        if (filing == null || filing.getFilingMethod() != FilingMethod.API
+                || filing.getNextAction() != FilingAction.SUBMIT) {
             return;
         }
-        if (filingMapper.claimLease(filingId, workerId, now, now.plus(properties.getLeaseDuration())) == 1) {
-            processClaimed(filingId, now);
+        String leaseToken = leaseToken();
+        if (filingMapper.claimLease(filingId, leaseToken, FilingMethod.API, FilingAction.SUBMIT,
+                filing.getTaskDataVersion(), now, now.plus(properties.getLeaseDuration())) == 1) {
+            processClaimed(filingId, leaseToken, now);
         }
     }
 
-    private void processClaimed(Long id, LocalDateTime now) {
+    private void processClaimed(Long id, String leaseToken, LocalDateTime now) {
         ProviderMediaFiling filing = filingMapper.findById(id);
-        if (filing == null) return;
+        if (!isApiTask(filing)) return;
+        if (filing.getNextAction() == FilingAction.SUBMIT
+                && filing.getLastSubmitAttemptAt() != null
+                && filing.getSubmittedDataVersion() == null) {
+            markSubmissionUnknown(filing, leaseToken, "提交尝试未取得明确结果");
+            return;
+        }
         PromotionMediaAccount account = mediaMapper.findById(filing.getMediaAccountId());
         ShortDramaConnection connection = connectionMapper.findById(filing.getConnectionId());
         if (account == null || connection == null || !Integer.valueOf(1).equals(account.getStatus())) {
-            recordProcessingFailure(filing, now, "LOCAL_INVALID", "报备所需本地配置不可用");
+            recordProcessingFailure(filing, leaseToken, now, "LOCAL_INVALID", "报备所需本地配置不可用");
             return;
         }
+        boolean submitAttemptStarted = false;
         try {
             ProviderCapability capability = filing.getNextAction() == FilingAction.SUBMIT
                     ? ProviderCapability.ACCOUNT_FILING : ProviderCapability.FILING_STATUS_QUERY;
             ProviderRuntimeConnection runtime = runtimeService.resolve(connection.getProviderId(), capability);
             if (!(runtime.adapter() instanceof AccountFilingProviderAdapter adapter)) {
-                recordProcessingFailure(filing, now, "CAPABILITY_UNSUPPORTED", "平台不支持账号报备");
+                recordProcessingFailure(filing, leaseToken, now, "CAPABILITY_UNSUPPORTED", "平台不支持账号报备");
                 return;
             }
             if (filing.getNextAction() == FilingAction.SUBMIT) {
-                adapter.submitAccountFiling(runtime.secret(), new AccountFilingSubmission(
-                        account.getMediaType(), account.getExternalAccountId(), account.getAccountName(), account.getAccountLink()));
-                filingMapper.completeSubmit(filing.getId(), workerId, filing.getTaskDataVersion(), now,
-                        now.plus(properties.getFirstQueryDelay()));
+                AccountFilingSubmission submission = new AccountFilingSubmission(
+                        account.getMediaType(), account.getExternalAccountId(),
+                        account.getAccountName(), account.getAccountLink());
+                if (filingMapper.markSubmitAttempt(filing.getId(), leaseToken, FilingMethod.API,
+                        FilingAction.SUBMIT, filing.getTaskDataVersion(), now) != 1) {
+                    return;
+                }
+                submitAttemptStarted = true;
+                adapter.submitAccountFiling(runtime.secret(), submission);
+                filingMapper.completeSubmit(filing.getId(), leaseToken, FilingMethod.API, FilingAction.SUBMIT,
+                        filing.getTaskDataVersion(), now, now.plus(properties.getFirstQueryDelay()));
             } else if (filing.getNextAction() == FilingAction.QUERY) {
                 AccountFilingResult result = adapter.queryAccountFiling(runtime.secret(),
                         new AccountFilingQuery(account.getMediaType(), account.getExternalAccountId()));
@@ -102,45 +130,79 @@ public class MediaFilingTaskServiceImpl implements MediaFilingTaskService {
                         ? FilingAction.QUERY : FilingAction.NONE;
                 LocalDateTime nextActionAt = nextAction == FilingAction.QUERY
                         ? now.plus(properties.getPendingQueryInterval()) : null;
-                filingMapper.completeQuery(filing.getId(), workerId, filing.getTaskDataVersion(), result.status(),
+                filingMapper.completeQuery(filing.getId(), leaseToken, FilingMethod.API, FilingAction.QUERY,
+                        filing.getTaskDataVersion(), result.status(),
                         result.remoteStatus(), result.externalFilingId(), result.filingTime(), result.operateTime(),
                         now, nextAction, nextActionAt);
             }
         } catch (ProviderTransientException exception) {
-            recordRetry(filing, now, "REMOTE_TRANSIENT", safeMessage(exception));
+            if (filing.getNextAction() == FilingAction.SUBMIT && submitAttemptStarted) {
+                markSubmissionUnknown(filing, leaseToken, safeMessage(exception));
+            } else if (filing.getNextAction() == FilingAction.SUBMIT) {
+                recordProcessingFailure(filing, leaseToken, now, "LOCAL_INVALID", safeMessage(exception));
+            } else {
+                recordRetry(filing, leaseToken, now, "REMOTE_TRANSIENT", safeMessage(exception));
+            }
         } catch (ProviderRemoteRejectedException exception) {
-            recordFinalFailure(filing, now, "REMOTE_REJECTED", safeMessage(exception));
+            recordFinalFailure(filing, leaseToken, now, "REMOTE_REJECTED", safeMessage(exception));
+        } catch (BusinessException exception) {
+            recordProcessingFailure(filing, leaseToken, now, "LOCAL_INVALID", safeMessage(exception));
         } catch (RuntimeException exception) {
-            recordFinalFailure(filing, now, "TASK_ERROR", safeMessage(exception));
+            if (filing.getNextAction() == FilingAction.SUBMIT && submitAttemptStarted) {
+                markSubmissionUnknown(filing, leaseToken, safeMessage(exception));
+            } else if (filing.getNextAction() == FilingAction.SUBMIT) {
+                recordProcessingFailure(filing, leaseToken, now, "LOCAL_INVALID", safeMessage(exception));
+            } else {
+                recordFinalFailure(filing, leaseToken, now, "TASK_ERROR", safeMessage(exception));
+            }
             throw exception;
         }
     }
 
-    private void recordProcessingFailure(ProviderMediaFiling filing, LocalDateTime now,
-                                         String code, String message) {
-        recordFinalFailure(filing, now, code, message);
+    private void markSubmissionUnknown(ProviderMediaFiling filing, String leaseToken, String message) {
+        filingMapper.markSubmissionUnknown(filing.getId(), leaseToken, FilingMethod.API,
+                FilingAction.SUBMIT, filing.getTaskDataVersion(), "SUBMIT_OUTCOME_UNKNOWN", message);
     }
 
-    private void recordRetry(ProviderMediaFiling filing, LocalDateTime now, String code, String message) {
+    private void recordProcessingFailure(ProviderMediaFiling filing, String leaseToken, LocalDateTime now,
+                                         String code, String message) {
+        recordFinalFailure(filing, leaseToken, now, code, message);
+    }
+
+    private void recordRetry(ProviderMediaFiling filing, String leaseToken, LocalDateTime now,
+                             String code, String message) {
         int retries = filing.getRetryCount() == null ? 1 : filing.getRetryCount() + 1;
         if (filing.getNextAction() == FilingAction.QUERY
                 && retries >= properties.getMaxQueryRetries()) {
-            recordFinalFailure(filing, now, code, message);
+            recordFinalFailure(filing, leaseToken, now, code, message);
             return;
         }
-        FilingStatus status = FilingStatus.PENDING;
-        // Report calls are initiated explicitly after a user action; the scheduled worker only queries.
+        FilingStatus status = filing.getNextAction() == FilingAction.SUBMIT
+                ? FilingStatus.SUBMIT_FAILED : FilingStatus.PENDING;
         FilingAction action = filing.getNextAction() == FilingAction.SUBMIT
                 ? FilingAction.NONE : filing.getNextAction();
         LocalDateTime nextActionAt = action == FilingAction.NONE ? null : now.plus(retryDelay(retries));
-        filingMapper.recordRetry(filing.getId(), workerId, filing.getTaskDataVersion(), status, action,
-                nextActionAt, retries, code, message);
+        filingMapper.recordRetry(filing.getId(), leaseToken, FilingMethod.API, filing.getNextAction(),
+                filing.getTaskDataVersion(), status, action, nextActionAt, retries, code, message);
     }
 
-    private void recordFinalFailure(ProviderMediaFiling filing, LocalDateTime now, String code, String message) {
-        filingMapper.recordRetry(filing.getId(), workerId, filing.getTaskDataVersion(), FilingStatus.FAILED,
-                FilingAction.NONE, null, filing.getRetryCount() == null ? 1 : filing.getRetryCount() + 1,
-                code, message);
+    private void recordFinalFailure(ProviderMediaFiling filing, String leaseToken, LocalDateTime now,
+                                    String code, String message) {
+        FilingStatus status = filing.getNextAction() == FilingAction.SUBMIT
+                ? FilingStatus.SUBMIT_FAILED : FilingStatus.PENDING;
+        filingMapper.recordRetry(filing.getId(), leaseToken, FilingMethod.API, filing.getNextAction(),
+                filing.getTaskDataVersion(), status, FilingAction.NONE, null,
+                filing.getRetryCount() == null ? 1 : filing.getRetryCount() + 1, code, message);
+    }
+
+    private boolean isApiTask(ProviderMediaFiling filing) {
+        return filing != null && filing.getFilingMethod() == FilingMethod.API
+                && (filing.getNextAction() == FilingAction.SUBMIT
+                || filing.getNextAction() == FilingAction.QUERY);
+    }
+
+    private String leaseToken() {
+        return instanceId + ':' + UUID.randomUUID();
     }
 
     private Duration retryDelay(int retryCount) {

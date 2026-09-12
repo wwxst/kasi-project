@@ -41,6 +41,8 @@ class ScheduledTaskControllerTest extends BaseAuthTest {
                 .andExpect(jsonPath("$.code").value(0))
                 .andExpect(jsonPath("$.data[?(@.taskCode == 'GOODSHORT_DRAMA_INCREMENTAL_SYNC')].title")
                         .value(hasItem("GoodShort 短剧增量同步")))
+                .andExpect(jsonPath("$.data[?(@.taskCode == 'GOODSHORT_DRAMA_FULL_SYNC')].title")
+                        .value(hasItem("GoodShort 短剧目录全量同步")))
                 .andExpect(jsonPath("$.data[?(@.taskCode == 'GOODSHORT_DRAMA_INCREMENTAL_SYNC')].enabled")
                         .value(hasItem(true)))
                 .andExpect(jsonPath("$.data[?(@.taskCode == 'GOODSHORT_DRAMA_INCREMENTAL_SYNC')].nextRunAt")

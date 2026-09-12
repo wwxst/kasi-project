@@ -17,6 +17,8 @@ import java.util.Map;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
@@ -108,6 +110,7 @@ class ProviderAdminControllerTest extends BaseAuthTest {
                 .andExpect(jsonPath("$.code").value(0))
                 .andExpect(jsonPath("$.data.baseUrl").value("https://api.goodshort.test/creek"))
                 .andExpect(jsonPath("$.data.mediaRootDomain").value("novelopen.com"))
+                .andExpect(jsonPath("$.data.apiFilingMediaTypes[0]").value("FACEBOOK"))
                 .andExpect(jsonPath("$.data.credentialConfigured").value(true))
                 .andExpect(jsonPath("$.data.apiKey").doesNotExist())
                 .andExpect(jsonPath("$.data.apiKeyCiphertext").doesNotExist())
@@ -129,7 +132,7 @@ class ProviderAdminControllerTest extends BaseAuthTest {
         mockMvc.perform(put("/api/admin/drama/providers/{providerId}/connection", providerId)
                         .header("Authorization", "Bearer " + token)
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"status\":0}"))
+                        .content("{\"status\":0,\"apiFilingMediaTypes\":[]}"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.code").value(0))
                 .andExpect(jsonPath("$.data.status").value(0))
@@ -204,6 +207,92 @@ class ProviderAdminControllerTest extends BaseAuthTest {
         }
     }
 
+    @Test
+    @DisplayName("媒体复选框接受空集合并拒绝首次缺省、未知值和重复值")
+    void apiFilingMediaTypesAreValidated() throws Exception {
+        String token = loginAsAdmin();
+        Long providerId = providerId();
+
+        mockMvc.perform(put("/api/admin/drama/providers/{providerId}/connection", providerId)
+                        .header("Authorization", "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"status\":0}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(1006));
+        mockMvc.perform(put("/api/admin/drama/providers/{providerId}/connection", providerId)
+                        .header("Authorization", "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"status\":0,\"apiFilingMediaTypes\":[]}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(0))
+                .andExpect(jsonPath("$.data.apiFilingMediaTypes").isEmpty());
+        mockMvc.perform(put("/api/admin/drama/providers/{providerId}/connection", providerId)
+                        .header("Authorization", "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"status\":0,\"apiFilingMediaTypes\":[\"UNKNOWN\"]}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(1006));
+        mockMvc.perform(put("/api/admin/drama/providers/{providerId}/connection", providerId)
+                        .header("Authorization", "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"status\":0,\"apiFilingMediaTypes\":[\"FACEBOOK\",\"FACEBOOK\"]}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(1006));
+    }
+
+    @Test
+    @DisplayName("媒体配置切换原子更新已有报白且批量保存不调用GoodShort")
+    void mediaConfigurationSwitchesExistingFilingsAtomically() throws Exception {
+        Long providerId = providerId();
+        String token = loginAsAdmin();
+        configure(providerId, token);
+        long connectionId = jdbcTemplate.queryForObject(
+                "SELECT id FROM short_drama_connection WHERE provider_id = ?", Long.class, providerId);
+        long mediaAccountId = insertTikTokAccount("switch-existing");
+        jdbcTemplate.update("INSERT INTO provider_media_filing "
+                        + "(connection_id, media_account_id, filing_method, status, task_data_version, next_action) "
+                        + "VALUES (?, ?, 'MANUAL', 'PENDING', 1, 'NONE')",
+                connectionId, mediaAccountId);
+
+        mockMvc.perform(put("/api/admin/drama/providers/{providerId}/connection", providerId)
+                        .header("Authorization", "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(validRequestWithMediaTypes("[\"FACEBOOK\",\"TIKTOK\"]")))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(0));
+        assertThat(jdbcTemplate.queryForMap("SELECT filing_method, status, next_action, task_data_version "
+                        + "FROM provider_media_filing WHERE media_account_id = ?", mediaAccountId))
+                .containsEntry("FILING_METHOD", "API")
+                .containsEntry("STATUS", "PENDING")
+                .containsEntry("NEXT_ACTION", "QUERY")
+                .containsEntry("TASK_DATA_VERSION", 2);
+        verify(goodShortAdapter, never()).submitAccountFiling(any(), any());
+
+        mockMvc.perform(put("/api/admin/drama/providers/{providerId}/connection", providerId)
+                        .header("Authorization", "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(validRequestWithMediaTypes("[\"FACEBOOK\"]")))
+                .andExpect(jsonPath("$.code").value(0));
+        assertThat(jdbcTemplate.queryForMap("SELECT filing_method, next_action, task_data_version "
+                        + "FROM provider_media_filing WHERE media_account_id = ?", mediaAccountId))
+                .containsEntry("FILING_METHOD", "MANUAL")
+                .containsEntry("NEXT_ACTION", "NONE")
+                .containsEntry("TASK_DATA_VERSION", 3);
+
+        jdbcTemplate.update("UPDATE provider_media_filing SET lease_owner = 'worker', "
+                + "lease_until = TIMESTAMPADD(MINUTE, 1, CURRENT_TIMESTAMP) WHERE media_account_id = ?", mediaAccountId);
+        mockMvc.perform(put("/api/admin/drama/providers/{providerId}/connection", providerId)
+                        .header("Authorization", "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(validRequestWithMediaTypes("[\"FACEBOOK\",\"TIKTOK\"]")))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(7018));
+        assertThat(jdbcTemplate.queryForObject("SELECT api_filing_media_types FROM short_drama_connection "
+                + "WHERE id = ?", String.class, connectionId)).isEqualTo("[\"FACEBOOK\"]");
+        assertThat(jdbcTemplate.queryForObject("SELECT filing_method FROM provider_media_filing "
+                + "WHERE media_account_id = ?", String.class, mediaAccountId)).isEqualTo("MANUAL");
+    }
+
     private void assertValidationError(String token, Long providerId, Map<String, Object> request)
             throws Exception {
         mockMvc.perform(put("/api/admin/drama/providers/{providerId}/connection", providerId)
@@ -231,9 +320,23 @@ class ProviderAdminControllerTest extends BaseAuthTest {
                   "partnerId": "partner-1",
                   "apiKey": "goodshort-secret-key",
                   "currency": "USD",
-                  "status": 1
+                  "status": 1,
+                  "apiFilingMediaTypes": ["FACEBOOK"]
                 }
                 """;
+    }
+
+    private String validRequestWithMediaTypes(String mediaTypes) {
+        return validRequest().replace("[\"FACEBOOK\"]", mediaTypes);
+    }
+
+    private long insertTikTokAccount(String externalAccountId) {
+        jdbcTemplate.update("INSERT INTO promotion_media_account "
+                        + "(user_id, media_type, external_account_id, account_name, account_link, status, data_version) "
+                        + "VALUES ((SELECT id FROM promotion_user WHERE user_no = ?), 'TIKTOK', ?, 'Creator', ?, 1, 1)",
+                PRIMARY_USER_NO, externalAccountId, "https://tiktok.com/@" + externalAccountId);
+        return jdbcTemplate.queryForObject(
+                "SELECT id FROM promotion_media_account WHERE external_account_id = ?", Long.class, externalAccountId);
     }
 
     private Long providerId() {

@@ -15,12 +15,17 @@ import com.kasi.backend.provider.spi.ProviderConnectionSecret;
 import com.kasi.backend.provider.vo.ProviderConnectionTestVO;
 import com.kasi.backend.provider.vo.ProviderConnectionVO;
 import com.kasi.backend.provider.vo.ProviderVO;
+import com.kasi.backend.promotion.enums.MediaType;
+import com.kasi.backend.promotion.service.MediaFilingMethodService;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 import java.util.Locale;
 import java.util.Set;
+import java.util.EnumSet;
+import java.util.Arrays;
+import tools.jackson.databind.ObjectMapper;
 
 @Service
 public class ProviderConnectionServiceImpl implements ProviderConnectionService {
@@ -29,15 +34,21 @@ public class ProviderConnectionServiceImpl implements ProviderConnectionService 
     private final ShortDramaConnectionMapper connectionMapper;
     private final CredentialCipher credentialCipher;
     private final List<ProviderAdapter> providerAdapters;
+    private final MediaFilingMethodService filingMethodService;
+    private final ObjectMapper objectMapper;
 
     public ProviderConnectionServiceImpl(ShortDramaProviderMapper providerMapper,
                                          ShortDramaConnectionMapper connectionMapper,
                                          CredentialCipher credentialCipher,
-                                         List<ProviderAdapter> providerAdapters) {
+                                         List<ProviderAdapter> providerAdapters,
+                                         MediaFilingMethodService filingMethodService,
+                                         ObjectMapper objectMapper) {
         this.providerMapper = providerMapper;
         this.connectionMapper = connectionMapper;
         this.credentialCipher = credentialCipher;
         this.providerAdapters = List.copyOf(providerAdapters);
+        this.filingMethodService = filingMethodService;
+        this.objectMapper = objectMapper;
     }
 
     @Override
@@ -56,7 +67,18 @@ public class ProviderConnectionServiceImpl implements ProviderConnectionService 
             throw new BusinessException(ErrorCode.PROVIDER_NOT_FOUND);
         }
 
-        ShortDramaConnection existing = connectionMapper.findByProviderId(providerId);
+        ShortDramaConnection existing = connectionMapper.lockByProviderId(providerId);
+        List<MediaType> requestedMediaTypes = request.getApiFilingMediaTypes();
+        if (existing == null && requestedMediaTypes == null) {
+            throw new BusinessException(ErrorCode.VALIDATION_ERROR);
+        }
+        if (requestedMediaTypes != null
+                && requestedMediaTypes.stream().distinct().count() != requestedMediaTypes.size()) {
+            throw new BusinessException(ErrorCode.VALIDATION_ERROR);
+        }
+        Set<MediaType> oldMediaTypes = parseMediaTypes(existing == null ? null : existing.getApiFilingMediaTypes());
+        Set<MediaType> newMediaTypes = requestedMediaTypes == null
+                ? oldMediaTypes : normalizedMediaTypes(requestedMediaTypes);
         String apiKey = trimToNull(request.getApiKey());
         String baseUrl = normalizeBaseUrl(request.getBaseUrl());
         String partnerId = trimToNull(request.getPartnerId());
@@ -71,12 +93,18 @@ public class ProviderConnectionServiceImpl implements ProviderConnectionService 
 
         ShortDramaConnection connection = buildConnection(
                 existing, operatorId, providerId, provider.getProviderName(), request, apiKey);
+        connection.setApiFilingMediaTypes(writeMediaTypes(newMediaTypes));
         int affected = existing == null
                 ? connectionMapper.insert(connection)
                 : connectionMapper.update(connection);
         if (affected != 1) {
             throw new IllegalStateException("平台接入账号保存未生效");
         }
+        Set<MediaType> toApi = enumSet(newMediaTypes);
+        toApi.removeAll(oldMediaTypes);
+        Set<MediaType> toManual = enumSet(oldMediaTypes);
+        toManual.removeAll(newMediaTypes);
+        filingMethodService.switchMethods(connection.getId(), toApi, toManual);
 
         ShortDramaConnection saved = connectionMapper.findByProviderId(providerId);
         if (saved == null) {
@@ -181,6 +209,7 @@ public class ProviderConnectionServiceImpl implements ProviderConnectionService 
                 .currency(connection.getCurrency())
                 .status(connection.getStatus())
                 .credentialConfigured(trimToNull(connection.getApiKeyCiphertext()) != null)
+                .apiFilingMediaTypes(List.copyOf(parseMediaTypes(connection.getApiFilingMediaTypes())))
                 .createdAt(connection.getCreatedAt())
                 .updatedAt(connection.getUpdatedAt())
                 .build();
@@ -202,5 +231,40 @@ public class ProviderConnectionServiceImpl implements ProviderConnectionService 
             normalized = normalized.substring(0, normalized.length() - 1);
         }
         return normalized.isEmpty() ? null : normalized;
+    }
+
+    private Set<MediaType> normalizedMediaTypes(List<MediaType> values) {
+        if (values.isEmpty()) {
+            return Set.of();
+        }
+        EnumSet<MediaType> result = EnumSet.noneOf(MediaType.class);
+        result.addAll(values);
+        return result;
+    }
+
+    private Set<MediaType> enumSet(Set<MediaType> values) {
+        EnumSet<MediaType> result = EnumSet.noneOf(MediaType.class);
+        result.addAll(values);
+        return result;
+    }
+
+    private Set<MediaType> parseMediaTypes(String value) {
+        if (value == null || value.isBlank()) {
+            return Set.of();
+        }
+        try {
+            MediaType[] values = objectMapper.readValue(value, MediaType[].class);
+            return values.length == 0 ? Set.of() : EnumSet.copyOf(Arrays.asList(values));
+        } catch (tools.jackson.core.JacksonException exception) {
+            throw new IllegalStateException("API报白媒体配置无法解析", exception);
+        }
+    }
+
+    private String writeMediaTypes(Set<MediaType> values) {
+        try {
+            return objectMapper.writeValueAsString(values.stream().sorted().toList());
+        } catch (tools.jackson.core.JacksonException exception) {
+            throw new IllegalStateException("API报白媒体配置无法保存", exception);
+        }
     }
 }

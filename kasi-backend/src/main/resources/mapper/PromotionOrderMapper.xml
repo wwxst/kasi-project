@@ -130,6 +130,11 @@
         ORDER BY paid_at DESC, id DESC LIMIT #{offset}, #{size}
     </select>
 
+    <select id="findForExport" resultMap="PromotionOrderMap">
+        SELECT * FROM promotion_order <include refid="queryFilters"/>
+        ORDER BY paid_at DESC, id DESC
+    </select>
+
     <select id="summarizeMonth" resultType="com.kasi.backend.promotion.entity.PromotionOrderMonthlySummary">
         SELECT
             COALESCE(SUM(CASE WHEN status='PAID' THEN 1 ELSE 0 END), 0) AS paid_order_count,

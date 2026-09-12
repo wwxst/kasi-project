@@ -1,5 +1,7 @@
 package com.kasi.backend.provider.dto;
 
+import com.kasi.backend.promotion.enums.MediaType;
+
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotNull;
@@ -8,6 +10,8 @@ import jakarta.validation.constraints.Size;
 import jakarta.validation.constraints.AssertTrue;
 import lombok.Data;
 import lombok.ToString;
+
+import java.util.List;
 
 @Data
 public class UpsertProviderConnectionDTO {
@@ -38,6 +42,8 @@ public class UpsertProviderConnectionDTO {
     @Min(0)
     @Max(1)
     private Integer status;
+
+    private List<@NotNull MediaType> apiFilingMediaTypes;
 
     @AssertTrue(message = "接口 URL、媒体根域名和 PID 不能为空")
     public boolean isApiConfigurationPresent() {

@@ -5,6 +5,7 @@
         <id column="id" property="id"/>
         <result column="connection_id" property="connectionId"/>
         <result column="media_account_id" property="mediaAccountId"/>
+        <result column="filing_method" property="filingMethod"/>
         <result column="status" property="status"/>
         <result column="submitted_data_version" property="submittedDataVersion"/>
         <result column="task_data_version" property="taskDataVersion"/>
@@ -15,8 +16,11 @@
         <result column="next_action" property="nextAction"/>
         <result column="next_action_at" property="nextActionAt"/>
         <result column="retry_count" property="retryCount"/>
+        <result column="last_submit_attempt_at" property="lastSubmitAttemptAt"/>
         <result column="last_submitted_at" property="lastSubmittedAt"/>
         <result column="last_queried_at" property="lastQueriedAt"/>
+        <result column="manual_updated_by" property="manualUpdatedBy"/>
+        <result column="manual_updated_at" property="manualUpdatedAt"/>
         <result column="last_error_code" property="lastErrorCode"/>
         <result column="last_error_message" property="lastErrorMessage"/>
         <result column="lease_owner" property="leaseOwner"/>
@@ -36,48 +40,113 @@
         <foreach collection="mediaAccountIds" item="id" open="(" separator="," close=")">#{id}</foreach>
         ORDER BY id ASC
     </select>
+    <select id="findByConnectionAndMediaTypeForUpdate" resultMap="BaseResultMap">
+        SELECT f.* FROM provider_media_filing f
+        INNER JOIN promotion_media_account m ON m.id = f.media_account_id
+        WHERE f.connection_id = #{connectionId} AND m.media_type = #{mediaType}
+        ORDER BY f.id ASC FOR UPDATE
+    </select>
     <insert id="insert" useGeneratedKeys="true" keyProperty="id">
         INSERT INTO provider_media_filing
-            (connection_id, media_account_id, status, submitted_data_version, task_data_version,
-             next_action, next_action_at)
-        VALUES (#{connectionId}, #{mediaAccountId}, #{status}, #{submittedDataVersion}, #{taskDataVersion},
-                #{nextAction}, #{nextActionAt})
+            (connection_id, media_account_id, filing_method, status,
+             submitted_data_version, task_data_version, remote_status, external_filing_id,
+             filing_time, operate_time, next_action, next_action_at, retry_count,
+             last_submit_attempt_at, last_submitted_at, last_queried_at,
+             manual_updated_by, manual_updated_at, last_error_code, last_error_message)
+        VALUES (#{connectionId}, #{mediaAccountId}, #{filingMethod}, #{status},
+                #{submittedDataVersion}, #{taskDataVersion}, #{remoteStatus}, #{externalFilingId},
+                #{filingTime}, #{operateTime}, #{nextAction}, #{nextActionAt}, COALESCE(#{retryCount}, 0),
+                #{lastSubmitAttemptAt}, #{lastSubmittedAt}, #{lastQueriedAt},
+                #{manualUpdatedBy}, #{manualUpdatedAt}, #{lastErrorCode}, #{lastErrorMessage})
     </insert>
-    <update id="enqueue">
+    <update id="switchMethodAndSchedule">
         UPDATE provider_media_filing
-        SET status = #{status}, next_action = #{action}, task_data_version = #{taskDataVersion},
+        SET filing_method = #{filingMethod}, status = #{status}, next_action = #{action},
             next_action_at = #{nextActionAt}, lease_owner = NULL, lease_until = NULL,
-            retry_count = 0, last_error_code = NULL, last_error_message = NULL
-        WHERE id = #{id} AND task_data_version = #{taskDataVersion}
-    </update>
-    <update id="reschedule">
-        UPDATE provider_media_filing
-        SET status = #{status}, next_action = #{action}, task_data_version = #{taskDataVersion},
-            next_action_at = #{nextActionAt}, lease_owner = NULL, lease_until = NULL,
-            submitted_data_version = NULL, remote_status = NULL, external_filing_id = NULL,
-            filing_time = NULL, operate_time = NULL,
-            retry_count = 0, last_submitted_at = NULL, last_queried_at = NULL,
-            last_error_code = NULL, last_error_message = NULL
+            retry_count = 0, task_data_version = task_data_version + 1
         WHERE id = #{id} AND task_data_version = #{expectedVersion}
+          AND (lease_until IS NULL OR lease_until &lt;= #{now})
+          AND (last_error_code IS NULL OR last_error_code != 'SUBMIT_OUTCOME_UNKNOWN')
+    </update>
+    <update id="retrySubmission">
+        UPDATE provider_media_filing
+        SET status = 'NOT_SUBMITTED', next_action = 'SUBMIT', next_action_at = #{nextActionAt},
+            task_data_version = task_data_version + 1, last_submit_attempt_at = NULL,
+            retry_count = 0, lease_owner = NULL, lease_until = NULL,
+            last_error_code = NULL, last_error_message = NULL
+        WHERE id = #{id} AND filing_method = 'API' AND status = 'SUBMIT_FAILED'
+          AND last_error_code = 'SUBMIT_CONFIRMED_NOT_RECEIVED'
+          AND task_data_version = #{expectedVersion}
+    </update>
+    <update id="updateManualStatus">
+        UPDATE provider_media_filing
+        SET status = #{status}, next_action = 'NONE', next_action_at = NULL,
+            task_data_version = task_data_version + 1, retry_count = 0,
+            manual_updated_by = #{operatorId}, manual_updated_at = #{manualAt},
+            last_error_code = NULL, last_error_message = NULL,
+            lease_owner = NULL, lease_until = NULL
+        WHERE id = #{id} AND filing_method = 'MANUAL' AND status = #{expectedStatus}
+          AND task_data_version = #{expectedVersion}
+          AND (lease_until IS NULL OR lease_until &lt;= #{now})
+    </update>
+    <update id="resolveUnknownSubmission">
+        UPDATE provider_media_filing
+        SET status = CASE WHEN #{resolution} = 'RECEIVED' THEN 'PENDING' ELSE 'SUBMIT_FAILED' END,
+            next_action = CASE WHEN #{resolution} = 'RECEIVED' THEN 'QUERY' ELSE 'NONE' END,
+            next_action_at = CASE WHEN #{resolution} = 'RECEIVED' THEN #{manualAt} ELSE NULL END,
+            last_submitted_at = CASE WHEN #{resolution} = 'RECEIVED'
+                THEN COALESCE(last_submitted_at, #{manualAt}) ELSE last_submitted_at END,
+            task_data_version = task_data_version + 1, retry_count = 0,
+            manual_updated_by = #{operatorId}, manual_updated_at = #{manualAt},
+            last_error_code = CASE WHEN #{resolution} = 'RECEIVED'
+                THEN NULL ELSE 'SUBMIT_CONFIRMED_NOT_RECEIVED' END,
+            last_error_message = NULL, lease_owner = NULL, lease_until = NULL
+        WHERE id = #{id} AND filing_method = 'API' AND status = 'SUBMIT_FAILED'
+          AND last_error_code = 'SUBMIT_OUTCOME_UNKNOWN' AND submitted_data_version IS NULL
+          AND task_data_version = #{expectedVersion}
+          AND (lease_until IS NULL OR lease_until &lt;= #{now})
     </update>
     <select id="findDueIds" resultType="long">
         SELECT id FROM provider_media_filing
-        WHERE next_action = 'QUERY' AND next_action_at &lt;= #{now}
+        WHERE filing_method = 'API'
+          AND next_action IN ('SUBMIT', 'QUERY')
+          AND next_action_at &lt;= #{now}
           AND (lease_until IS NULL OR lease_until &lt;= #{now})
         ORDER BY next_action_at ASC, id ASC LIMIT #{limit}
     </select>
     <update id="claimLease">
         UPDATE provider_media_filing
         SET lease_owner = #{owner}, lease_until = #{leaseUntil}
-        WHERE id = #{id} AND next_action &lt;&gt; 'NONE'
+        WHERE id = #{id} AND filing_method = #{filingMethod}
+          AND next_action = #{expectedAction} AND task_data_version = #{taskDataVersion}
+          AND next_action_at &lt;= #{now}
           AND (lease_until IS NULL OR lease_until &lt;= #{now})
+    </update>
+    <update id="markSubmitAttempt">
+        UPDATE provider_media_filing
+        SET last_submit_attempt_at = #{attemptedAt}
+        WHERE id = #{id} AND lease_owner = #{owner}
+          AND filing_method = #{filingMethod} AND next_action = #{expectedAction}
+          AND task_data_version = #{taskDataVersion}
+    </update>
+    <update id="markSubmissionUnknown">
+        UPDATE provider_media_filing
+        SET status = 'SUBMIT_FAILED', next_action = 'NONE', next_action_at = NULL,
+            last_error_code = #{errorCode}, last_error_message = #{errorMessage},
+            lease_owner = NULL, lease_until = NULL
+        WHERE id = #{id} AND lease_owner = #{owner}
+          AND filing_method = #{filingMethod} AND next_action = #{expectedAction}
+          AND task_data_version = #{taskDataVersion}
+          AND submitted_data_version IS NULL
     </update>
     <update id="completeSubmit">
         UPDATE provider_media_filing
-        SET submitted_data_version = #{taskDataVersion}, last_submitted_at = #{submittedAt},
+        SET status = 'PENDING', submitted_data_version = #{taskDataVersion}, last_submitted_at = #{submittedAt},
             next_action = 'QUERY', next_action_at = #{nextQueryAt}, retry_count = 0,
             last_error_code = NULL, last_error_message = NULL, lease_owner = NULL, lease_until = NULL
-        WHERE id = #{id} AND lease_owner = #{owner} AND task_data_version = #{taskDataVersion}
+        WHERE id = #{id} AND lease_owner = #{owner}
+          AND filing_method = #{filingMethod} AND next_action = #{expectedAction}
+          AND task_data_version = #{taskDataVersion}
     </update>
     <update id="completeQuery">
         UPDATE provider_media_filing
@@ -85,14 +154,18 @@
             filing_time = #{filingTime}, operate_time = #{operateTime}, last_queried_at = #{queriedAt},
             next_action = #{nextAction}, next_action_at = #{nextActionAt}, retry_count = 0,
             last_error_code = NULL, last_error_message = NULL, lease_owner = NULL, lease_until = NULL
-        WHERE id = #{id} AND lease_owner = #{owner} AND task_data_version = #{taskDataVersion}
+        WHERE id = #{id} AND lease_owner = #{owner}
+          AND filing_method = #{filingMethod} AND next_action = #{expectedAction}
+          AND task_data_version = #{taskDataVersion}
     </update>
     <update id="recordRetry">
         UPDATE provider_media_filing
         SET status = #{status}, next_action = #{nextAction}, next_action_at = #{nextActionAt},
             retry_count = #{retryCount}, last_error_code = #{errorCode},
             last_error_message = #{errorMessage}, lease_owner = NULL, lease_until = NULL
-        WHERE id = #{id} AND lease_owner = #{owner} AND task_data_version = #{taskDataVersion}
+        WHERE id = #{id} AND lease_owner = #{owner}
+          AND filing_method = #{filingMethod} AND next_action = #{expectedAction}
+          AND task_data_version = #{taskDataVersion}
     </update>
     <delete id="deleteByMediaAccountId">
         DELETE FROM provider_media_filing WHERE media_account_id = #{mediaAccountId}

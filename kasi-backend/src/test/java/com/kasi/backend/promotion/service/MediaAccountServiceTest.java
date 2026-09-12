@@ -4,6 +4,7 @@ import com.kasi.backend.common.exception.BusinessException;
 import com.kasi.backend.promotion.dto.CreateMediaAccountDTO;
 import com.kasi.backend.promotion.entity.PromotionMediaAccount;
 import com.kasi.backend.promotion.entity.ProviderMediaFiling;
+import com.kasi.backend.promotion.enums.FilingMethod;
 import com.kasi.backend.promotion.enums.FilingStatus;
 import com.kasi.backend.promotion.enums.FilingAction;
 import com.kasi.backend.promotion.enums.MediaType;
@@ -35,6 +36,7 @@ class MediaAccountServiceTest {
     private ProviderRuntimeConnectionService runtimeService;
     private AccountFilingProviderAdapter adapter;
     private MediaFilingTaskService filingTaskService;
+    private MediaFilingMethodService filingMethodService;
     private com.kasi.backend.provider.mapper.ShortDramaConnectionMapper connectionMapper;
     private com.kasi.backend.provider.mapper.ShortDramaProviderMapper providerMapper;
     private MediaAccountService service;
@@ -48,16 +50,29 @@ class MediaAccountServiceTest {
         connectionMapper = mock(com.kasi.backend.provider.mapper.ShortDramaConnectionMapper.class);
         providerMapper = mock(com.kasi.backend.provider.mapper.ShortDramaProviderMapper.class);
         filingTaskService = mock(MediaFilingTaskService.class);
+        filingMethodService = mock(MediaFilingMethodService.class);
         when(adapter.supportedMediaTypes()).thenReturn(Set.of(MediaType.TIKTOK));
         service = new com.kasi.backend.promotion.service.impl.MediaAccountServiceImpl(
-                mediaMapper, filingMapper, runtimeService, connectionMapper, providerMapper, filingTaskService);
+                mediaMapper, filingMapper, runtimeService, connectionMapper, providerMapper,
+                filingTaskService, filingMethodService);
     }
 
     @Test
-    @DisplayName("创建媒体账号同时建立审核中的首个平台报备")
+    @DisplayName("创建媒体账号同时建立API待提交报备")
     void createCreatesPendingFiling() {
-        when(runtimeService.resolveAll(com.kasi.backend.provider.enums.ProviderCapability.ACCOUNT_FILING))
-                .thenReturn(List.of(runtime(adapter, 21L), runtime(adapter, 22L)));
+        ShortDramaProvider apiProvider = provider(10L);
+        ShortDramaProvider manualProvider = provider(11L);
+        ShortDramaConnection apiConnection = connection(21L, "[\"TIKTOK\"]");
+        apiConnection.setProviderId(10L);
+        ShortDramaConnection manualConnection = connection(22L, "[]");
+        manualConnection.setProviderId(11L);
+        when(providerMapper.findAll()).thenReturn(List.of(apiProvider, manualProvider));
+        when(connectionMapper.lockByProviderId(10L)).thenReturn(apiConnection);
+        when(connectionMapper.lockByProviderId(11L)).thenReturn(manualConnection);
+        when(runtimeService.resolve(10L, com.kasi.backend.provider.enums.ProviderCapability.ACCOUNT_FILING))
+                .thenReturn(runtime(adapter, 21L));
+        when(filingMethodService.resolveMethod(any(), eq(MediaType.TIKTOK)))
+                .thenReturn(FilingMethod.API, FilingMethod.MANUAL);
         when(mediaMapper.findByIdentity(MediaType.TIKTOK, "creator-1")).thenReturn(null);
         when(mediaMapper.insert(any())).thenAnswer(invocation -> {
             PromotionMediaAccount account = invocation.getArgument(0);
@@ -71,7 +86,7 @@ class MediaAccountServiceTest {
         });
         when(mediaMapper.findOwnedById(31L, 1L)).thenReturn(account(31L, 1L, MediaType.TIKTOK, "creator-1", 1));
         when(filingMapper.findByMediaAccountId(31L)).thenReturn(List.of(
-                filing(41L, 21L, 31L, FilingStatus.PENDING, 1),
+                filing(41L, 21L, 31L, FilingStatus.NOT_SUBMITTED, 1),
                 filing(42L, 22L, 31L, FilingStatus.PENDING, 1)));
 
         CreateMediaAccountDTO request = new CreateMediaAccountDTO();
@@ -83,8 +98,12 @@ class MediaAccountServiceTest {
         var result = service.create(1L, request);
 
         assertThat(result.getExternalAccountId()).isEqualTo("creator-1");
-        verify(filingMapper, times(2)).insert(argThat(f -> f.getStatus() == FilingStatus.PENDING));
-        verify(filingTaskService, times(2)).submitNow(anyLong());
+        verify(filingMapper).insert(argThat(f -> f.getConnectionId().equals(21L)
+                && f.getFilingMethod() == FilingMethod.API && f.getNextAction() == FilingAction.SUBMIT));
+        verify(filingMapper).insert(argThat(f -> f.getConnectionId().equals(22L)
+                && f.getFilingMethod() == FilingMethod.MANUAL && f.getStatus() == FilingStatus.PENDING
+                && f.getNextAction() == FilingAction.NONE));
+        verify(filingTaskService).submitNow(41L);
     }
 
     @Test
@@ -92,16 +111,83 @@ class MediaAccountServiceTest {
     void retryReschedulesTransientSubmissionFailure() {
         stubRetryAccount();
         ProviderMediaFiling filing = retryableFiling();
+        filing.setLastErrorCode("SUBMIT_CONFIRMED_NOT_RECEIVED");
         when(filingMapper.findByConnectionAndMedia(21L, 31L)).thenReturn(filing);
-        when(filingMapper.reschedule(eq(41L), eq(FilingStatus.PENDING), eq(FilingAction.SUBMIT),
-                eq(1), eq(1), any(LocalDateTime.class))).thenReturn(1);
+        when(filingMapper.retrySubmission(eq(41L), eq(1), any(LocalDateTime.class))).thenReturn(1);
         when(filingMapper.findById(41L)).thenReturn(filing);
 
         service.retryFailedSubmission(31L, 10L);
 
-        verify(filingMapper).reschedule(eq(41L), eq(FilingStatus.PENDING), eq(FilingAction.SUBMIT),
-                eq(1), eq(1), any(LocalDateTime.class));
+        verify(filingMapper).retrySubmission(eq(41L), eq(1), any(LocalDateTime.class));
         verify(filingTaskService).submitNow(41L);
+    }
+
+    @Test
+    @DisplayName("未勾选媒体创建人工报备并直接进入审核中且不依赖API运行配置")
+    void createManualFilingWithoutResolvingRuntime() {
+        ShortDramaProvider provider = new ShortDramaProvider();
+        provider.setId(10L);
+        provider.setProviderCode("GOODSHORT");
+        provider.setProviderName("GoodShort");
+        provider.setStatus(1);
+        ShortDramaConnection connection = connection(21L, "[\"FACEBOOK\"]");
+        connection.setProviderId(10L);
+        connection.setStatus(1);
+        when(providerMapper.findAll()).thenReturn(List.of(provider));
+        when(connectionMapper.lockByProviderId(10L)).thenReturn(connection);
+        when(filingMethodService.resolveMethod("[\"FACEBOOK\"]", MediaType.TIKTOK))
+                .thenReturn(FilingMethod.MANUAL);
+        when(mediaMapper.findByIdentity(MediaType.TIKTOK, "creator-manual")).thenReturn(null);
+        when(mediaMapper.insert(any())).thenAnswer(invocation -> {
+            PromotionMediaAccount account = invocation.getArgument(0);
+            account.setId(32L);
+            return 1;
+        });
+        when(filingMapper.insert(any())).thenAnswer(invocation -> {
+            ProviderMediaFiling filing = invocation.getArgument(0);
+            filing.setId(42L);
+            return 1;
+        });
+        when(mediaMapper.findOwnedById(32L, 1L))
+                .thenReturn(account(32L, 1L, MediaType.TIKTOK, "creator-manual", 1));
+        ProviderMediaFiling saved = filing(42L, 21L, 32L, FilingStatus.PENDING, 1);
+        saved.setFilingMethod(FilingMethod.MANUAL);
+        saved.setNextAction(FilingAction.NONE);
+        saved.setNextActionAt(null);
+        when(filingMapper.findByMediaAccountId(32L)).thenReturn(List.of(saved));
+
+        CreateMediaAccountDTO request = new CreateMediaAccountDTO();
+        request.setMediaType(MediaType.TIKTOK);
+        request.setExternalAccountId("creator-manual");
+        request.setAccountName("Manual Creator");
+        request.setAccountLink("https://tiktok.com/@creator-manual");
+
+        var result = service.create(1L, request);
+
+        assertThat(result.getFilings()).singleElement().satisfies(filing -> {
+            assertThat(filing.getFilingMethod()).isEqualTo(FilingMethod.MANUAL);
+            assertThat(filing.getStatus()).isEqualTo(FilingStatus.PENDING);
+        });
+        verify(filingMapper).insert(argThat(filing -> filing.getConnectionId().equals(21L)
+                && filing.getFilingMethod() == FilingMethod.MANUAL
+                && filing.getStatus() == FilingStatus.PENDING
+                && filing.getNextAction() == FilingAction.NONE
+                && filing.getNextActionAt() == null));
+        verifyNoInteractions(runtimeService);
+        verifyNoInteractions(filingTaskService);
+    }
+
+    @Test
+    @DisplayName("管理员未核实结果不确定前不能普通重试")
+    void retryRejectsUnknownSubmission() {
+        stubRetryAccount();
+        ProviderMediaFiling filing = retryableFiling();
+        filing.setLastErrorCode("SUBMIT_OUTCOME_UNKNOWN");
+        when(filingMapper.findByConnectionAndMedia(21L, 31L)).thenReturn(filing);
+
+        assertRetryNotAllowed();
+
+        verify(filingMapper, never()).retrySubmission(anyLong(), anyInt(), any());
     }
 
     @Test
@@ -133,16 +219,17 @@ class MediaAccountServiceTest {
     }
 
     private ProviderRuntimeConnection runtime(AccountFilingProviderAdapter adapter, Long connectionId) {
+        return new ProviderRuntimeConnection(connectionId, 10L, "GOODSHORT", "GoodShort",
+                new com.kasi.backend.provider.spi.ProviderConnectionSecret("https://test", "pid", "key", "USD"), adapter);
+    }
+
+    private ShortDramaProvider provider(Long id) {
         ShortDramaProvider provider = new ShortDramaProvider();
-        provider.setId(10L);
+        provider.setId(id);
         provider.setProviderCode("GOODSHORT");
         provider.setProviderName("GoodShort");
         provider.setStatus(1);
-        ShortDramaConnection connection = new ShortDramaConnection();
-        connection.setId(connectionId);
-        connection.setProviderId(10L);
-        return new ProviderRuntimeConnection(connectionId, 10L, "GOODSHORT", "GoodShort",
-                new com.kasi.backend.provider.spi.ProviderConnectionSecret("https://test", "pid", "key", "USD"), adapter);
+        return provider;
     }
 
     private PromotionMediaAccount account(Long id, Long userId, MediaType type, String externalId, int version) {
@@ -158,11 +245,20 @@ class MediaAccountServiceTest {
         return account;
     }
 
+    private ShortDramaConnection connection(Long id, String mediaTypes) {
+        ShortDramaConnection connection = new ShortDramaConnection();
+        connection.setId(id);
+        connection.setStatus(1);
+        connection.setApiFilingMediaTypes(mediaTypes);
+        return connection;
+    }
+
     private ProviderMediaFiling filing(Long id, Long connectionId, Long mediaId, FilingStatus status, int version) {
         ProviderMediaFiling filing = new ProviderMediaFiling();
         filing.setId(id);
         filing.setConnectionId(connectionId);
         filing.setMediaAccountId(mediaId);
+        filing.setFilingMethod(FilingMethod.API);
         filing.setStatus(status);
         filing.setTaskDataVersion(version);
         filing.setNextAction(com.kasi.backend.promotion.enums.FilingAction.SUBMIT);
@@ -178,7 +274,7 @@ class MediaAccountServiceTest {
     }
 
     private ProviderMediaFiling retryableFiling() {
-        ProviderMediaFiling filing = filing(41L, 21L, 31L, FilingStatus.PENDING, 1);
+        ProviderMediaFiling filing = filing(41L, 21L, 31L, FilingStatus.SUBMIT_FAILED, 1);
         filing.setNextAction(FilingAction.NONE);
         filing.setNextActionAt(null);
         filing.setLastErrorCode("REMOTE_TRANSIENT");

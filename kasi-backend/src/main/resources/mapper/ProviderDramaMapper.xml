@@ -58,6 +58,16 @@
         ORDER BY d.id ASC
         LIMIT #{limit}
     </select>
+    <update id="markMissingAfterFullSync">
+        UPDATE provider_drama
+        SET remote_show_status = 'MISSING',
+            local_status = 'OFFLINE',
+            updated_at = CURRENT_TIMESTAMP
+        WHERE connection_id = #{connectionId}
+          AND language = #{language}
+          AND (last_seen_at IS NULL OR last_seen_at &lt; #{snapshotStartedAt})
+          AND (COALESCE(remote_show_status, '') &lt;&gt; 'MISSING' OR local_status &lt;&gt; 'OFFLINE')
+    </update>
     <update id="updateLocalStatus">UPDATE provider_drama SET local_status=#{localStatus},updated_at=CURRENT_TIMESTAMP WHERE id=#{id}</update>
     <update id="updatePromotionMetadata">UPDATE provider_drama SET commission_scope=#{commissionScope},promotion_description=#{promotionDescription},updated_at=CURRENT_TIMESTAMP WHERE id=#{id}</update>
     <select id="countPublished" resultType="long">

@@ -4,6 +4,7 @@ import com.kasi.backend.promotion.dto.PromotionOrderPageQueryDTO;
 import com.kasi.backend.promotion.dto.PromotionOrderSyncDTO;
 import com.kasi.backend.promotion.entity.PromotionOrder;
 import com.kasi.backend.promotion.enums.PromotionOrderStatus;
+import com.kasi.backend.promotion.export.XlsxExportSupport;
 import com.kasi.backend.promotion.mapper.PromotionOrderMapper;
 import com.kasi.backend.promotion.service.PromotionOrderAdminService;
 import com.kasi.backend.promotion.service.PromotionOrderSyncService;
@@ -15,14 +16,14 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
-import java.nio.charset.StandardCharsets;
-import java.util.ArrayList;
 import java.util.List;
 
 @Service
 @RequiredArgsConstructor
 public class PromotionOrderAdminServiceImpl implements PromotionOrderAdminService {
-    private static final int EXPORT_LIMIT = 10_000;
+    private static final List<String> EXPORT_HEADERS = List.of(
+            "订单ID", "平台ID", "订单金额", "币种", "状态", "支付时间",
+            "用户ID", "归因状态", "佣金", "佣金状态");
     private final PromotionOrderSyncService orderSyncService;
     private final PromotionOrderMapper orderMapper;
 
@@ -45,11 +46,22 @@ public class PromotionOrderAdminServiceImpl implements PromotionOrderAdminServic
 
     @Override
     @Transactional(readOnly = true)
-    public byte[] exportCsv(PromotionOrderPageQueryDTO query) {
-        List<PromotionOrder> orders = orderMapper.findPage(query.getProviderId(), query.getUserId(),
+    public byte[] exportXlsx(PromotionOrderPageQueryDTO query) {
+        List<PromotionOrder> orders = orderMapper.findForExport(query.getProviderId(), query.getUserId(),
                 query.getStatus(), query.getAttributionStatus(), query.getStartDate(), query.getEndDate(),
-                0, EXPORT_LIMIT, false);
-        return csv(orders).getBytes(StandardCharsets.UTF_8);
+                false);
+        return XlsxExportSupport.write("推广订单", EXPORT_HEADERS, orders, (row, order, dateStyle) -> {
+            XlsxExportSupport.text(row, 0, order.getExternalOrderId());
+            XlsxExportSupport.text(row, 1, order.getProviderId());
+            XlsxExportSupport.number(row, 2, order.getOrderAmount());
+            XlsxExportSupport.text(row, 3, order.getCurrency());
+            XlsxExportSupport.text(row, 4, order.getStatus());
+            XlsxExportSupport.date(row, 5, order.getPaidAt(), dateStyle);
+            XlsxExportSupport.text(row, 6, order.getUserId());
+            XlsxExportSupport.text(row, 7, order.getAttributionStatus());
+            XlsxExportSupport.number(row, 8, effectiveCommission(order));
+            XlsxExportSupport.text(row, 9, order.getCommissionStatus());
+        });
     }
 
     private long count(PromotionOrderPageQueryDTO query) {
@@ -75,30 +87,8 @@ public class PromotionOrderAdminServiceImpl implements PromotionOrderAdminServic
                 .lastSyncedAt(order.getLastSyncedAt()).build();
     }
 
-    static String csv(List<PromotionOrder> orders) {
-        List<String> rows = new ArrayList<>();
-        rows.add("订单ID,平台ID,订单金额,币种,状态,支付时间,用户ID,归因状态,佣金,佣金状态");
-        for (PromotionOrder order : orders) {
-            rows.add(String.join(",", escape(order.getExternalOrderId()), value(order.getProviderId()),
-                    value(order.getOrderAmount()), escape(order.getCurrency()), value(order.getStatus()),
-                    value(order.getPaidAt()), value(order.getUserId()),
-                    value(order.getAttributionStatus()), value(effectiveCommission(order)),
-                    value(order.getCommissionStatus())));
-        }
-        return "\uFEFF" + String.join("\r\n", rows) + "\r\n";
-    }
-
     private static BigDecimal effectiveCommission(PromotionOrder order) {
         return order.getStatus() == PromotionOrderStatus.REFUNDED
                 ? BigDecimal.ZERO.setScale(2) : order.getCommissionAmount();
-    }
-
-    private static String value(Object value) {
-        return escape(value == null ? null : value.toString());
-    }
-
-    private static String escape(String value) {
-        String normalized = value == null ? "" : value;
-        return "\"" + normalized.replace("\"", "\"\"") + "\"";
     }
 }

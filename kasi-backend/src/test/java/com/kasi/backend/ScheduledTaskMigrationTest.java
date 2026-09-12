@@ -3,7 +3,9 @@ package com.kasi.backend;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.springframework.core.io.ClassPathResource;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.jdbc.datasource.init.ResourceDatabasePopulator;
 
 import java.util.Map;
 
@@ -32,6 +34,20 @@ class ScheduledTaskMigrationTest {
         assertThat(((Number) task.get("INTERVAL_HOURS_PART")).intValue()).isZero();
         assertThat(((Number) task.get("INTERVAL_MINUTES_PART")).intValue()).isZero();
         assertThat(((Number) task.get("ENABLED")).intValue()).isEqualTo(1);
+        assertDailyDramaFullTask(jdbc);
+    }
+
+    @Test
+    @DisplayName("V11迁移植入每天三点的GoodShort目录全量任务")
+    void v11AddsDailyGoodShortDramaFullTask() {
+        JdbcTemplate jdbc = initializeDatabase(
+                "scheduled_task_v11", "db/migration/V1__baseline.sql");
+        ResourceDatabasePopulator populator = new ResourceDatabasePopulator();
+        populator.addScript(new ClassPathResource(
+                "db/migration/V11__add_goodshort_drama_full_sync_task.sql"));
+        populator.execute(jdbc.getDataSource());
+
+        assertDailyDramaFullTask(jdbc);
     }
 
     @Test
@@ -68,6 +84,20 @@ class ScheduledTaskMigrationTest {
         assertThat(task.get("DESCRIPTION")).isEqualTo("每隔1分钟同步GoodShort免费剧集");
         assertThat(task.get("CYCLE_TYPE")).isEqualTo("INTERVAL_MINUTES");
         assertThat(((Number) task.get("INTERVAL_VALUE")).intValue()).isEqualTo(1);
+        assertThat(((Number) task.get("ENABLED")).intValue()).isEqualTo(1);
+        assertThat(task.get("NEXT_RUN_AT")).isNotNull();
+    }
+
+    private void assertDailyDramaFullTask(JdbcTemplate jdbc) {
+        Map<String, Object> task = jdbc.queryForMap("""
+                SELECT task_code, description, cycle_type, time_of_day, enabled, next_run_at
+                FROM system_scheduled_task
+                WHERE task_code = 'GOODSHORT_DRAMA_FULL_SYNC'
+                """);
+        assertThat(task.get("TASK_CODE")).isEqualTo("GOODSHORT_DRAMA_FULL_SYNC");
+        assertThat(task.get("DESCRIPTION")).isEqualTo("每天 03:00 同步 GoodShort 全量短剧目录");
+        assertThat(task.get("CYCLE_TYPE")).isEqualTo("DAILY");
+        assertThat(task.get("TIME_OF_DAY").toString()).startsWith("03:00");
         assertThat(((Number) task.get("ENABLED")).intValue()).isEqualTo(1);
         assertThat(task.get("NEXT_RUN_AT")).isNotNull();
     }

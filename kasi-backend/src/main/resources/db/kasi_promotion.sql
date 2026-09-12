@@ -142,6 +142,7 @@ CREATE TABLE `short_drama_connection`
     `updated_by`         BIGINT UNSIGNED          DEFAULT NULL COMMENT '更新管理员',
     `created_at`         DATETIME        NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
     `updated_at`         DATETIME        NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+    `api_filing_media_types` VARCHAR(256) NOT NULL DEFAULT '["FACEBOOK"]' COMMENT '使用API报白的媒体类型JSON数组',
     PRIMARY KEY (`id`),
     UNIQUE KEY `uk_drama_connection_provider` (`provider_id`)) ENGINE = InnoDB
   DEFAULT CHARSET = utf8mb4 COMMENT ='短剧平台接入账号';
@@ -173,7 +174,8 @@ CREATE TABLE `provider_media_filing`
     `id`                    BIGINT UNSIGNED NOT NULL AUTO_INCREMENT COMMENT '主键ID',
     `connection_id`         BIGINT UNSIGNED NOT NULL COMMENT '平台接入账号ID',
     `media_account_id`      BIGINT UNSIGNED NOT NULL COMMENT '媒体账号ID',
-    `status`                VARCHAR(16)     NOT NULL DEFAULT 'PENDING' COMMENT '状态：PENDING审核中 APPROVED已加白 FAILED已失败',
+    `filing_method`         VARCHAR(16)     NOT NULL DEFAULT 'API' COMMENT '报白方式：API或MANUAL',
+    `status`                VARCHAR(16)     NOT NULL DEFAULT 'NOT_SUBMITTED' COMMENT '状态：NOT_SUBMITTED待提交 PENDING审核中 APPROVED已加白 REJECTED未通过 SUBMIT_FAILED提交失败',
     `submitted_data_version` INT                     DEFAULT NULL COMMENT '最近提交的资料版本',
     `task_data_version`      INT             NOT NULL DEFAULT 1 COMMENT '当前异步任务对应的媒体账号资料版本',
     `remote_status`         VARCHAR(64)              DEFAULT NULL COMMENT '第三方原始状态',
@@ -183,8 +185,11 @@ CREATE TABLE `provider_media_filing`
     `next_action`           VARCHAR(16)     NOT NULL DEFAULT 'SUBMIT' COMMENT '任务动作：SUBMIT提交 QUERY查询 NONE无',
     `next_action_at`        DATETIME                 DEFAULT NULL COMMENT '下次任务时间',
     `retry_count`           INT             NOT NULL DEFAULT 0 COMMENT '连续重试次数',
+    `last_submit_attempt_at` DATETIME                 DEFAULT NULL COMMENT '最近提交尝试时间',
     `last_submitted_at`     DATETIME                 DEFAULT NULL COMMENT '最近成功提交时间',
     `last_queried_at`       DATETIME                 DEFAULT NULL COMMENT '最近成功查询时间',
+    `manual_updated_by`     BIGINT UNSIGNED          DEFAULT NULL COMMENT '最近人工操作管理员ID',
+    `manual_updated_at`     DATETIME                 DEFAULT NULL COMMENT '最近人工操作时间',
     `last_error_code`       VARCHAR(64)              DEFAULT NULL COMMENT '最近错误类型',
     `last_error_message`    VARCHAR(512)             DEFAULT NULL COMMENT '脱敏错误信息',
     `lease_owner`           VARCHAR(64)              DEFAULT NULL COMMENT '任务租约持有者',
@@ -378,8 +383,21 @@ CREATE TABLE system_scheduled_task (
 INSERT INTO system_scheduled_task (task_code, description, cycle_type, interval_value, interval_hours_part, interval_minutes_part, enabled, next_run_at) VALUES ('GOODSHORT_DRAMA_INCREMENTAL_SYNC','每隔60分钟执行一次GoodShort短剧目录增量同步','INTERVAL_MINUTES',60,0,0,1,TIMESTAMPADD(MINUTE,60,CURRENT_TIMESTAMP)),('GOODSHORT_DRAMA_CONTENT_SYNC','每隔1分钟同步GoodShort免费剧集','INTERVAL_MINUTES',1,0,0,1,TIMESTAMPADD(MINUTE,1,CURRENT_TIMESTAMP)),('GOODSHORT_ORDER_TODAY_SYNC','每隔5分钟同步今天的GoodShort订单','INTERVAL_MINUTES',5,0,0,1,TIMESTAMPADD(MINUTE,5,CURRENT_TIMESTAMP)),('GOODSHORT_ORDER_SYNC','每隔60分钟同步昨天和今天的GoodShort订单','INTERVAL_MINUTES',60,0,0,1,TIMESTAMPADD(MINUTE,60,CURRENT_TIMESTAMP)),('GOODSHORT_ORDER_RECENT_SYNC','每隔3天补偿同步最近7天的GoodShort订单','INTERVAL_DAYS',3,0,0,1,TIMESTAMPADD(DAY,3,CURRENT_TIMESTAMP));
 INSERT INTO system_scheduled_task
     (task_code, description, cycle_type, time_of_day, enabled, next_run_at)
-VALUES ('GOODSHORT_ANALYTICAL_REPORT_SYNC', 'Daily 08:00 GoodShort analytical report sync', 'DAILY', '08:00:00', 1,
+VALUES ('GOODSHORT_ANALYTICAL_REPORT_SYNC', '每天 08:00 同步 GoodShort 推广转化日报', 'DAILY', '08:00:00', 1,
         TIMESTAMPADD(HOUR, 8, CURRENT_DATE));
+INSERT INTO system_scheduled_task
+    (task_code, description, cycle_type, time_of_day, enabled, next_run_at)
+SELECT 'GOODSHORT_DRAMA_FULL_SYNC',
+       '每天 03:00 同步 GoodShort 全量短剧目录',
+       'DAILY', '03:00:00', 1,
+       CASE
+           WHEN CURRENT_TIME < '03:00:00' THEN TIMESTAMPADD(HOUR, 3, CURRENT_DATE)
+           ELSE TIMESTAMPADD(DAY, 1, TIMESTAMPADD(HOUR, 3, CURRENT_DATE))
+       END
+WHERE NOT EXISTS (
+    SELECT 1 FROM system_scheduled_task
+    WHERE task_code = 'GOODSHORT_DRAMA_FULL_SYNC'
+);
 
 -- 推广链接
 CREATE TABLE `promotion_project`

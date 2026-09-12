@@ -10,5 +10,5 @@ public interface PromotionOrderAdminService {
 
     PromotionOrderPageVO getPage(PromotionOrderPageQueryDTO query);
 
-    byte[] exportCsv(PromotionOrderPageQueryDTO query);
+    byte[] exportXlsx(PromotionOrderPageQueryDTO query);
 }

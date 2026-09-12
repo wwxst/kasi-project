@@ -79,6 +79,7 @@ public enum ErrorCode {
     PROVIDER_COMMISSION_RULE_EXISTS(6012, "该平台默认分佣规则已存在"),
     DRAMA_CONTENT_SYNC_TASK_RUNNING(6016, "短剧剧集同步任务正在执行"),
     DRAMA_CONTENT_SYNC_TASK_NOT_FOUND(6017, "短剧剧集同步任务不存在"),
+    DRAMA_REMOTE_STATUS_NOT_ONLINE(6018, "短剧远端状态非在线，不能上架"),
 
     // ========== 推广媒体与报备错误 ==========
     MEDIA_ACCOUNT_NOT_FOUND(7001, "媒体账号不存在"),
@@ -86,8 +87,11 @@ public enum ErrorCode {
     MEDIA_ACCOUNT_DISABLED(7004, "媒体账号已停用"),
     MEDIA_TYPE_UNSUPPORTED(7005, "当前平台不支持该媒体类型"),
     MEDIA_FILING_NOT_FOUND(7006, "平台报备不存在"),
-    MEDIA_FILING_RETRY_NOT_ALLOWED(7012, "只有提交甲方失败的报备可以重新提交"),
-    MEDIA_ACCOUNT_DELETE_NOT_ALLOWED(7013, "当前报白状态不允许删除"),
+    MEDIA_FILING_RETRY_NOT_ALLOWED(7012, "只有已确认甲方未收到的提交失败报白可以重新提交"),
+    MEDIA_FILING_METHOD_SWITCH_BLOCKED(7018, "报白任务正在处理或提交结果待核实，请稍后再试"),
+    MEDIA_FILING_CONCURRENT_UPDATE(7019, "报白状态已发生变化，请刷新后重试"),
+    MEDIA_FILING_MANUAL_UPDATE_NOT_ALLOWED(7020, "当前报白不允许人工修改状态"),
+    MEDIA_FILING_RESOLUTION_NOT_ALLOWED(7021, "当前报白不需要核实提交结果"),
     PROMOTION_LINK_DRAMA_UNAVAILABLE(7010, "短剧当前不可推广"),
     PROMOTION_LINK_MEDIA_NOT_APPROVED(7011, "媒体账号尚未在该平台加白"),
     PROMOTION_LINK_REQUEST_CONFLICT(7014, "requestKey与原推广任务不一致"),

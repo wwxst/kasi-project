@@ -16,14 +16,18 @@
         SELECT * FROM short_drama_connection WHERE provider_id = #{providerId}
     </select>
 
+    <select id="lockByProviderId" resultType="com.kasi.backend.provider.entity.ShortDramaConnection">
+        SELECT * FROM short_drama_connection WHERE provider_id = #{providerId} FOR UPDATE
+    </select>
+
     <insert id="insert" useGeneratedKeys="true" keyProperty="id">
         INSERT INTO short_drama_connection
             (provider_id, connection_name, base_url, media_root_domain, partner_id, api_key_ciphertext, currency, status,
-             created_by, updated_by)
+             created_by, updated_by, api_filing_media_types)
         VALUES
             (#{providerId}, #{connectionName}, #{baseUrl}, #{mediaRootDomain}, #{partnerId}, #{apiKeyCiphertext}, #{currency},
              #{status},
-             #{createdBy}, #{updatedBy})
+             #{createdBy}, #{updatedBy}, COALESCE(#{apiFilingMediaTypes}, '["FACEBOOK"]'))
     </insert>
 
     <update id="update">
@@ -37,6 +41,9 @@
             </if>
             currency = #{currency},
             status = #{status},
+            <if test="apiFilingMediaTypes != null">
+                api_filing_media_types = #{apiFilingMediaTypes},
+            </if>
             updated_by = #{updatedBy},
             updated_at = CURRENT_TIMESTAMP
         WHERE id = #{id}
