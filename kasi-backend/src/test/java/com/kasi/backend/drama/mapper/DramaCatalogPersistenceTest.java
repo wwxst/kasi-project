@@ -26,6 +26,7 @@ class DramaCatalogPersistenceTest extends BaseAuthTest {
     void dramaAndContentUpsertIsIdempotent() {
         Long connectionId = insertConnection();
         ProviderDrama drama = drama(connectionId, "book-1");
+        drama.setRemoteShowStatus("1");
         assertThat(dramaMapper.upsert(drama)).isGreaterThanOrEqualTo(1);
         Long id = dramaMapper.findByConnectionAndExternalId(connectionId, "book-1").getId();
         assertThat(dramaMapper.updateLocalStatus(id, DramaLocalStatus.PUBLISHED)).isEqualTo(1);
@@ -80,6 +81,28 @@ class DramaCatalogPersistenceTest extends BaseAuthTest {
                 .isEqualTo(DramaLocalStatus.PUBLISHED);
         assertThat(dramaMapper.findByConnectionAndExternalId(connectionId, "offline-book").getLocalStatus())
                 .isEqualTo(DramaLocalStatus.OFFLINE);
+    }
+
+    @Test
+    @DisplayName("读取后甲方状态变为非在线时原子更新拒绝上架")
+    void remoteStatusChangeBeforeUpdateAtomicallyPreventsPublishing() {
+        Long connectionId = insertConnection();
+        ProviderDrama drama = drama(connectionId, "status-race-book");
+        drama.setRemoteShowStatus("1");
+        dramaMapper.upsert(drama);
+        ProviderDrama queried = dramaMapper.findByConnectionAndExternalId(connectionId, "status-race-book");
+        assertThat(queried.getRemoteShowStatus()).isEqualTo("1");
+
+        jdbcTemplate.update("""
+                UPDATE provider_drama
+                SET remote_show_status = 'MISSING', local_status = 'OFFLINE'
+                WHERE id = ?
+                """, queried.getId());
+
+        assertThat(dramaMapper.updateLocalStatus(queried.getId(), DramaLocalStatus.PUBLISHED)).isZero();
+        ProviderDrama stored = dramaMapper.findById(queried.getId());
+        assertThat(stored.getRemoteShowStatus()).isEqualTo("MISSING");
+        assertThat(stored.getLocalStatus()).isEqualTo(DramaLocalStatus.OFFLINE);
     }
 
     @Test

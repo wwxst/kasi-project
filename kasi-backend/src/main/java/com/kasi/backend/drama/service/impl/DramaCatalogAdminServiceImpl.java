@@ -69,6 +69,9 @@ public class DramaCatalogAdminServiceImpl implements DramaCatalogAdminService {
             throw new BusinessException(ErrorCode.DRAMA_REMOTE_STATUS_NOT_ONLINE);
         }
         if (dramaMapper.updateLocalStatus(id, localStatus) != 1) {
+            if (localStatus == DramaLocalStatus.PUBLISHED) {
+                throw new BusinessException(ErrorCode.DRAMA_REMOTE_STATUS_NOT_ONLINE);
+            }
             throw new BusinessException(ErrorCode.DRAMA_NOT_FOUND);
         }
         return getById(id);

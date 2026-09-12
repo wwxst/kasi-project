@@ -130,6 +130,22 @@ class DramaCatalogAdminServiceTest {
     }
 
     @Test
+    @DisplayName("远端状态在读取后变为非在线时上架返回远端状态错误")
+    void remoteStatusChangeBeforeUpdatePreventsPublishing() {
+        ProviderDrama drama = drama();
+        drama.setRemoteShowStatus("1");
+        drama.setLocalStatus(DramaLocalStatus.OFFLINE);
+        when(dramaMapper.findById(21L)).thenReturn(drama);
+        when(dramaMapper.updateLocalStatus(21L, DramaLocalStatus.PUBLISHED)).thenReturn(0);
+
+        assertThatThrownBy(() -> service.updateLocalStatus(21L, DramaLocalStatus.PUBLISHED))
+                .isInstanceOfSatisfying(BusinessException.class,
+                        exception -> assertThat(exception.getCode()).isEqualTo(6018));
+
+        verify(dramaMapper, never()).findContents(21L);
+    }
+
+    @Test
     @DisplayName("推广元数据更新会规范化范围并清理空说明")
     void updatePromotionMetadataNormalizesScopes() {
         when(dramaMapper.findById(21L)).thenReturn(drama());
