@@ -1,0 +1,9 @@
+.promotion-project-type-page__toolbar {
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: 16px;
+}
+
+.promotion-project-type-page__sort {
+  width: 100%;
+}

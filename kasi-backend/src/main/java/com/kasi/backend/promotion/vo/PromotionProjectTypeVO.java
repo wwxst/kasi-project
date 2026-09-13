@@ -8,14 +8,10 @@ import java.time.LocalDateTime;
 
 @Data
 @Builder
-public class PromotionProjectVO {
+public class PromotionProjectTypeVO {
     private Long id;
-    private Long projectTypeId;
-    private String projectTypeCode;
-    private String projectTypeName;
+    private String code;
     private String name;
-    private String coverImageUrl;
-    private String projectDocumentUrl;
     private PromotionProjectStatus status;
     private Integer sortOrder;
     private LocalDateTime createdAt;

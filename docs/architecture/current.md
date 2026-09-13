@@ -16,9 +16,10 @@
 - 短剧目录和免费剧集全量/增量同步、断点、租约、本地上下架及永久媒体 URL。
 - 平台级 CPS 费率与不可变历史快照。
 - 推广链接、订单同步、trackingNo 归因、订单费率/佣金快照及管理员/用户查询；管理端账号报白和推广订单按筛选条件全量导出 XLSX。
+- 推广项目 CRUD，以及独立的 CPA/CPM/CPS 项目类型分类和管理端两级菜单。
 - 系统固定任务统一通过 `system_scheduled_task` 的到期时间和数据库租约调度。
 
-正式账单、钱包、提现、自动对账、CapCut、CPA 和 CPM 尚未实现，只能通过独立业务设计进入后续阶段。
+正式账单、钱包、提现、自动对账、CapCut，以及 CPA/CPM 的计费和结算逻辑尚未实现；CPA/CPM/CPS 当前只作为项目分类。
 
 ## 数据与Schema
 
@@ -28,7 +29,7 @@
 kasi-backend/src/main/resources/db/migration/V*.sql
 ```
 
-Flyway 只通过 Maven `migration` profile 作为独立发布步骤运行；应用没有 Flyway 运行时依赖，并显式关闭启动迁移。当前迁移链为不可变 `V1__baseline.sql` 到 `V11__add_goodshort_drama_full_sync_task.sql`，后续变更只新增更高版本。开发环境可从 `kasi-backend/src/main/resources/db/kasi_promotion.sql` 重建空库，该文件始终描述最新最终结构；MySQL 8.4 Contract 比较开发重建与完整迁移链结果。`*_id` 是逻辑关联，当前生产 schema 不使用物理外键或数据库级联。
+生产 Flyway 仍只通过 Maven `migration` profile 作为独立发布步骤运行；应用默认关闭启动迁移，仅显式激活 Spring `local` profile 时在本地启动前自动校验并执行迁移。当前迁移链为不可变 `V1__baseline.sql` 到 `V12__promotion_project_type.sql`，后续变更只新增更高版本。开发环境可从 `kasi-backend/src/main/resources/db/kasi_promotion.sql` 重建空库，该文件始终描述最新最终结构；MySQL 8.4 Contract 比较开发重建与完整迁移链结果。`*_id` 是逻辑关联，当前生产 schema 不使用物理外键或数据库级联。
 
 上游订单原始 payload、归因字段、费率快照和佣金结果分别保存；历史订单结果不因当前费率修改而重算。
 
@@ -46,7 +47,7 @@ API 记录由后台 Worker 分批领取到期的 `SUBMIT`/`QUERY` 任务，每�
 
 管理员可按平台、报白方式和真实五状态查询，单条删除任意状态/方式的本地账号及其报白记录；删除不调用甲方接口。账号报白 XLSX 和推广订单 XLSX 都按当前筛选条件导出全部匹配数据，不受列表分页影响。
 
-当前仓库验证覆盖 H2、服务/控制器/持久层回归和三个应用 canonical Gate。真实 MySQL 存量核对与 V1..V11 结构契约、生产 Flyway 执行以及真实 GoodShort report/query 仍属于发布环境验证项，未验证时必须记录为 `SKIP`，不能视为已通过。
+当前仓库验证覆盖 H2、服务/控制器/持久层回归和三个应用 canonical Gate。真实 MySQL 存量核对与 V1..V12 结构契约、生产 Flyway 执行以及真实 GoodShort report/query 仍属于发布环境验证项，未验证时必须记录为 `SKIP`，不能视为已通过。
 
 ## 时间与事务
 

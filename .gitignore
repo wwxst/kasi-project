@@ -9,6 +9,7 @@
 **/dump.rdb
 **/var/
 **/application-local.properties
+!kasi-backend/src/main/resources/application-local.properties
 **/.agents/
 **/.codex/
 .codex-worktree-cleanup/

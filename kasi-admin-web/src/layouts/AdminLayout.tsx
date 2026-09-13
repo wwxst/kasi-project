@@ -27,6 +27,7 @@ import {
   Search,
   Settings,
   ShieldCheck,
+  Tags,
   Users,
   UserRound,
 } from 'lucide-react'
@@ -49,10 +50,13 @@ export function AdminLayout() {
   const selectedMenuKey = location.pathname
   const defaultOpenKeys: string[] = []
 
+  if (location.pathname.startsWith('/promotion/project')) {
+    defaultOpenKeys.push('project-management')
+  }
   if (
     location.pathname.startsWith('/drama/') ||
     (location.pathname.startsWith('/promotion/') &&
-      location.pathname !== '/promotion/projects')
+      !location.pathname.startsWith('/promotion/project'))
   ) {
     defaultOpenKeys.push('drama-management')
   }
@@ -95,9 +99,21 @@ export function AdminLayout() {
             label: <Link to="/user-management">用户管理</Link>,
           },
           {
-            key: '/promotion/projects',
+            key: 'project-management',
             icon: <PanelsTopLeft size={18} strokeWidth={1.8} />,
-            label: <Link to="/promotion/projects">项目管理</Link>,
+            label: '项目管理',
+            children: [
+              {
+                key: '/promotion/projects',
+                icon: <PanelsTopLeft size={18} strokeWidth={1.8} />,
+                label: <Link to="/promotion/projects">项目列表</Link>,
+              },
+              {
+                key: '/promotion/project-types',
+                icon: <Tags size={18} strokeWidth={1.8} />,
+                label: <Link to="/promotion/project-types">项目类型</Link>,
+              },
+            ],
           },
           {
             key: 'drama-management',

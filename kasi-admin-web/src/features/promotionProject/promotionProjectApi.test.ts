@@ -15,6 +15,9 @@ import {
 
 const project: PromotionProject = {
   id: 1,
+  projectTypeId: 1,
+  projectTypeCode: 'CPA',
+  projectTypeName: '按行动付费',
   name: '项目A',
   coverImageUrl: '/uploads/promotion-projects/a.png',
   projectDocumentUrl: 'https://example.com/a',
@@ -39,6 +42,7 @@ describe('promotionProjectApi', () => {
     const cover = new File(['cover'], 'cover.png', { type: 'image/png' })
 
     await createPromotionProject({
+      projectTypeId: 1,
       name: ' 项目A ',
       projectDocumentUrl: ' https://example.com/a ',
       status: 'ENABLED',
@@ -49,6 +53,7 @@ describe('promotionProjectApi', () => {
     const [path, body] = httpMocks.post.mock.calls[0]
     expect(path).toBe('/api/admin/promotion/projects')
     expect(body).toBeInstanceOf(FormData)
+    expect((body as FormData).get('projectTypeId')).toBe('1')
     expect((body as FormData).get('name')).toBe('项目A')
     expect((body as FormData).get('projectDocumentUrl')).toBe(
       'https://example.com/a',
@@ -60,6 +65,7 @@ describe('promotionProjectApi', () => {
 
   it('updates a project without a cover when it is unchanged', async () => {
     await updatePromotionProject(1, {
+      projectTypeId: 1,
       name: '项目A修改',
       projectDocumentUrl: 'https://example.com/a',
       status: 'DISABLED',

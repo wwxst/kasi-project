@@ -2,6 +2,9 @@ export type PromotionProjectStatus = 'ENABLED' | 'DISABLED'
 
 export interface PromotionProject {
   id: number
+  projectTypeId: number | null
+  projectTypeCode: string | null
+  projectTypeName: string | null
   name: string
   coverImageUrl: string
   projectDocumentUrl: string
@@ -24,6 +27,7 @@ export interface PromotionProjectQuery {
 }
 
 export interface PromotionProjectFormValues {
+  projectTypeId: number
   name: string
   projectDocumentUrl: string
   status: PromotionProjectStatus

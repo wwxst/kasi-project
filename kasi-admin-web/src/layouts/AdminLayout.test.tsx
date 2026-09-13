@@ -50,7 +50,7 @@ describe('AdminLayout navigation', () => {
     expect(screen.getByTestId('location')).toHaveTextContent('/user-management')
   })
 
-  it('keeps projects top-level and groups promotion links under short drama management', () => {
+  it('groups project list and project types under project management', () => {
     render(
       <MemoryRouter initialEntries={['/user-management']}>
         <Routes>
@@ -63,9 +63,15 @@ describe('AdminLayout navigation', () => {
 
     expect(screen.getAllByText('短剧管理').length).toBeGreaterThan(0)
     expect(screen.queryByText('推广管理')).not.toBeInTheDocument()
-    expect(
-      screen.getAllByRole('link', { name: '项目管理' })[0],
-    ).toHaveAttribute('href', '/promotion/projects')
+    fireEvent.click(screen.getAllByRole('menuitem', { name: '项目管理' })[0])
+    expect(screen.getByRole('link', { name: '项目列表' })).toHaveAttribute(
+      'href',
+      '/promotion/projects',
+    )
+    expect(screen.getByRole('link', { name: '项目类型' })).toHaveAttribute(
+      'href',
+      '/promotion/project-types',
+    )
     expect(
       screen.queryByRole('link', { name: '短剧目录' }),
     ).not.toBeInTheDocument()

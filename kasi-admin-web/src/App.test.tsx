@@ -343,6 +343,13 @@ describe('App', () => {
           data: { list: [], page: 1, size: 20, total: 0 },
         }),
       ),
+      http.get('/api/admin/promotion/project-types', () =>
+        HttpResponse.json({
+          code: 0,
+          message: 'ok',
+          data: [],
+        }),
+      ),
     )
     useAuthStore.getState().setSession({
       accessToken: 'ordinary-token',
@@ -368,7 +375,11 @@ describe('App', () => {
     expect(
       screen.queryByRole('heading', { name: '项目管理' }),
     ).not.toBeInTheDocument()
-    expect(screen.getByRole('link', { name: '项目管理' })).toBeInTheDocument()
+    expect(
+      screen.getByRole('menuitem', { name: '项目管理' }),
+    ).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: '项目列表' })).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: '项目类型' })).toBeInTheDocument()
     expect(window.location.pathname).toBe('/promotion/projects')
   })
 

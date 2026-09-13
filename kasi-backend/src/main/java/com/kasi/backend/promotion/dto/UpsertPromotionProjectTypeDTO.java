@@ -4,22 +4,22 @@ import com.kasi.backend.promotion.enums.PromotionProjectStatus;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
 import lombok.Data;
-import org.springframework.web.multipart.MultipartFile;
+
+import java.util.Locale;
 
 @Data
-public class UpsertPromotionProjectDTO {
-    @NotNull
-    private Long projectTypeId;
+public class UpsertPromotionProjectTypeDTO {
+    @NotBlank
+    @Size(max = 32)
+    @Pattern(regexp = "[A-Za-z][A-Za-z0-9_]*")
+    private String code;
 
     @NotBlank
-    @Size(max = 128)
+    @Size(max = 64)
     private String name;
-
-    @NotBlank
-    @Size(max = 1024)
-    private String projectDocumentUrl;
 
     @NotNull
     private PromotionProjectStatus status = PromotionProjectStatus.ENABLED;
@@ -28,5 +28,11 @@ public class UpsertPromotionProjectDTO {
     @Min(0)
     private Integer sortOrder;
 
-    private MultipartFile coverFile;
+    public void setCode(String code) {
+        this.code = code == null ? null : code.trim().toUpperCase(Locale.ROOT);
+    }
+
+    public void setName(String name) {
+        this.name = name == null ? null : name.trim();
+    }
 }

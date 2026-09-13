@@ -27,6 +27,7 @@ import type {
   PromotionProject,
   PromotionProjectFormValues,
 } from '../../features/promotionProject/promotionProjectTypes'
+import { listPromotionProjectTypes } from '../../features/promotionProjectType/promotionProjectTypeApi'
 import './promotion-project-page.css'
 
 const queryKey = 'promotion-projects'
@@ -43,6 +44,10 @@ export function PromotionProjectPage() {
   const projectsQuery = useQuery({
     queryKey: [queryKey, query.page, query.size],
     queryFn: () => listPromotionProjects(query),
+  })
+  const projectTypesQuery = useQuery({
+    queryKey: ['promotion-project-types'],
+    queryFn: listPromotionProjectTypes,
   })
 
   const refresh = () => queryClient.invalidateQueries({ queryKey: [queryKey] })
@@ -71,8 +76,8 @@ export function PromotionProjectPage() {
     setEditing(null)
     setCoverFile(undefined)
     setCoverError(false)
+    form.resetFields()
     form.setFieldsValue({ status: 'ENABLED', sortOrder: 0 })
-    form.resetFields(['name', 'projectDocumentUrl'])
     setModalOpen(true)
   }
 
@@ -81,6 +86,7 @@ export function PromotionProjectPage() {
     setCoverFile(undefined)
     setCoverError(false)
     form.setFieldsValue({
+      projectTypeId: project.projectTypeId ?? undefined,
       name: project.name,
       projectDocumentUrl: project.projectDocumentUrl,
       status: project.status,
@@ -117,6 +123,12 @@ export function PromotionProjectPage() {
       ),
     },
     { title: '项目名称', dataIndex: 'name', ellipsis: true },
+    {
+      title: '项目类型',
+      dataIndex: 'projectTypeCode',
+      width: 120,
+      render: (value: string | null) => value ?? <Tag>未设置</Tag>,
+    },
     {
       title: '项目文档',
       dataIndex: 'projectDocumentUrl',
@@ -213,6 +225,20 @@ export function PromotionProjectPage() {
           layout="vertical"
           onFinish={(values) => saveMutation.mutate(values)}
         >
+          <Form.Item
+            name="projectTypeId"
+            label="项目类型"
+            rules={[{ required: true, message: '请选择项目类型' }]}
+          >
+            <Select
+              loading={projectTypesQuery.isLoading}
+              options={(projectTypesQuery.data ?? []).map((projectType) => ({
+                value: projectType.id,
+                label: `${projectType.code} - ${projectType.name}`,
+                disabled: projectType.status === 'DISABLED',
+              }))}
+            />
+          </Form.Item>
           <Form.Item
             name="name"
             label="项目名称"

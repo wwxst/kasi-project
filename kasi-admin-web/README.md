@@ -38,7 +38,7 @@ Kasi 推广平台的独立管理端前端，后端项目位于同级目录 `../k
 
 “推广管理”下提供“推广任务”，页面路由为 `/promotion/links`。普通管理员和超级管理员可按用户编号、短剧平台、口令和 trackingNo 查询已成功生成的推广链接任务，查看用户、短剧、推广名称、媒体、口令、推广链接以及点击、归因用户、新注册、新充值、新会员、充值用户和订单七项累计转化指标。页面对接 `GET /api/admin/promotion/links`，并可选择支持转化同步的平台和不超过 30 个自然日的日期范围，通过 `POST /api/admin/promotion/analytical-reports/sync` 手动补拉日报；不展示原始日报金额，也不修改订单归因或收益计算。
 
-“推广管理”下提供“项目管理”，页面路由为 `/promotion/projects`。管理员可分页查询、新增、编辑和物理删除项目，维护项目名称、后端上传的 JPG/PNG/WebP 封面、HTTPS 项目文档 URL、启用/停用状态和排序字段。新增与编辑使用 multipart 请求；编辑不上传新封面时保留原封面，删除前需要确认。
+左侧“项目管理”一级菜单下提供“项目列表”和“项目类型”两个二级菜单，路由分别为 `/promotion/projects` 和 `/promotion/project-types`。项目类型页面维护类型编码、名称、启停状态和排序，初始类型为 CPA、CPM、CPS，已被项目使用的类型不能删除。项目列表可分页查询、新增、编辑和物理删除项目，维护所属类型、项目名称、后端上传的 JPG/PNG/WebP 封面、HTTPS 项目文档 URL、启用/停用状态和排序字段；旧项目尚未归类时显示“未设置”，新的或经过编辑的项目必须选择类型。新增与编辑使用 multipart 请求；编辑不上传新封面时保留原封面，删除前需要确认。
 
 Analysis 页面和管理查询表格页根据 Ant Design Pro 官方 MIT 源码适配，来源与许可见 [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)。
 分析页通过路由懒加载，图表运行时只在进入 `/dashboard` 后加载。

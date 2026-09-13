@@ -3,6 +3,9 @@
 <mapper namespace="com.kasi.backend.promotion.mapper.PromotionProjectMapper">
     <resultMap id="PromotionProjectMap" type="com.kasi.backend.promotion.entity.PromotionProject">
         <id column="id" property="id"/>
+        <result column="project_type_id" property="projectTypeId"/>
+        <result column="project_type_code" property="projectTypeCode"/>
+        <result column="project_type_name" property="projectTypeName"/>
         <result column="name" property="name"/>
         <result column="cover_image_url" property="coverImageUrl"/>
         <result column="project_document_url" property="projectDocumentUrl"/>
@@ -13,7 +16,17 @@
     </resultMap>
 
     <select id="findById" resultMap="PromotionProjectMap">
-        SELECT * FROM promotion_project WHERE id = #{id}
+        SELECT p.*, t.code AS project_type_code, t.name AS project_type_name
+        FROM promotion_project p
+        LEFT JOIN promotion_project_type t ON t.id = p.project_type_id
+        WHERE p.id = #{id}
+    </select>
+
+    <select id="findByIdForUpdate" resultMap="PromotionProjectMap">
+        SELECT *
+        FROM promotion_project
+        WHERE id = #{id}
+        FOR UPDATE
     </select>
 
     <select id="countAll" resultType="long">
@@ -21,23 +34,40 @@
     </select>
 
     <select id="findPage" resultMap="PromotionProjectMap">
-        SELECT * FROM promotion_project ORDER BY sort_order ASC, id ASC LIMIT #{offset}, #{size}
+        SELECT p.*, t.code AS project_type_code, t.name AS project_type_name
+        FROM promotion_project p
+        LEFT JOIN promotion_project_type t ON t.id = p.project_type_id
+        ORDER BY p.sort_order ASC, p.id ASC
+        LIMIT #{offset}, #{size}
     </select>
 
     <select id="findEnabled" resultMap="PromotionProjectMap">
         SELECT * FROM promotion_project WHERE status = 'ENABLED' ORDER BY sort_order ASC, id ASC
     </select>
 
+    <select id="countByProjectTypeId" resultType="long">
+        SELECT COUNT(*) FROM promotion_project WHERE project_type_id = #{projectTypeId}
+    </select>
+
+    <select id="findIdsByProjectTypeIdForUpdate" resultType="long">
+        SELECT id
+        FROM promotion_project
+        WHERE project_type_id = #{projectTypeId}
+        ORDER BY id ASC
+        FOR UPDATE
+    </select>
+
     <insert id="insert" useGeneratedKeys="true" keyProperty="id">
         INSERT INTO promotion_project
-            (name, cover_image_url, project_document_url, status, sort_order)
+            (project_type_id, name, cover_image_url, project_document_url, status, sort_order)
         VALUES
-            (#{name}, #{coverImageUrl}, #{projectDocumentUrl}, #{status}, #{sortOrder})
+            (#{projectTypeId}, #{name}, #{coverImageUrl}, #{projectDocumentUrl}, #{status}, #{sortOrder})
     </insert>
 
     <update id="update">
         UPDATE promotion_project
-        SET name = #{name},
+        SET project_type_id = #{projectTypeId},
+            name = #{name},
             cover_image_url = #{coverImageUrl},
             project_document_url = #{projectDocumentUrl},
             status = #{status},

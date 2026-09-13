@@ -231,8 +231,26 @@ CREATE TABLE IF NOT EXISTS drama_sync_display_run_item (
     INDEX idx_drama_sync_display_run_item_task (task_domain, task_id)
 );
 
+CREATE TABLE IF NOT EXISTS promotion_project_type (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    code VARCHAR(32) NOT NULL UNIQUE,
+    name VARCHAR(64) NOT NULL,
+    status VARCHAR(16) NOT NULL DEFAULT 'ENABLED',
+    sort_order INT NOT NULL DEFAULT 0,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT ck_promotion_project_type_status CHECK (status REGEXP '^(ENABLED|DISABLED)$'),
+    CONSTRAINT ck_promotion_project_type_sort_order CHECK (sort_order >= 0),
+    INDEX idx_promotion_project_type_list (sort_order, id));
+
+MERGE INTO promotion_project_type (code, name, status, sort_order) KEY (code)
+VALUES ('CPA', '按行动付费', 'ENABLED', 1),
+       ('CPM', '按千次展示付费', 'ENABLED', 2),
+       ('CPS', '按销售付费', 'ENABLED', 3);
+
 CREATE TABLE IF NOT EXISTS promotion_project (
     id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    project_type_id BIGINT,
     name VARCHAR(128) NOT NULL,
     cover_image_url VARCHAR(512) NOT NULL,
     project_document_url VARCHAR(1024) NOT NULL,
@@ -242,6 +260,7 @@ CREATE TABLE IF NOT EXISTS promotion_project (
     updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     CONSTRAINT ck_promotion_project_status CHECK (status REGEXP '^(ENABLED|DISABLED)$'),
     CONSTRAINT ck_promotion_project_sort_order CHECK (sort_order >= 0),
+    INDEX idx_promotion_project_type_id (project_type_id),
     INDEX idx_promotion_project_user_list (status, sort_order, id));
 
 CREATE TABLE IF NOT EXISTS promotion_link (

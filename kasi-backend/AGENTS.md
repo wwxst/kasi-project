@@ -45,13 +45,13 @@
   - `admin/` — 管理员认证、本人资料与密码维护，以及超级管理员管理普通管理员账号
   - `user/` — 推广用户注册、登录、获取和修改本人资料、上传本人头像、退出登录、修改密码、忘记密码流程，以及管理员可用的推广用户管理 CRUD
   - `provider/` — 短剧平台定义、接入账号持久层、AES-GCM 密钥加密、GoodShort 签名/连接探测，以及管理员平台接入管理 API
-- `promotion/` — 推广用户媒体账号绑定、GoodShort 账号报备、推广链接、转化日报归因、订单归因、CPS 佣金快照、订单共享同步服务、管理员手动补拉及管理员/用户查询导出 API
+- `promotion/` — 推广项目及 CPA/CPM/CPS 项目类型管理、推广用户媒体账号绑定、GoodShort 账号报备、推广链接、转化日报归因、订单归因、CPS 佣金快照、订单共享同步服务、管理员手动补拉及管理员/用户查询导出 API；项目类型当前只承担分类
   - `drama/` — GoodShort 短剧目录与免费剧集持久层、全量/增量同步、检查点与租约、平台级分佣规则，以及经过域名校验的永久媒体 URL
   - `auth/` — 可复用的验证码服务和密码重置 Token 机制（Redis 存储，Lua 原子消费/预占，TTL 自动过期）
-- 生产数据库结构由 `src/main/resources/db/migration/V*.sql` 不可变 Flyway 链管理，Flyway 只通过 Maven `migration` profile 作为独立发布步骤执行；`src/main/resources/db/kasi_promotion.sql` 保留为开发空库最终结构重建脚本。两条路径必须保持最终结构和固定数据一致；所有 `*_id` 仅作为逻辑关联，由 Service 校验存在性与归属，不使用物理外键或数据库级联，也不植入平台接入密钥。
+- 生产数据库结构由 `src/main/resources/db/migration/V*.sql` 不可变 Flyway 链管理，生产 Flyway 只通过 Maven `migration` profile 作为独立发布步骤执行；默认关闭启动迁移，仅显式 Spring `local` profile 使用同一迁移链自动迁移本地开发库。`src/main/resources/db/kasi_promotion.sql` 保留为开发空库最终结构重建脚本。两条路径必须保持最终结构和固定数据一致；所有 `*_id` 仅作为逻辑关联，由 Service 校验存在性与归属，不使用物理外键或数据库级联，也不植入平台接入密钥。
 - 业务时间唯一语义为 `Asia/Shanghai`；Java 使用该 `ZoneId`，MySQL datasource 连接 session 使用等价 `+08:00`。`+08:00` 只是连接实现，不是第二套业务时区定义。
 - `scripts/dev/seed_goodshort_drama_catalog.sql` 是初始化之外的手动开发 seed，仅创建禁用且无凭据的 GoodShort 本地 fixture 连接；仅限本地使用，并必须通过遇错即停的 fail-fast 客户端执行。
-- 开发数据库仍可删除重建：schema 变化后对空库重新执行 `kasi_promotion.sql`。生产数据库按版本迁移且不得删库重建；应用启动不自动建表或升级。
+- 开发数据库可删除重建：可对空库使用显式 Spring `local` profile 启动自动执行完整 Flyway 链，也可手动执行 `kasi_promotion.sql`。生产数据库按独立版本迁移且不得删库重建；默认和生产应用启动不自动建表或升级。
 - 会话状态由 Redis（`auth:version:{type}:{userId}`、`auth:session:{jti}`）管理。JWT 携带 `jti`、`sessionVersion`，受保护请求必须同时校验签名、账号状态和 Redis 会话；Redis 不可用时安全失败返回 503，不能降级放行。
 - 修改密码、密码重置等敏感 MySQL 状态变更会先将账号版本切换为 `MUTATING:{nonce}`，事务提交或回滚完成后都按 nonce 恢复新的 `ACTIVE:*` 版本，使旧 Token 失效且数据库异常不会长期遗留 `MUTATING`。普通 logout 只撤销当前 `jti` 会话。
 - 管理员本人通过 `PUT /api/admin/auth/password` 修改密码时只提交新密码和确认密码，不要求原密码；成功后当前账号的旧 Token 全部失效。推广用户本人先调用登录态 `POST /api/user/auth/password/change/code` 和 `POST /api/user/auth/password/change/verify` 验证当前绑定手机号，再通过 `PUT /api/user/auth/password` 提交一次性 `resetToken`、新密码和确认密码；成功后当前账号的旧 Token 全部失效。
@@ -124,7 +124,7 @@ java -version
 ## 数据库初始化与迁移
 
 - `src/main/resources/db/migration/V*.sql` 是生产数据库版本真理源。当前 `V1__baseline.sql` 执行后不可修改，后续 schema 变化只能新增更高版本迁移。
-- Flyway 仅存在于 Maven `migration` profile；应用无 Flyway 运行时依赖，并通过 `spring.flyway.enabled=false` 禁止启动迁移。生产连接不得有默认值。
+- 生产 Flyway 仅通过 Maven `migration` profile 执行；应用默认通过 `spring.flyway.enabled=false` 禁止启动迁移，仅显式 Spring `local` profile 开启本地开发库自动迁移。生产连接不得有默认值。
 - `src/main/resources/db/kasi_promotion.sql` 是开发空库重建脚本，必须随每个版本迁移同步为最新最终结构；MySQL Contract 比较两条初始化路径。
 - 已由旧初始化 SQL 创建且结构核对无误的数据库，首次纳管时由发布人员显式执行 version `1` baseline；禁止打开 `baselineOnMigrate`、执行 `clean`、修改已执行迁移或手工改写历史表。
 - 开发初始化 SQL 和生产迁移都不包含针对固定数据库的 `CREATE DATABASE` 或 `USE` 语句。

@@ -60,6 +60,11 @@ const PromotionProjectPage = lazy(() =>
     default: module.PromotionProjectPage,
   })),
 )
+const PromotionProjectTypePage = lazy(() =>
+  import('../pages/promotion/PromotionProjectTypePage').then((module) => ({
+    default: module.PromotionProjectTypePage,
+  })),
+)
 const DramaCatalogPage = lazy(() =>
   import('../pages/drama/DramaCatalogPage').then((module) => ({
     default: module.DramaCatalogPage,
@@ -130,6 +135,10 @@ export function AppRouter() {
               <Route
                 path="/promotion/projects"
                 element={<PromotionProjectPage />}
+              />
+              <Route
+                path="/promotion/project-types"
+                element={<PromotionProjectTypePage />}
               />
               <Route
                 path="/promotion/orders"

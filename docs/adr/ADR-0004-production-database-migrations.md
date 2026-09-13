@@ -13,7 +13,7 @@
 
 生产 schema 的版本真相是 `kasi-backend/src/main/resources/db/migration/V*.sql` 不可变 Flyway 链。当前完整结构冻结为 `V1__baseline.sql`；执行过的迁移禁止修改，后续结构变化只能新增 `V2__...sql`、`V3__...sql`。
 
-Flyway 只存在于 Maven `migration` profile，作为独立发布步骤执行。应用没有 Flyway 运行时依赖，且通过 `spring.flyway.enabled=false` 明确禁止启动迁移。连接 URL、用户名和密码只从 `FLYWAY_URL`、`FLYWAY_USER`、`FLYWAY_PASSWORD` 注入，不提供默认生产连接。
+生产 Flyway 通过 Maven `migration` profile 作为独立发布步骤执行。应用包含 Flyway 运行时依赖，但通过默认的 `spring.flyway.enabled=false` 禁止启动迁移；只有显式激活 Spring `local` profile 时才自动迁移本地开发库。生产迁移连接 URL、用户名和密码只从 `FLYWAY_URL`、`FLYWAY_USER`、`FLYWAY_PASSWORD` 注入，不提供默认生产连接。
 
 `kasi_promotion.sql` 保留为开发环境空库重建脚本，始终描述最新最终结构。每次新增版本迁移时必须同步更新该文件；MySQL Contract 分别执行开发初始化和完整 Flyway 链，并比较最终表、列、索引、约束和固定初始数据。
 
@@ -22,7 +22,7 @@ Flyway 只存在于 Maven `migration` profile，作为独立发布步骤执行�
 ## 备选方案
 
 - 拒绝继续只维护完整初始化 SQL：它不能审计生产数据库已经执行的版本，也无法可靠升级保留数据的数据库。
-- 拒绝应用启动自动迁移：数据库变更必须在应用发布前独立观察、停止和审计，不能把 DDL 成功与应用进程启动绑定。
+- 拒绝生产应用启动自动迁移：生产数据库变更必须在应用发布前独立观察、停止和审计，不能把 DDL 成功与生产应用进程启动绑定。本地显式 profile 是开发便利性例外。
 - 拒绝长期启用 `baselineOnMigrate`：目标库选错或结构不一致时可能被静默接受。
 - 拒绝为每个迁移强制维护反向 SQL：MySQL DDL 可能隐式提交，破坏性失败通过备份恢复或新的正向修复迁移处理。
 
@@ -30,7 +30,7 @@ Flyway 只存在于 Maven `migration` profile，作为独立发布步骤执行�
 
 生产发布增加备份、`info`、`validate`、`migrate` 和结果核对步骤。迁移文件的校验和成为发布契约；已执行文件不能格式化或重写。应用启动行为和现有业务 API 不变。
 
-开发人员仍可删除开发库并运行最新 `kasi_promotion.sql`。CI 增加第二个 MySQL 8.4 schema，用于证明开发重建结果与生产迁移链一致；本机未提供真实 MySQL 凭据时该 Contract 只能明确 `SKIP`。
+开发人员可在空的本地 schema 上激活 `local` profile，由应用启动自动执行完整迁移链；也可删除开发库后运行最新 `kasi_promotion.sql` 完整重建。本地启动迁移保持 `baselineOnMigrate=false` 和 `cleanDisabled=true`，不会静默接管未纳入 Flyway 的旧库。CI 增加第二个 MySQL 8.4 schema，用于证明开发重建结果与生产迁移链一致；本机未提供真实 MySQL 凭据时该 Contract 只能明确 `SKIP`。
 
 ## 迁移与回滚
 

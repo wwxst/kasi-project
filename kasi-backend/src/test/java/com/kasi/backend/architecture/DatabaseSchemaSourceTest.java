@@ -25,8 +25,8 @@ class DatabaseSchemaSourceTest {
             Path.of("src/main/resources/db/migration/V1__baseline.sql");
 
     @Test
-    @DisplayName("生产迁移使用独立Flyway配置且应用启动不自动迁移")
-    void productionSchemaUsesReleaseOnlyFlywayAndDisablesRuntimeMigration() throws Exception {
+    @DisplayName("生产迁移使用独立Flyway配置且仅本地启动自动迁移")
+    void productionSchemaUsesReleaseFlywayAndOnlyLocalRuntimeMigration() throws Exception {
         assertThat(PRODUCTION_SCHEMA).isRegularFile();
         assertThat(FLYWAY_BASELINE).isRegularFile();
 
@@ -64,8 +64,12 @@ class DatabaseSchemaSourceTest {
                 "profiles/profile[id='migration']/build/plugins/plugin[artifactId='flyway-maven-plugin']/configuration/cleanDisabled"))
                 .isEqualTo("true");
         assertThat(xpathCount(project,
-                "dependencies/dependency[groupId='org.flywaydb']"))
-                .isZero();
+                "dependencies/dependency[groupId='org.springframework.boot' "
+                        + "and artifactId='spring-boot-starter-flyway' and scope='runtime']"))
+                .isEqualTo(1);
+        assertThat(xpathCount(project,
+                "dependencies/dependency[groupId='org.flywaydb' and artifactId='flyway-mysql' and scope='runtime']"))
+                .isEqualTo(1);
         assertThat(xpathCount(project,
                 "profiles/profile[id='migration']/build/plugins/plugin[artifactId='flyway-maven-plugin']"
                         + "/dependencies/dependency[groupId='org.flywaydb' and artifactId='flyway-mysql']"))
@@ -83,6 +87,19 @@ class DatabaseSchemaSourceTest {
         assertThat(application.getProperty("spring.flyway.enabled")).isEqualTo("false");
         assertThat(application.getProperty("spring.sql.init.mode")).isNull();
         assertThat(application.getProperty("spring.sql.init.schema-locations")).isNull();
+
+        Properties local = new Properties();
+        try (Reader reader = Files.newBufferedReader(
+                Path.of("src/main/resources/application-local.properties"), StandardCharsets.UTF_8)) {
+            local.load(reader);
+        }
+        assertThat(local.getProperty("spring.flyway.enabled")).isEqualTo("true");
+        assertThat(local.getProperty("spring.flyway.locations")).isEqualTo("classpath:db/migration");
+        assertThat(local.getProperty("spring.flyway.validate-on-migrate")).isEqualTo("true");
+        assertThat(local.getProperty("spring.flyway.validate-migration-naming")).isEqualTo("true");
+        assertThat(local.getProperty("spring.flyway.baseline-on-migrate")).isEqualTo("false");
+        assertThat(local.getProperty("spring.flyway.out-of-order")).isEqualTo("false");
+        assertThat(local.getProperty("spring.flyway.clean-disabled")).isEqualTo("true");
     }
 
     private static Element mavenProject() throws Exception {

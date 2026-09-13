@@ -9,7 +9,7 @@ import {
 import userEvent from '@testing-library/user-event'
 import { App as AntdApp } from 'antd'
 import React from 'react'
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type {
   PromotionProject,
   SavePromotionProjectRequest,
@@ -20,6 +20,10 @@ const apiMocks = vi.hoisted(() => ({
   deletePromotionProject: vi.fn(),
   listPromotionProjects: vi.fn(),
   updatePromotionProject: vi.fn(),
+}))
+
+const typeApiMocks = vi.hoisted(() => ({
+  listPromotionProjectTypes: vi.fn(),
 }))
 
 vi.mock('@ant-design/pro-components', () => ({
@@ -35,12 +39,30 @@ vi.mock('@ant-design/pro-components', () => ({
 }))
 
 vi.mock('../../features/promotionProject/promotionProjectApi', () => apiMocks)
+vi.mock(
+  '../../features/promotionProjectType/promotionProjectTypeApi',
+  () => typeApiMocks,
+)
 
 import { PromotionProjectPage } from './PromotionProjectPage'
 
 afterEach(() => {
   cleanup()
   vi.clearAllMocks()
+})
+
+beforeEach(() => {
+  typeApiMocks.listPromotionProjectTypes.mockResolvedValue([
+    {
+      id: 1,
+      code: 'CPA',
+      name: '按行动付费',
+      status: 'ENABLED',
+      sortOrder: 1,
+      createdAt: null,
+      updatedAt: null,
+    },
+  ])
 })
 
 describe('PromotionProjectPage', () => {
@@ -68,6 +90,9 @@ describe('PromotionProjectPage', () => {
     const records: PromotionProject[] = [
       {
         id: 1,
+        projectTypeId: 1,
+        projectTypeCode: 'CPA',
+        projectTypeName: '按行动付费',
         name: '项目A',
         coverImageUrl: '/uploads/promotion-projects/a.png',
         projectDocumentUrl: 'https://example.com/a',
@@ -88,6 +113,9 @@ describe('PromotionProjectPage', () => {
         const created: PromotionProject = {
           ...records[0],
           id: 2,
+          projectTypeId: request.projectTypeId,
+          projectTypeCode: 'CPA',
+          projectTypeName: '按行动付费',
           name: request.name,
           coverImageUrl: '/uploads/promotion-projects/b.png',
           projectDocumentUrl: request.projectDocumentUrl,
@@ -121,6 +149,8 @@ describe('PromotionProjectPage', () => {
     const user = userEvent.setup()
     await user.click(screen.getByRole('button', { name: '新增项目' }))
     const createDialog = await screen.findByRole('dialog')
+    await user.click(within(createDialog).getByLabelText('项目类型'))
+    await user.click(await screen.findByText('CPA - 按行动付费'))
     await user.type(within(createDialog).getByLabelText('项目名称'), '项目B')
     await user.type(
       within(createDialog).getByLabelText('项目文档 URL'),
@@ -136,6 +166,7 @@ describe('PromotionProjectPage', () => {
 
     await waitFor(() =>
       expect(apiMocks.createPromotionProject).toHaveBeenCalledWith({
+        projectTypeId: 1,
         name: '项目B',
         projectDocumentUrl: 'https://example.com/b',
         status: 'ENABLED',

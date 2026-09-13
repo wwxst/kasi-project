@@ -50,6 +50,7 @@ export async function deletePromotionProject(id: number): Promise<void> {
 
 function toFormData(request: SavePromotionProjectRequest) {
   const formData = new FormData()
+  formData.append('projectTypeId', String(request.projectTypeId))
   formData.append('name', request.name.trim())
   formData.append('projectDocumentUrl', request.projectDocumentUrl.trim())
   formData.append('status', request.status)

@@ -5,8 +5,10 @@ import com.kasi.backend.common.exception.ErrorCode;
 import com.kasi.backend.promotion.dto.PromotionProjectPageQueryDTO;
 import com.kasi.backend.promotion.dto.UpsertPromotionProjectDTO;
 import com.kasi.backend.promotion.entity.PromotionProject;
+import com.kasi.backend.promotion.entity.PromotionProjectType;
 import com.kasi.backend.promotion.enums.PromotionProjectStatus;
 import com.kasi.backend.promotion.mapper.PromotionProjectMapper;
+import com.kasi.backend.promotion.mapper.PromotionProjectTypeMapper;
 import com.kasi.backend.promotion.service.PromotionProjectCoverStorageService;
 import com.kasi.backend.promotion.service.PromotionProjectService;
 import com.kasi.backend.promotion.vo.PromotionProjectPageVO;
@@ -27,6 +29,7 @@ import java.util.List;
 @RequiredArgsConstructor
 public class PromotionProjectServiceImpl implements PromotionProjectService {
     private final PromotionProjectMapper projectMapper;
+    private final PromotionProjectTypeMapper projectTypeMapper;
     private final PromotionProjectCoverStorageService coverStorageService;
 
     @Override
@@ -51,9 +54,11 @@ public class PromotionProjectServiceImpl implements PromotionProjectService {
     @Transactional
     public PromotionProjectVO create(UpsertPromotionProjectDTO request, MultipartFile coverFile) {
         validate(request);
+        PromotionProjectType projectType = requireSelectableType(request.getProjectTypeId());
         String newCover = coverStorageService.store(coverFile);
         PromotionProject project = new PromotionProject();
         apply(project, request);
+        applyProjectType(project, projectType);
         project.setCoverImageUrl(newCover);
         try {
             projectMapper.insert(project);
@@ -69,7 +74,12 @@ public class PromotionProjectServiceImpl implements PromotionProjectService {
     @Transactional
     public PromotionProjectVO update(Long id, UpsertPromotionProjectDTO request, MultipartFile coverFile) {
         validate(request);
-        PromotionProject project = requireProject(id);
+        PromotionProjectType projectType = requireTypeForUpdate(request.getProjectTypeId());
+        PromotionProject project = requireProjectForUpdate(id);
+        if (projectType.getStatus() == PromotionProjectStatus.DISABLED
+                && !projectType.getId().equals(project.getProjectTypeId())) {
+            throw new BusinessException(ErrorCode.PROMOTION_PROJECT_TYPE_DISABLED);
+        }
         String previousCover = project.getCoverImageUrl();
         String newCover = null;
         if (coverFile != null && !coverFile.isEmpty()) {
@@ -77,6 +87,7 @@ public class PromotionProjectServiceImpl implements PromotionProjectService {
             project.setCoverImageUrl(newCover);
         }
         apply(project, request);
+        applyProjectType(project, projectType);
         try {
             projectMapper.update(project);
             if (newCover != null) {
@@ -110,6 +121,7 @@ public class PromotionProjectServiceImpl implements PromotionProjectService {
     private void validate(UpsertPromotionProjectDTO request) {
         if (request == null || request.getName() == null || request.getName().trim().isEmpty()
                 || request.getName().trim().length() > 128
+                || request.getProjectTypeId() == null
                 || request.getSortOrder() == null || request.getSortOrder() < 0
                 || request.getStatus() == null || !isHttps(request.getProjectDocumentUrl())) {
             throw new BusinessException(ErrorCode.VALIDATION_ERROR);
@@ -138,16 +150,52 @@ public class PromotionProjectServiceImpl implements PromotionProjectService {
         return project;
     }
 
+    private PromotionProject requireProjectForUpdate(Long id) {
+        PromotionProject project = projectMapper.findByIdForUpdate(id);
+        if (project == null) {
+            throw new BusinessException(ErrorCode.PROMOTION_PROJECT_NOT_FOUND);
+        }
+        return project;
+    }
+
+    private PromotionProjectType requireSelectableType(Long id) {
+        PromotionProjectType projectType = projectTypeMapper.findByIdForUpdate(id);
+        if (projectType == null) {
+            throw new BusinessException(ErrorCode.PROMOTION_PROJECT_TYPE_NOT_FOUND);
+        }
+        if (projectType.getStatus() == PromotionProjectStatus.DISABLED) {
+            throw new BusinessException(ErrorCode.PROMOTION_PROJECT_TYPE_DISABLED);
+        }
+        return projectType;
+    }
+
+    private PromotionProjectType requireTypeForUpdate(Long id) {
+        PromotionProjectType projectType = projectTypeMapper.findByIdForUpdate(id);
+        if (projectType == null) {
+            throw new BusinessException(ErrorCode.PROMOTION_PROJECT_TYPE_NOT_FOUND);
+        }
+        return projectType;
+    }
+
     private void apply(PromotionProject project, UpsertPromotionProjectDTO request) {
+        project.setProjectTypeId(request.getProjectTypeId());
         project.setName(request.getName());
         project.setProjectDocumentUrl(request.getProjectDocumentUrl());
         project.setStatus(request.getStatus() == null ? PromotionProjectStatus.ENABLED : request.getStatus());
         project.setSortOrder(request.getSortOrder());
     }
 
+    private void applyProjectType(PromotionProject project, PromotionProjectType projectType) {
+        project.setProjectTypeCode(projectType.getCode());
+        project.setProjectTypeName(projectType.getName());
+    }
+
     private PromotionProjectVO toVO(PromotionProject project) {
         return PromotionProjectVO.builder()
                 .id(project.getId())
+                .projectTypeId(project.getProjectTypeId())
+                .projectTypeCode(project.getProjectTypeCode())
+                .projectTypeName(project.getProjectTypeName())
                 .name(project.getName())
                 .coverImageUrl(project.getCoverImageUrl())
                 .projectDocumentUrl(project.getProjectDocumentUrl())

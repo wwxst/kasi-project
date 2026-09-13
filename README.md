@@ -12,11 +12,11 @@ kasi-user-web/   React + TDesign 用户端
 
 ## 当前产品范围
 
-当前已实现主线是 GoodShort 短剧推广 CPS：双端认证、平台接入、媒体账号报备、短剧目录与免费剧集同步、推广链接、订单同步与归因、CPS 费率/佣金快照，以及管理员和推广用户查询导出。
+当前已实现主线是 GoodShort 短剧推广 CPS：双端认证、平台接入、媒体账号报备、短剧目录与免费剧集同步、推广项目及 CPA/CPM/CPS 项目类型管理、推广链接、订单同步与归因、CPS 费率/佣金快照，以及管理员和推广用户查询导出。
 
-正式账单、钱包、提现、自动对账、CapCut、CPA 和 CPM 不属于当前实现。当前行为以 [当前架构](docs/architecture/current.md) 和各项目文档为准；建议与未决事项见 [工程缺口](docs/development/gaps.md)。
+正式账单、钱包、提现、自动对账、CapCut，以及 CPA/CPM 的计费和结算逻辑不属于当前实现；CPA/CPM/CPS 当前只作为项目分类。当前行为以 [当前架构](docs/architecture/current.md) 和各项目文档为准；建议与未决事项见 [工程缺口](docs/development/gaps.md)。
 
-生产数据库通过独立 Flyway 版本链升级，应用启动不自动迁移；开发空库仍可用完整 `kasi_promotion.sql` 重建。发布与 baseline 规则见 [ADR-0004](docs/adr/ADR-0004-production-database-migrations.md)。
+生产数据库通过独立 Flyway 版本链升级，默认和生产应用启动不自动迁移；显式 Spring `local` profile 会在本地启动时自动迁移开发库，开发空库也可用完整 `kasi_promotion.sql` 重建。发布与 baseline 规则见 [ADR-0004](docs/adr/ADR-0004-production-database-migrations.md)。
 
 ## 入口
 

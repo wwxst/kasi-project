@@ -6,7 +6,7 @@
 
 管理端通过 `GET /api/admin/promotion/links` 按已成功生成的推广链接查看任务级转化，支持用户编号、短剧平台、口令和 `trackingNo` 筛选，并返回用户、短剧、推广名称、媒体、口令、推广链接及七项累计指标，不返回 `orderAmount`。该查询与用户端使用相同的 PID、bookId、用户编号和口令四维匹配。原始日报接口继续保留：`POST /api/admin/promotion/analytical-reports/sync` 手动补拉（日期范围及可选 `code`、`bookId`、`customParams`），`GET /api/admin/promotion/analytical-reports` 分页查询（日期范围、达人 `customParams/user_no`、短剧 `bookId`、口令 `code`）。系统任务 `GOODSHORT_ANALYTICAL_REPORT_SYNC` 使用 `Asia/Shanghai` 每日 08:00 滚动同步最近 3 个已经结束的自然日。
 
-推广转化日报结构由 `V2__promotion_analytical_report.sql` 引入。生产数据库统一通过独立 Flyway 发布步骤按顺序执行完整迁移链，当前应升级至 `V9__media_filing_api_manual.sql`；已部署数据库不得重新执行 `kasi_promotion.sql` 或删库重建。
+推广转化日报结构由 `V2__promotion_analytical_report.sql` 引入。生产数据库统一通过独立 Flyway 发布步骤按顺序执行完整迁移链，当前应升级至 `V12__promotion_project_type.sql`；已部署数据库不得重新执行 `kasi_promotion.sql` 或删库重建。
 
 最后核对时间：2026-09-12
 
@@ -16,7 +16,7 @@
 
 这是卡司推广平台的后端仓库，基于 Spring Boot 4.0.7 + MyBatis 4.0.1 + MySQL 8 + JWT 构建。
 
-项目管理 CRUD 已实现：管理员通过 `/api/admin/promotion/projects` 维护项目名称、后端上传封面、HTTPS 项目文档 URL、启用状态和排序字段；封面保存在 `/uploads/promotion-projects/**`，删除为物理删除。用户端通过 `GET /api/user/promotion/projects` 只读取启用项目，服务端按 `sort_order ASC, id ASC` 返回。
+项目管理 CRUD 已实现：管理员通过 `/api/admin/promotion/project-types` 管理 CPA/CPM/CPS 等项目类型，通过 `/api/admin/promotion/projects` 维护项目所属类型、名称、后端上传封面、HTTPS 项目文档 URL、启用状态和排序字段；已被项目使用的类型不能删除。封面保存在 `/uploads/promotion-projects/**`，项目删除为物理删除。用户端通过 `GET /api/user/promotion/projects` 只读取启用项目，服务端按 `sort_order ASC, id ASC` 返回。项目类型当前只用于分类，不代表对应计费或结算能力已经实现。
 
 **当前已完成**：管理员（ADMIN）和推广用户（USER）双认证体系、两类账号管理 CRUD、短剧平台接入与 GoodShort API/人工账号报白、GoodShort 短剧目录全量/增量同步、推广链接、GoodShort 订单每分钟自动同步最近 3 天及管理员按时间范围手动补拉、按 `customParams=user_no` 直接归因、CPS 费率快照、订单佣金及按月查询；管理端账号报白和推广订单使用 XLSX 导出。详见 [§6 API、认证与业务边界](#6-api认证与业务边界)。
 
@@ -85,7 +85,7 @@ src/
         kasi_promotion.sql                  # 开发空库最终结构重建脚本
         migration/
           V1__baseline.sql                 # 不可变生产 Flyway 基线
-          V2__...sql .. V9__...sql         # 不可变增量迁移，当前最新为 V9
+          V2__...sql .. V12__...sql        # 不可变增量迁移，当前最新为 V12
       mapper/                               # MyBatis XML 映射文件
   test/
     java/com/kasi/backend/
@@ -138,7 +138,7 @@ $env:Path = "$env:JAVA_HOME\bin;$env:Path"
 | 配置项 | 说明 |
 |--------|------|
 | 数据源 | MySQL，必须通过环境变量 `SPRING_DATASOURCE_URL/USERNAME/PASSWORD` 注入，**字符编码统一 UTF-8** |
-| 数据库迁移 | 生产通过 Maven `migration` profile 独立执行 Flyway；应用启动不建表或升级；开发空库可执行 `src/main/resources/db/kasi_promotion.sql` |
+| 数据库迁移 | 显式激活 Spring `local` profile 时启动自动执行 Flyway；默认和生产启动仍关闭，生产通过 Maven `migration` profile 独立执行 |
 | 业务时间 | Java 使用 `Asia/Shanghai`；MySQL datasource 建连时把 session 设置为等价 `+08:00` |
 | MyBatis | Mapper XML 路径 `classpath:mapper/*.xml`，开启驼峰自动映射 |
 | JWT | 密钥通过 `JWT_SECRET` 环境变量注入，过期时间 7200 秒；登录会话依赖 Redis |
@@ -163,19 +163,15 @@ $env:SPRING_DATASOURCE_PASSWORD = '<database-password>'
 
 剧集播放和浏览器直下需要在 GoodShort 平台接入配置中填写媒体根域名（当前配置为 `novelopen.com`）。媒体 URL 只允许根域本身及符合 DNS 边界的正规子域；未知域名、相似字符串域名、localhost、内网地址、用户信息和非标准端口继续拒绝。
 
-开发环境首次启动前，可连接到已经创建好的空 schema，并在 mysql 客户端中执行完整重建 SQL：
-
-```sql
-SOURCE E:/JavaProjects/kasi-project/kasi-backend/src/main/resources/db/kasi_promotion.sql;
-```
-
-初始化完成后启动：
+开发环境首次启动前只需创建空 schema，然后显式使用 `local` profile 启动：
 
 ```powershell
-.\mvnw.cmd spring-boot:run
+.\mvnw.cmd spring-boot:run "-Dspring-boot.run.profiles=local"
 ```
 
-应用启动时不会自动创建或升级数据库。`kasi_promotion.sql` 只面向开发空库，直接创建当前全部表、索引和固定初始数据；所有 `*_id` 仅作为逻辑关联，由 Service 校验存在性与归属，不使用物理外键或数据库级联。
+Flyway 会在应用完成启动前校验并执行 `db/migration/V*.sql`。连接失败、checksum 不一致或迁移失败时应用启动失败；不会自动 baseline 或 clean。对已经由 `kasi_promotion.sql` 创建且没有 `flyway_schema_history` 的旧本地库，应重建为空 schema 后再启动，或者先人工核对结构并显式 baseline。
+
+`kasi_promotion.sql` 仍可用于一次性重建开发空库；它直接创建当前全部表、索引和固定初始数据。所有 `*_id` 仅作为逻辑关联，由 Service 校验存在性与归属，不使用物理外键或数据库级联。
 
 - 管理员账号：`admin`
 - 管理员初始密码：`12345678`
@@ -186,7 +182,7 @@ SOURCE E:/JavaProjects/kasi-project/kasi-backend/src/main/resources/db/kasi_prom
 
 ### 生产数据库迁移
 
-生产 schema 的版本真相是 `src/main/resources/db/migration/V*.sql`。当前完整迁移链为不可变 `V1__baseline.sql` 到 `V9__media_filing_api_manual.sql`；以后只新增更高版本，禁止修改已经执行的文件。Flyway 只由 Maven `migration` profile 独立执行，应用无 Flyway 运行时依赖且 `spring.flyway.enabled=false`。
+生产 schema 的版本真相是 `src/main/resources/db/migration/V*.sql`。当前完整迁移链为不可变 `V1__baseline.sql` 到 `V12__promotion_project_type.sql`；以后只新增更高版本，禁止修改已经执行的文件。生产仍只由 Maven `migration` profile 独立执行，默认 `spring.flyway.enabled=false`；`application-local.properties` 的开启配置不影响生产发布流程。
 
 发布平台通过密钥环境注入连接参数，不把真实值写入仓库、配置文件或命令历史：
 
@@ -245,7 +241,7 @@ mysql --host=127.0.0.1 --user=$env:SPRING_DATASOURCE_USERNAME --password --datab
 | Redis | `auth:version:*` | 账号会话版本（含 `ACTIVE:*` 或 `MUTATING:*`） | TTL 不超过 JWT 有效期加宽限期 |
 | Redis | `auth:session:*` | 单个 JWT 会话（按 `jti`） | TTL 与 JWT 有效期一致，退出时删除 |
 
-`kasi_promotion.sql` 按当前最终结构一次重建开发空库；生产数据库从 `V1` 基线按顺序执行到当前 `V11` 后达到相同目标结构。开发重建脚本和 `V1` 基线都会插入 `admin` 超级管理员和一个启用的初始推广用户；管理员固定写入 `status=1`、`is_super_admin=1`，推广用户使用邮箱登录，两类密码均只以 BCrypt 哈希保存。两条路径都不会在应用启动时自动执行，也不植入任何平台接入密钥。
+`kasi_promotion.sql` 按当前最终结构一次重建开发空库；生产数据库从 `V1` 基线按顺序执行到当前 `V12` 后达到相同目标结构。开发重建脚本和 `V1` 基线都会插入 `admin` 超级管理员和一个启用的初始推广用户；管理员固定写入 `status=1`、`is_super_admin=1`，推广用户使用邮箱登录，两类密码均只以 BCrypt 哈希保存。显式 `local` profile 可在应用启动时自动执行完整 Flyway 链；两条路径都不植入任何平台接入密钥。
 
 当前已完成平台定义与接入账号持久层、AES-GCM 密钥加密、不暴露密钥的管理服务和管理员 API，以及 GoodShort 签名和连接探测适配器。GoodShort 接入配置同时保存一个媒体根域名，并可分别选择 Facebook、TikTok、YouTube、Instagram 使用 API 自动报白；未选媒体使用人工报白。未知域名不会自动加入白名单；官方文档未保证媒体资源固定属于 `novelopen.com`，`novelopen.com` 是当前实际配置值而非官方契约。媒体账号绑定与通用报白模块已支持 `API`/`MANUAL` 双向切换和 `NOT_SUBMITTED`、`PENDING`、`APPROVED`、`REJECTED`、`SUBMIT_FAILED` 五种持久状态；已有终态和远端证据在切换时保留，已发出但尚未收敛的提交禁止切换。API 新建账号仍在本地事务提交后立即尝试调用 GoodShort `/creek/open/filing/report`，后台 Worker 使用独立租约 token 分批接续到期的提交与查询任务；提交结果不确定时停止自动重报，管理员可确认甲方已收到或未收到。MANUAL 新建记录直接进入 `PENDING` 等待甲方审核，不调用 GoodShort，管理员根据甲方结果直接更新为 `APPROVED` 或 `REJECTED`。用户端只展示四种业务状态，将技术提交失败显示为审核中且不暴露错误；管理端展示真实五状态、报白方式、错误、人工操作信息和可用操作，并可单条删除任意状态/方式的账号及其本地报白记录，删除不影响甲方记录。管理端可按当前筛选条件全量导出账号报白和推广订单 XLSX。停用配置允许不填写接入资料，启用配置必须具备接口 URL、媒体根域名、PID 和 KEY。
 
@@ -496,7 +492,7 @@ GoodShort 订单同步只按甲方订单字段接收数据：`orderId`、`userId
 | `AdminAvatarStorageServiceTest` | 头像格式、大小、服务端文件名和安全清理边界 |
 | `SysAdminUserStructureTest` | 管理员表、Entity 和 Mapper 不保留软删除字段 |
 | `ApplicationLayerStructureTest` | 自动扫描 Service/Impl、DTO/VO 和 Controller 的可机器判断分层规则 |
-| `DatabaseSchemaSourceTest` | 保护 Maven-only Flyway、安全开关、不可变历史迁移和无应用启动迁移的契约 |
+| `DatabaseSchemaSourceTest` | 保护生产独立 Flyway、默认关闭、仅本地 profile 启动迁移及安全开关契约 |
 | `MigrationSchemaParityMySqlContractIT` | 在 MySQL 8.4 比较开发重建与完整 Flyway 链的结构和固定数据 |
 | `TransactionBoundaryIntegrationTest` | 通过 production Spring proxy 验证独立事务和 commit 后 Worker 唤醒 |
 | `UserAuthControllerTest` | 用户注册、登录、获取信息、退出、修改密码、忘记密码流程（13 个用例） |
@@ -542,7 +538,7 @@ GoodShort 订单同步只按甲方订单字段接收数据：`orderId`、`userId
 
 Unit/Integration 的 JaCoCo HTML/XML 报告分别位于 `target/site/jacoco-unit` 和 `target/site/jacoco-integration`，当前不设置覆盖率阈值。Java 21 下编译会因 `release 25` 失败，必须使用 Java 25。真实 MySQL Contract、手动 GoodShort smoke 和 CI 阻断语义见根级 [测试规范](../docs/development/testing.md)。
 
-本地 canonical Gate 覆盖 H2、服务/控制器/持久层回归和应用构建。真实 MySQL 存量与 V1..V9 结构契约、生产 Flyway 迁移、真实 GoodShort report/query 必须在获得对应环境和授权后单独验证；未配置或未授权时记录为 `SKIP`，不能据本地 Gate 宣称通过。
+本地 canonical Gate 覆盖 H2、服务/控制器/持久层回归和应用构建。真实 MySQL 存量与 V1..V12 结构契约、生产 Flyway 迁移、真实 GoodShort report/query 必须在获得对应环境和授权后单独验证；未配置或未授权时记录为 `SKIP`，不能据本地 Gate 宣称通过。
 
 ## 8. 开发优先级
 
@@ -550,7 +546,7 @@ Unit/Integration 的 JaCoCo HTML/XML 报告分别位于 `target/site/jacoco-unit
 
 1. ✅ 确认 Java 25 和 Maven Wrapper 的统一使用方式。
 2. ✅ 已配置 datasource（环境变量注入）和 MyBatis 映射。
-3. ✅ 生产数据库使用独立 Flyway 版本链，开发空库使用完整重建 SQL，应用启动不自动迁移。
+3. ✅ 生产数据库使用独立 Flyway 版本链；显式 `local` profile 使用同一迁移链在本地启动时自动迁移。
 4. ✅ 测试环境使用 H2 内存数据库，不依赖本地 MySQL。
 
 ### ✅ P0：实现最小后端闭环

@@ -10,11 +10,17 @@ import java.util.List;
 public interface PromotionProjectMapper {
     PromotionProject findById(@Param("id") Long id);
 
+    PromotionProject findByIdForUpdate(@Param("id") Long id);
+
     long countAll();
 
     List<PromotionProject> findPage(@Param("offset") int offset, @Param("size") int size);
 
     List<PromotionProject> findEnabled();
+
+    long countByProjectTypeId(@Param("projectTypeId") Long projectTypeId);
+
+    List<Long> findIdsByProjectTypeIdForUpdate(@Param("projectTypeId") Long projectTypeId);
 
     int insert(PromotionProject project);
 

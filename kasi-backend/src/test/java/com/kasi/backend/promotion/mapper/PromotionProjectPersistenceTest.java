@@ -14,6 +14,9 @@ class PromotionProjectPersistenceTest extends BaseAuthTest {
     @Autowired
     private PromotionProjectMapper projectMapper;
 
+    @Autowired
+    private PromotionProjectTypeMapper projectTypeMapper;
+
     @Test
     @DisplayName("推广项目支持新增详情分页修改和物理删除")
     void supportsAdminCrud() {
@@ -23,8 +26,8 @@ class PromotionProjectPersistenceTest extends BaseAuthTest {
         assertThat(project.getId()).isNotNull();
         assertThat(projectMapper.countAll()).isEqualTo(1);
         assertThat(projectMapper.findPage(0, 20))
-                .extracting(PromotionProject::getName)
-                .containsExactly("项目A");
+                .extracting(PromotionProject::getName, PromotionProject::getProjectTypeCode)
+                .containsExactly(org.assertj.core.groups.Tuple.tuple("项目A", "CPA"));
 
         PromotionProject stored = projectMapper.findById(project.getId());
         stored.setName("项目A-修改");
@@ -61,10 +64,26 @@ class PromotionProjectPersistenceTest extends BaseAuthTest {
                 .containsExactly("项目A", "项目D", "项目C");
     }
 
+    @Test
+    @DisplayName("项目类型支持稳定排序和项目引用统计")
+    void supportsProjectTypeOrderingAndReferenceCount() {
+        assertThat(projectTypeMapper.findAll())
+                .extracting("code")
+                .containsExactly("CPA", "CPM", "CPS");
+
+        PromotionProject project = project("项目A", "a.webp", 10,
+                PromotionProjectStatus.ENABLED);
+        projectMapper.insert(project);
+
+        assertThat(projectMapper.countByProjectTypeId(1L)).isEqualTo(1);
+        assertThat(projectTypeMapper.findByCode("CPA").getName()).isEqualTo("按行动付费");
+    }
+
     private static PromotionProject project(String name, String fileName, int sortOrder,
                                              PromotionProjectStatus status) {
         PromotionProject project = new PromotionProject();
         project.setName(name);
+        project.setProjectTypeId(1L);
         project.setCoverImageUrl("/uploads/promotion-projects/" + fileName);
         project.setProjectDocumentUrl("https://example.com/" + fileName);
         project.setStatus(status);

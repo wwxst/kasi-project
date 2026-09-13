@@ -8,6 +8,9 @@ import java.time.LocalDateTime;
 @Data
 public class PromotionProject {
     private Long id;
+    private Long projectTypeId;
+    private String projectTypeCode;
+    private String projectTypeName;
     private String name;
     private String coverImageUrl;
     private String projectDocumentUrl;
