@@ -48,27 +48,29 @@ afterEach(() => {
 })
 afterAll(() => server.close())
 
+function providerResponse() {
+  return HttpResponse.json({
+    code: 0,
+    message: 'ok',
+    data: [
+      {
+        id: 1,
+        providerCode: 'GOODSHORT',
+        providerName: 'GoodShort',
+        status: 1,
+        capabilities: ['ANALYTICS_SYNC'],
+        connection: { id: 11, currency: 'USD', status: 1 },
+      },
+    ],
+  })
+}
+
 describe('PromotionLinkPage', () => {
-  it('loads promotion tasks with conversion metrics', async () => {
+  it('loads one row per code with both links and conversion metrics', async () => {
     const urls: string[] = []
     let syncBody: unknown
     server.use(
-      http.get('/api/admin/drama/providers', () =>
-        HttpResponse.json({
-          code: 0,
-          message: 'ok',
-          data: [
-            {
-              id: 1,
-              providerCode: 'GOODSHORT',
-              providerName: 'GoodShort',
-              status: 1,
-              capabilities: ['ANALYTICS_SYNC'],
-              connection: { id: 11, currency: 'USD', status: 1 },
-            },
-          ],
-        }),
-      ),
+      http.get('/api/admin/drama/providers', providerResponse),
       http.get('/api/admin/promotion/links', ({ request }) => {
         urls.push(request.url)
         return HttpResponse.json({
@@ -84,9 +86,10 @@ describe('PromotionLinkPage', () => {
                 dramaTitle: 'Drama',
                 campaignName: 'summer',
                 mediaType: 'TIKTOK',
-                trackingNo: 'tracking-1',
                 externalCode: 'code-1',
-                shareUrl: 'https://example.test/link',
+                landingUrl: 'https://example.test/landing',
+                oneLinkUrl: 'https://example.test/one',
+                analyticsConflict: false,
                 clickCount: 11,
                 attributedUserCount: 12,
                 newRegisteredUserCount: 13,
@@ -122,16 +125,17 @@ describe('PromotionLinkPage', () => {
       </AntdApp>,
     )
 
-    expect(await screen.findByText('tracking-1')).toBeInTheDocument()
+    expect(await screen.findByText('code-1')).toBeInTheDocument()
     expect(
-      screen.queryByRole('heading', { name: '推广任务' }),
-    ).not.toBeInTheDocument()
+      screen
+        .getByRole('link', { name: 'https://example.test/landing' })
+        .getAttribute('href'),
+    ).toBe('https://example.test/landing')
     expect(
-      screen.queryByText(
-        '按推广链接查看用户、短剧、口令及累计转化数据，并可手动补拉转化日报。',
-      ),
-    ).not.toBeInTheDocument()
-    expect(screen.getByText('code-1')).toBeInTheDocument()
+      screen
+        .getByRole('link', { name: 'https://example.test/one' })
+        .getAttribute('href'),
+    ).toBe('https://example.test/one')
     expect(screen.getByText('17')).toBeInTheDocument()
     await waitFor(() => expect(urls).toHaveLength(1))
     const url = new URL(urls[0])
@@ -166,5 +170,56 @@ describe('PromotionLinkPage', () => {
     )
     expect(await screen.findByText(/获取 8 条/)).toBeInTheDocument()
     await waitFor(() => expect(urls).toHaveLength(3))
+  })
+
+  it('shows a conflict marker and hides metrics for a shared cross-media code', async () => {
+    server.use(
+      http.get('/api/admin/drama/providers', providerResponse),
+      http.get('/api/admin/promotion/links', () =>
+        HttpResponse.json({
+          code: 0,
+          message: 'ok',
+          data: {
+            list: [
+              {
+                id: 2,
+                userNo: '583104726918',
+                nickname: '测试用户',
+                providerName: 'GoodShort',
+                dramaTitle: 'Drama',
+                campaignName: null,
+                mediaType: null,
+                externalCode: 'shared-code',
+                landingUrl: 'https://example.test/landing',
+                oneLinkUrl: null,
+                analyticsConflict: true,
+                clickCount: null,
+                attributedUserCount: null,
+                newRegisteredUserCount: null,
+                newPaidUserCount: null,
+                newMemberUserCount: null,
+                paidUserCount: null,
+                orderCount: null,
+                createdAt: '2026-09-08T10:00:00',
+              },
+            ],
+            page: 1,
+            size: 20,
+            total: 1,
+          },
+        }),
+      ),
+    )
+
+    render(
+      <AntdApp>
+        <PromotionLinkPage />
+      </AntdApp>,
+    )
+
+    expect(await screen.findByText('归因冲突')).toBeInTheDocument()
+    expect(screen.getByText('shared-code')).toBeInTheDocument()
+    expect(screen.queryByText('11')).not.toBeInTheDocument()
+    expect(screen.getAllByText('—').length).toBeGreaterThanOrEqual(7)
   })
 })

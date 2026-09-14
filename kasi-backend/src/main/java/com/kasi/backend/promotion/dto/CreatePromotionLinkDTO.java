@@ -20,8 +20,6 @@ public class CreatePromotionLinkDTO {
     @Size(max = 4)
     @UniqueElements
     private List<@Pattern(regexp = "TIKTOK|YOUTUBE|FACEBOOK|INSTAGRAM") String> mediaTypes;
-    @Pattern(regexp = "LANDING|ONELINK")
-    private String linkVariant;
     @NotBlank
     @Pattern(regexp = "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-5][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}$")
     private String requestKey;

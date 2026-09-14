@@ -32,9 +32,9 @@ public class PromotionLinkServiceImpl implements PromotionLinkService {
     @Transactional(readOnly = true)
     public PromotionLinkPageVO getMine(Long userId, PromotionLinkPageQueryDTO query) {
         int offset = (query.getPage() - 1) * query.getSize();
-        List<PromotionLinkVO> list = linkMapper.findPageByUserId(userId, offset, query.getSize())
-                .stream().map(this::toVO).toList();
-        return PromotionLinkPageVO.builder().list(list).page(query.getPage()).size(query.getSize())
+        return PromotionLinkPageVO.builder()
+                .list(linkMapper.findPageByUserId(userId, offset, query.getSize()))
+                .page(query.getPage()).size(query.getSize())
                 .total(linkMapper.countByUserId(userId)).build();
     }
 

@@ -8,6 +8,8 @@ import {
   Select,
   Space,
   Table,
+  Tag,
+  Tooltip,
 } from 'antd'
 import type { ColumnsType, TablePaginationConfig } from 'antd/es/table'
 import { RefreshCw, Search } from 'lucide-react'
@@ -36,6 +38,8 @@ interface SyncValues {
   startDate: string
   endDate: string
 }
+
+const CONFLICT_TIP = '同一口令由多个媒体平台共用，无法确定转化归属'
 
 export function PromotionLinkPage() {
   const { message } = AntdApp.useApp()
@@ -128,26 +132,64 @@ export function PromotionLinkPage() {
       width: 160,
       render: emptyText,
     },
-    { title: '媒体', dataIndex: 'mediaType', width: 110 },
-    { title: '口令', dataIndex: 'externalCode', width: 160 },
-    { title: '追踪号', dataIndex: 'trackingNo', width: 170 },
     {
-      title: '推广链接',
-      dataIndex: 'shareUrl',
-      width: 220,
-      render: (value: string) => (
-        <a href={value} target="_blank" rel="noreferrer">
-          {value}
-        </a>
-      ),
+      title: '媒体',
+      dataIndex: 'mediaType',
+      width: 120,
+      render: (value: string | null, record) =>
+        record.analyticsConflict ? (
+          <Tooltip title={CONFLICT_TIP}>
+            <Tag color="warning">归因冲突</Tag>
+          </Tooltip>
+        ) : (
+          emptyText(value)
+        ),
     },
-    { title: '点击数', dataIndex: 'clickCount', width: 90 },
-    { title: '归因用户数', dataIndex: 'attributedUserCount', width: 110 },
-    { title: '新注册人数', dataIndex: 'newRegisteredUserCount', width: 110 },
-    { title: '新充值人数', dataIndex: 'newPaidUserCount', width: 110 },
-    { title: '新会员人数', dataIndex: 'newMemberUserCount', width: 110 },
-    { title: '充值用户数', dataIndex: 'paidUserCount', width: 110 },
-    { title: '订单数', dataIndex: 'orderCount', width: 90 },
+    { title: '口令', dataIndex: 'externalCode', width: 160 },
+    {
+      title: '落地页',
+      dataIndex: 'landingUrl',
+      width: 220,
+      render: linkText,
+    },
+    {
+      title: 'OneLink',
+      dataIndex: 'oneLinkUrl',
+      width: 220,
+      render: linkText,
+    },
+    { title: '点击数', dataIndex: 'clickCount', width: 90, render: metricText },
+    {
+      title: '归因用户数',
+      dataIndex: 'attributedUserCount',
+      width: 110,
+      render: metricText,
+    },
+    {
+      title: '新注册人数',
+      dataIndex: 'newRegisteredUserCount',
+      width: 110,
+      render: metricText,
+    },
+    {
+      title: '新充值人数',
+      dataIndex: 'newPaidUserCount',
+      width: 110,
+      render: metricText,
+    },
+    {
+      title: '新会员人数',
+      dataIndex: 'newMemberUserCount',
+      width: 110,
+      render: metricText,
+    },
+    {
+      title: '充值用户数',
+      dataIndex: 'paidUserCount',
+      width: 110,
+      render: metricText,
+    },
+    { title: '订单数', dataIndex: 'orderCount', width: 90, render: metricText },
     {
       title: '创建时间',
       dataIndex: 'createdAt',
@@ -252,7 +294,7 @@ export function PromotionLinkPage() {
         loading={loading}
         columns={columns}
         dataSource={links}
-        scroll={{ x: 2_200 }}
+        scroll={{ x: 2_300 }}
         pagination={{
           current: query.page,
           pageSize: query.size,
@@ -324,6 +366,19 @@ function trimOrUndefined(value: string | undefined) {
 
 function emptyText(value: string | null | undefined) {
   return value || '-'
+}
+
+function metricText(value: number | null | undefined) {
+  return value === null || value === undefined ? '—' : value
+}
+
+function linkText(value: string | null | undefined) {
+  if (!value) return '-'
+  return (
+    <a href={value} target="_blank" rel="noreferrer">
+      {value}
+    </a>
+  )
 }
 
 function formatDate(value: string | null | undefined) {

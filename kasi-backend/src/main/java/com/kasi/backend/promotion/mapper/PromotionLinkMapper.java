@@ -3,6 +3,7 @@ package com.kasi.backend.promotion.mapper;
 import com.kasi.backend.promotion.entity.PromotionLink;
 import com.kasi.backend.promotion.enums.PromotionLinkStatus;
 import com.kasi.backend.promotion.vo.AdminPromotionLinkVO;
+import com.kasi.backend.promotion.vo.UserPromotionLinkVO;
 import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
 
@@ -17,8 +18,8 @@ public interface PromotionLinkMapper {
                                                    @Param("mediaType") String mediaType, @Param("linkVariant") String linkVariant);
     List<PromotionLink> findBatchByUserAndRequestKey(@Param("userId") Long userId, @Param("requestKey") String requestKey);
     long countByUserId(@Param("userId") Long userId);
-    List<PromotionLink> findPageByUserId(@Param("userId") Long userId,
-                                         @Param("offset") int offset, @Param("size") int size);
+    List<UserPromotionLinkVO> findPageByUserId(@Param("userId") Long userId,
+                                               @Param("offset") int offset, @Param("size") int size);
     long countAdminPage(@Param("userNo") String userNo, @Param("providerId") Long providerId,
                         @Param("externalCode") String externalCode, @Param("trackingNo") String trackingNo);
     List<AdminPromotionLinkVO> findAdminPage(@Param("userNo") String userNo, @Param("providerId") Long providerId,

@@ -15,7 +15,7 @@
 - GoodShort 平台接入、AES-GCM 凭据保护，以及媒体账号 API/人工报白、状态核实和后台任务接续。
 - 短剧目录和免费剧集全量/增量同步、断点、租约、本地上下架及永久媒体 URL。
 - 平台级 CPS 费率与不可变历史快照。
-- 推广链接、转化日报 code 级归因、订单同步与订单费率/佣金快照及管理员/用户查询；订单按甲方 `pid + customParams + bookId + searchCode` 归因到用户和短剧，新订单不填无法确定具体 LANDING/ONELINK 变体的 `promotion_link_id`、`tracking_no`。管理端账号报白和推广订单按筛选条件全量导出 XLSX。
+- 推广链接、转化日报 code 级归因、订单同步与订单费率/佣金快照及管理员/用户查询；用户端和管理端推广任务查询都按 `connection + drama + externalCode`（等价于甲方 `pid + customParams + bookId + code`）聚合成一行，返回 `landingUrl`/`oneLinkUrl`、一份转化指标和以口令为单位的分页 total，跨媒体共用同一口令时以 `analyticsConflict=true` 显式冲突而不静默选择媒体；订单按甲方 `pid + customParams + bookId + searchCode` 归因到用户和短剧，新订单不填无法确定具体 LANDING/ONELINK 变体的 `promotion_link_id`、`tracking_no`。管理端账号报白和推广订单按筛选条件全量导出 XLSX。
 - 推广项目 CRUD，以及独立的 CPA/CPM/CPS 项目类型分类和管理端两级菜单。
 - 系统固定任务统一通过 `system_scheduled_task` 的到期时间和数据库租约调度。
 
@@ -53,4 +53,4 @@ API 记录由后台 Worker 分批领取到期的 `SUBMIT`/`QUERY` 任务，每�
 
 业务时间的唯一语义是 `Asia/Shanghai`。Java 共享 `Clock` 使用 `ZoneId.of("Asia/Shanghai")`；MySQL datasource 在创建连接时把 session 设置为 `+08:00`。`+08:00` 只是 MySQL 连接实现，不是第二个业务时区定义；H2 test profile 明确关闭该 MySQL 专用语句。
 
-推广链接的 `PENDING`、`SUCCESS`、`FAILED` 通过 production Spring proxy 的独立短事务持久化，第三方 HTTP 调用在数据库事务之外。GoodShort 同一 `pid + bookId + customParams + codeMedia` 只对应一个 code，LANDING/ONELINK 两条本地记录共享该 code 并各自保存 URL；`20005` 仅在响应携带完整 code/URL 时作为已生成结果同步。转化日报按 code 聚合，并只归属同 code 的一条成功链接。手动免费剧集同步在事务提交后才提交现有 worker；定时任务的 `next_run_at`、到期查询、租约和完成更新使用同一业务时间基准。
+推广链接的 `PENDING`、`SUCCESS`、`FAILED` 通过 production Spring proxy 的独立短事务持久化，第三方 HTTP 调用在数据库事务之外。创建请求为每个媒体平台固定准备 `LANDING`、`ONELINK` 两个变体；GoodShort 同一 `pid + bookId + customParams + codeMedia` 只对应一个 code，两条本地记录共享该 code 并各自保存 URL，只有整批全部成功时用户端才进入任务页。`20005` 仅在响应携带完整 code/URL 时作为已生成结果同步。转化日报按 code 聚合；用户端和管理端任务查询均以口令为一行，返回两个 URL 和一份转化指标，用户端将两个链接收拢在同一单元格。手动免费剧集同步在事务提交后才提交现有 worker；定时任务的 `next_run_at`、到期查询、租约和完成更新使用同一业务时间基准。

@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Button, MessagePlugin, Table, Tooltip } from 'tdesign-react'
+import { Button, MessagePlugin, Table, Tag, Tooltip } from 'tdesign-react'
 import type { TableProps } from 'tdesign-react'
 import { CopyIcon } from 'tdesign-icons-react'
 import { useQuery } from '@tanstack/react-query'
@@ -19,8 +19,17 @@ const mediaLabels = Object.fromEntries(
   mediaOptions.map((item) => [item.value, item.label]),
 ) as Record<MediaType, string>
 
+const CONFLICT_TIP = '同一口令由多个媒体平台共用，无法确定转化归属'
+
 function formatDateTime(value: string) {
   return value.slice(0, 19).replace('T', ' ')
+}
+
+function metricCell(value: number | null) {
+  if (value === null) {
+    return <span className={Style.emptyCell}>—</span>
+  }
+  return value
 }
 
 export default function PromotionLinksPage({
@@ -67,7 +76,7 @@ export default function PromotionLinksPage({
       colKey: 'campaignName',
       width: 180,
       cell: ({ row }) =>
-        row.campaignName || <span className={Style.emptyCell}>未填写</span>,
+        row.campaignName || <span className={Style.emptyCell}>—</span>,
     },
     {
       title: '短剧',
@@ -78,8 +87,19 @@ export default function PromotionLinksPage({
     {
       title: '媒体平台',
       colKey: 'mediaType',
-      width: 120,
-      cell: ({ row }) => mediaLabels[row.mediaType],
+      width: 130,
+      cell: ({ row }) =>
+        row.analyticsConflict ? (
+          <Tooltip content={CONFLICT_TIP}>
+            <Tag theme="warning" variant="light">
+              归因冲突
+            </Tag>
+          </Tooltip>
+        ) : row.mediaType ? (
+          mediaLabels[row.mediaType]
+        ) : (
+          <span className={Style.emptyCell}>暂无</span>
+        ),
     },
     {
       title: '口令',
@@ -96,51 +116,66 @@ export default function PromotionLinksPage({
     },
     {
       title: '推广链接',
-      colKey: 'shareUrl',
+      colKey: 'promotionUrls',
       width: 280,
       cell: ({ row }) => (
-        <CopyableCell
-          value={row.shareUrl}
-          href
-          copyLabel="复制分享链接"
-          onCopy={copy}
-        />
+        <div className={Style.linkGroup}>
+          <PromotionLinkRow
+            label="落地页"
+            value={row.landingUrl}
+            copyLabel="复制落地页链接"
+            onCopy={copy}
+          />
+          <PromotionLinkRow
+            label="OneLink"
+            value={row.oneLinkUrl}
+            copyLabel="复制OneLink链接"
+            onCopy={copy}
+          />
+        </div>
       ),
     },
     {
       title: '点击数',
       colKey: 'clickCount',
       width: 100,
+      cell: ({ row }) => metricCell(row.clickCount),
     },
     {
       title: '归因用户数',
       colKey: 'attributedUserCount',
       width: 120,
+      cell: ({ row }) => metricCell(row.attributedUserCount),
     },
     {
       title: '新注册人数',
       colKey: 'newRegisteredUserCount',
       width: 120,
+      cell: ({ row }) => metricCell(row.newRegisteredUserCount),
     },
     {
       title: '新充值人数',
       colKey: 'newPaidUserCount',
       width: 120,
+      cell: ({ row }) => metricCell(row.newPaidUserCount),
     },
     {
       title: '新会员人数',
       colKey: 'newMemberUserCount',
       width: 120,
+      cell: ({ row }) => metricCell(row.newMemberUserCount),
     },
     {
       title: '充值用户数',
       colKey: 'paidUserCount',
       width: 120,
+      cell: ({ row }) => metricCell(row.paidUserCount),
     },
     {
       title: '订单数',
       colKey: 'orderCount',
       width: 100,
+      cell: ({ row }) => metricCell(row.orderCount),
     },
   ]
 
@@ -165,6 +200,53 @@ export default function PromotionLinksPage({
           },
         }}
       />
+    </div>
+  )
+}
+
+function PromotionLinkRow({
+  label,
+  value,
+  copyLabel,
+  onCopy,
+}: {
+  label: string
+  value: string | null
+  copyLabel: string
+  onCopy: (value: string | null) => void
+}) {
+  if (!value) {
+    return (
+      <div className={Style.linkRow}>
+        <span className={Style.linkLabel}>{label}</span>
+        <span className={Style.emptyCell}>暂无</span>
+      </div>
+    )
+  }
+
+  return (
+    <div className={Style.linkRow}>
+      <span className={Style.linkLabel}>{label}</span>
+      <a
+        className={Style.linkValue}
+        href={value}
+        target="_blank"
+        rel="noreferrer"
+        title={value}
+      >
+        {value}
+      </a>
+      <Tooltip content="复制">
+        <Button
+          className={Style.copyButton}
+          variant="text"
+          shape="square"
+          size="small"
+          icon={<CopyIcon />}
+          aria-label={copyLabel}
+          onClick={() => onCopy(value)}
+        />
+      </Tooltip>
     </div>
   )
 }

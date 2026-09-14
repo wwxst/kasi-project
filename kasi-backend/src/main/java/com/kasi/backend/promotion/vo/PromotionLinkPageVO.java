@@ -8,7 +8,7 @@ import java.util.List;
 @Data
 @Builder
 public class PromotionLinkPageVO {
-    private List<PromotionLinkVO> list;
+    private List<UserPromotionLinkVO> list;
     private int page;
     private int size;
     private long total;

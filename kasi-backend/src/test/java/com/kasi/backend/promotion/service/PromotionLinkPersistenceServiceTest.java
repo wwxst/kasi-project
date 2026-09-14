@@ -43,8 +43,8 @@ class PromotionLinkPersistenceServiceTest {
     @Mock private ProviderRuntimeConnectionService runtimeService;
 
     @Test
-    @DisplayName("指定OneLink时每个媒体平台只准备一个OneLink任务")
-    void preparesOnlySelectedVariant() {
+    @DisplayName("每个媒体平台固定准备落地页和OneLink")
+    void preparesBothVariantsForEveryPlatform() {
         PromotionUser user = new PromotionUser();
         user.setStatus(1);
         user.setUserNo("583729104628");
@@ -59,23 +59,29 @@ class PromotionLinkPersistenceServiceTest {
         when(runtimeService.resolve(1L, ProviderCapability.PROMOTION_LINK))
                 .thenReturn(new ProviderRuntimeConnection(3L, 1L, "GOODSHORT", "GoodShort", null, null));
         when(linkMapper.findBatchByUserAndRequestKey(7L, "request")).thenReturn(List.of());
-        when(linkMapper.findByUserAndRequestKeyForUpdate(eq(7L), eq("request"), eq("TIKTOK"), any()))
+        when(linkMapper.findByUserAndRequestKeyForUpdate(eq(7L), eq("request"), any(), any()))
                 .thenReturn(null);
 
         CreatePromotionLinkDTO request = new CreatePromotionLinkDTO();
         request.setProviderId(1L);
         request.setDramaId(23L);
-        request.setMediaTypes(List.of("TIKTOK"));
+        request.setMediaTypes(List.of("TIKTOK", "YOUTUBE"));
         request.setRequestKey("request");
-        request.setLinkVariant("ONELINK");
 
         List<PromotionLinkPreparation> result = new PromotionLinkPersistenceServiceImpl(
                 linkMapper, userMapper, dramaMapper, runtimeService).prepareBatchPending(7L, request);
 
-        assertThat(result).hasSize(1);
-        assertThat(result.getFirst().link().getLinkVariant()).isEqualTo("ONELINK");
-        assertThat(result.getFirst().providerRequest().linkVariant()).isEqualTo("ONELINK");
-        assertThat(result.getFirst().providerRequest().userNo()).isEqualTo("583729104628");
+        assertThat(result)
+                .extracting(preparation -> preparation.link().getMediaType()
+                        + "/" + preparation.link().getLinkVariant())
+                .containsExactly("TIKTOK/LANDING", "TIKTOK/ONELINK", "YOUTUBE/LANDING", "YOUTUBE/ONELINK");
+        assertThat(result)
+                .extracting(preparation -> preparation.providerRequest().userNo())
+                .containsOnly("583729104628");
+        assertThat(result)
+                .extracting(preparation -> preparation.link().getTrackingNo())
+                .doesNotContainNull()
+                .doesNotHaveDuplicates();
     }
 
     @Test
@@ -98,13 +104,22 @@ class PromotionLinkPersistenceServiceTest {
         failed.setLinkVariant("LANDING");
         failed.setStatus(com.kasi.backend.promotion.enums.PromotionLinkStatus.FAILED);
         failed.setTrackingNo("old-tracking");
+        PromotionLink successful = new PromotionLink();
+        successful.setId(42L);
+        successful.setProviderId(1L);
+        successful.setDramaId(23L);
+        successful.setMediaType("TIKTOK");
+        successful.setLinkVariant("ONELINK");
+        successful.setStatus(com.kasi.backend.promotion.enums.PromotionLinkStatus.SUCCESS);
         when(userMapper.findById(7L)).thenReturn(user);
         when(dramaMapper.findById(23L)).thenReturn(drama);
         when(runtimeService.resolve(1L, ProviderCapability.PROMOTION_LINK))
                 .thenReturn(new ProviderRuntimeConnection(3L, 1L, "GOODSHORT", "GoodShort", null, null));
-        when(linkMapper.findBatchByUserAndRequestKey(7L, "request")).thenReturn(List.of(failed));
+        when(linkMapper.findBatchByUserAndRequestKey(7L, "request")).thenReturn(List.of(failed, successful));
         when(linkMapper.findByUserAndRequestKeyForUpdate(eq(7L), eq("request"), eq("TIKTOK"), eq("LANDING")))
                 .thenReturn(failed);
+        when(linkMapper.findByUserAndRequestKeyForUpdate(eq(7L), eq("request"), eq("TIKTOK"), eq("ONELINK")))
+                .thenReturn(successful);
 
         CreatePromotionLinkDTO request = new CreatePromotionLinkDTO();
         request.setProviderId(1L);
@@ -138,7 +153,6 @@ class PromotionLinkPersistenceServiceTest {
         request.setProviderId(1L);
         request.setDramaId(24L);
         request.setMediaTypes(List.of("TIKTOK"));
-        request.setLinkVariant("LANDING");
         request.setRequestKey("request");
 
         assertThatThrownBy(() -> new PromotionLinkPersistenceServiceImpl(
@@ -149,8 +163,8 @@ class PromotionLinkPersistenceServiceTest {
     }
 
     @Test
-    @DisplayName("相同requestKey不能增加媒体平台或变更链接类型")
-    void reusedRequestKeyRejectsDifferentMediaSetOrVariant() {
+    @DisplayName("相同requestKey拒绝不完整的双变体集合")
+    void reusedRequestKeyRejectsIncompleteVariantSet() {
         PromotionUser user = new PromotionUser();
         user.setStatus(1);
         PromotionLink failed = new PromotionLink();
@@ -163,13 +177,11 @@ class PromotionLinkPersistenceServiceTest {
         PromotionLinkPersistenceServiceImpl service = new PromotionLinkPersistenceServiceImpl(
                 linkMapper, userMapper, dramaMapper, runtimeService);
 
-        CreatePromotionLinkDTO changedMedia = request(1L, 23L, List.of("TIKTOK", "YOUTUBE"), "LANDING");
-        CreatePromotionLinkDTO changedVariant = request(1L, 23L, List.of("TIKTOK"), "ONELINK");
+        CreatePromotionLinkDTO request = request(1L, 23L, List.of("TIKTOK"));
 
-        assertThatThrownBy(() -> service.prepareBatchPending(7L, changedMedia))
+        assertThatThrownBy(() -> service.prepareBatchPending(7L, request))
                 .isInstanceOf(BusinessException.class).extracting("code").isEqualTo(7014);
-        assertThatThrownBy(() -> service.prepareBatchPending(7L, changedVariant))
-                .isInstanceOf(BusinessException.class).extracting("code").isEqualTo(7014);
+        verifyNoInteractions(dramaMapper, runtimeService);
     }
 
     @ParameterizedTest(name = "{0}")
@@ -260,12 +272,11 @@ class PromotionLinkPersistenceServiceTest {
     }
 
     private CreatePromotionLinkDTO request(Long providerId, Long dramaId,
-                                           List<String> mediaTypes, String linkVariant) {
+                                           List<String> mediaTypes) {
         CreatePromotionLinkDTO request = new CreatePromotionLinkDTO();
         request.setProviderId(providerId);
         request.setDramaId(dramaId);
         request.setMediaTypes(mediaTypes);
-        request.setLinkVariant(linkVariant);
         request.setRequestKey("request");
         return request;
     }

@@ -7,6 +7,10 @@ export interface PromotionLinkQuery {
   trackingNo?: string
 }
 
+/**
+ * 管理端推广任务行：一个 GoodShort 口令一行，
+ * LANDING/ONELINK 共用一份转化日报；跨媒体共用口令时媒体和转化指标为空。
+ */
 export interface AdminPromotionLink {
   id: number
   userNo: string
@@ -16,19 +20,19 @@ export interface AdminPromotionLink {
   providerName: string | null
   dramaId: number
   dramaTitle: string | null
-  mediaType: string
-  linkVariant: string
   campaignName: string | null
-  trackingNo: string
+  mediaType: string | null
   externalCode: string
-  shareUrl: string
-  clickCount: number
-  attributedUserCount: number
-  newRegisteredUserCount: number
-  newPaidUserCount: number
-  newMemberUserCount: number
-  paidUserCount: number
-  orderCount: number
+  landingUrl: string | null
+  oneLinkUrl: string | null
+  analyticsConflict: boolean
+  clickCount: number | null
+  attributedUserCount: number | null
+  newRegisteredUserCount: number | null
+  newPaidUserCount: number | null
+  newMemberUserCount: number | null
+  paidUserCount: number | null
+  orderCount: number | null
   createdAt: string | null
 }
 

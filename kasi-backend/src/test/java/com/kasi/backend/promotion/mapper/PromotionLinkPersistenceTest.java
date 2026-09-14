@@ -3,6 +3,8 @@ package com.kasi.backend.promotion.mapper;
 import com.kasi.backend.BaseAuthTest;
 import com.kasi.backend.promotion.entity.PromotionLink;
 import com.kasi.backend.promotion.enums.PromotionLinkStatus;
+import com.kasi.backend.promotion.vo.AdminPromotionLinkVO;
+import com.kasi.backend.promotion.vo.UserPromotionLinkVO;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -63,8 +65,8 @@ class PromotionLinkPersistenceTest extends BaseAuthTest {
         insertLink(userId, providerId, connectionId, dramaId, "request-failed", "FAILED", null, null);
 
         assertThat(linkMapper.findPageByUserId(userId, 0, 20))
-                .extracting(PromotionLink::getRequestKey)
-                .containsExactly("request-success");
+                .extracting(UserPromotionLinkVO::getExternalCode)
+                .containsExactly("CODE-1");
         assertThat(linkMapper.countByUserId(userId)).isEqualTo(1);
     }
 
@@ -104,7 +106,7 @@ class PromotionLinkPersistenceTest extends BaseAuthTest {
         insertReport(LocalDate.of(2026, 9, 7), "partner-1", PRIMARY_USER_NO, "other-book", "CODE-1",
                 10000, 20000, 30000, 40000, 50000, 60000, 70000);
 
-        PromotionLink stored = linkMapper.findPageByUserId(userId, 0, 20).getFirst();
+        UserPromotionLinkVO stored = linkMapper.findPageByUserId(userId, 0, 20).getFirst();
 
         assertThat(stored.getClickCount()).isEqualTo(11);
         assertThat(stored.getAttributedUserCount()).isEqualTo(22);
@@ -116,7 +118,7 @@ class PromotionLinkPersistenceTest extends BaseAuthTest {
     }
 
     @Test
-    @DisplayName("同一口令的落地页和OneLink日报只归属一条记录")
+    @DisplayName("同一口令的落地页和OneLink聚合成一行并只计一份转化")
     void sharedExternalCodeAggregatesAnalyticsOnce() {
         jdbcTemplate.execute("DELETE FROM promotion_analytical_report");
         Long userId = jdbcTemplate.queryForObject(
@@ -145,19 +147,171 @@ class PromotionLinkPersistenceTest extends BaseAuthTest {
 
         var page = linkMapper.findPageByUserId(userId, 0, 20);
 
-        assertThat(page).hasSize(2);
-        assertThat(page).filteredOn(link -> "LANDING".equals(link.getLinkVariant()))
-                .singleElement().satisfies(link -> assertThat(link.getClickCount()).isEqualTo(10));
-        assertThat(page).filteredOn(link -> "ONELINK".equals(link.getLinkVariant()))
-                .singleElement().satisfies(link -> assertThat(link.getClickCount()).isZero());
-        assertThat(page).extracting(PromotionLink::getClickCount)
-                .satisfies(counts -> assertThat(counts.stream().mapToLong(Long::longValue).sum()).isEqualTo(10));
-        assertThat(linkMapper.findAdminPage(PRIMARY_USER_NO, providerId, "CODE-1", null, 0, 20))
-                .extracting(com.kasi.backend.promotion.vo.AdminPromotionLinkVO::getOrderCount)
-                .satisfies(counts -> assertThat(counts.stream().mapToLong(Long::longValue).sum()).isEqualTo(70));
+        assertThat(page).hasSize(1);
+        UserPromotionLinkVO row = page.getFirst();
+        assertThat(row.getExternalCode()).isEqualTo("CODE-1");
+        assertThat(row.getLandingUrl()).isEqualTo("https://example.test/landing");
+        assertThat(row.getOneLinkUrl()).isEqualTo("https://example.test/one");
+        assertThat(row.getMediaType()).isEqualTo("TIKTOK");
+        assertThat(row.isAnalyticsConflict()).isFalse();
+        assertThat(row.getClickCount()).isEqualTo(10);
+        assertThat(row.getOrderCount()).isEqualTo(70);
+        assertThat(linkMapper.countByUserId(userId)).isEqualTo(1);
+
+        var adminPage = linkMapper.findAdminPage(PRIMARY_USER_NO, providerId, "CODE-1", null, 0, 20);
+        assertThat(adminPage).hasSize(1);
+        assertThat(adminPage.getFirst().getLandingUrl()).isEqualTo("https://example.test/landing");
+        assertThat(adminPage.getFirst().getOneLinkUrl()).isEqualTo("https://example.test/one");
+        assertThat(adminPage.getFirst().getOrderCount()).isEqualTo(70);
+        assertThat(linkMapper.countAdminPage(PRIMARY_USER_NO, providerId, "CODE-1", null)).isEqualTo(1);
+
         assertThat(jdbcTemplate.queryForObject(
                 "SELECT SUM(order_amount) FROM promotion_analytical_report WHERE code='CODE-1'",
                 java.math.BigDecimal.class)).isEqualByComparingTo("999.99");
+    }
+
+    @Test
+    @DisplayName("只有单个变体时另一个链接为空")
+    void singleVariantReturnsOnlyItsOwnUrl() {
+        Long userId = jdbcTemplate.queryForObject(
+                "SELECT id FROM promotion_user WHERE user_no=?", Long.class, PRIMARY_USER_NO);
+        Long providerId = jdbcTemplate.queryForObject(
+                "SELECT id FROM short_drama_provider WHERE provider_code='GOODSHORT'", Long.class);
+        jdbcTemplate.update("INSERT INTO short_drama_connection "
+                        + "(provider_id,connection_name,partner_id,currency) VALUES (?,?,?,?)",
+                providerId, "GoodShort", "partner-1", "USD");
+        Long connectionId = jdbcTemplate.queryForObject(
+                "SELECT id FROM short_drama_connection WHERE provider_id=?", Long.class, providerId);
+        jdbcTemplate.update("INSERT INTO provider_drama "
+                        + "(connection_id,external_drama_id,title,language) VALUES (?,?,?,?)",
+                connectionId, "book-1", "Drama", "ENGLISH");
+        Long dramaId = jdbcTemplate.queryForObject(
+                "SELECT id FROM provider_drama WHERE external_drama_id='book-1'", Long.class);
+        insertLink(userId, providerId, connectionId, dramaId, "request-landing", "SUCCESS",
+                "CODE-LANDING", "https://example.test/landing");
+        jdbcTemplate.update("INSERT INTO promotion_link "
+                        + "(user_id,provider_id,connection_id,drama_id,batch_no,media_type,link_variant,"
+                        + "request_key,tracking_no,external_code,share_url,status) VALUES (?,?,?,?,?,?,?,?,?,?,?,'SUCCESS')",
+                userId, providerId, connectionId, dramaId, "batch-1", "TIKTOK", "ONELINK",
+                "request-one", "tracking-one", "CODE-ONELINK", "https://example.test/one");
+
+        var page = linkMapper.findPageByUserId(userId, 0, 20);
+
+        assertThat(page).hasSize(2);
+        assertThat(page).filteredOn(row -> "CODE-LANDING".equals(row.getExternalCode()))
+                .singleElement().satisfies(row -> {
+                    assertThat(row.getLandingUrl()).isEqualTo("https://example.test/landing");
+                    assertThat(row.getOneLinkUrl()).isNull();
+                });
+        assertThat(page).filteredOn(row -> "CODE-ONELINK".equals(row.getExternalCode()))
+                .singleElement().satisfies(row -> {
+                    assertThat(row.getLandingUrl()).isNull();
+                    assertThat(row.getOneLinkUrl()).isEqualTo("https://example.test/one");
+                });
+        assertThat(linkMapper.countByUserId(userId)).isEqualTo(2);
+    }
+
+    @Test
+    @DisplayName("分页以口令为单位而不是以链接变体为单位")
+    void paginationCountsCodesInsteadOfVariants() {
+        Long userId = jdbcTemplate.queryForObject(
+                "SELECT id FROM promotion_user WHERE user_no=?", Long.class, PRIMARY_USER_NO);
+        Long providerId = jdbcTemplate.queryForObject(
+                "SELECT id FROM short_drama_provider WHERE provider_code='GOODSHORT'", Long.class);
+        jdbcTemplate.update("INSERT INTO short_drama_connection "
+                        + "(provider_id,connection_name,partner_id,currency) VALUES (?,?,?,?)",
+                providerId, "GoodShort", "partner-1", "USD");
+        Long connectionId = jdbcTemplate.queryForObject(
+                "SELECT id FROM short_drama_connection WHERE provider_id=?", Long.class, providerId);
+        jdbcTemplate.update("INSERT INTO provider_drama "
+                        + "(connection_id,external_drama_id,title,language) VALUES (?,?,?,?)",
+                connectionId, "book-1", "Drama", "ENGLISH");
+        Long dramaId = jdbcTemplate.queryForObject(
+                "SELECT id FROM provider_drama WHERE external_drama_id='book-1'", Long.class);
+        insertLink(userId, providerId, connectionId, dramaId, "request-code-a", "SUCCESS",
+                "CODE-A", "https://example.test/a-landing");
+        insertOneLink(userId, providerId, connectionId, dramaId, "request-code-a-one", "CODE-A",
+                "https://example.test/a-one");
+        insertLink(userId, providerId, connectionId, dramaId, "request-code-b", "SUCCESS",
+                "CODE-B", "https://example.test/b-landing");
+
+        assertThat(linkMapper.countByUserId(userId)).isEqualTo(2);
+        assertThat(linkMapper.findPageByUserId(userId, 0, 1))
+                .extracting(UserPromotionLinkVO::getExternalCode).containsExactly("CODE-B");
+        assertThat(linkMapper.findPageByUserId(userId, 1, 1))
+                .extracting(UserPromotionLinkVO::getExternalCode).containsExactly("CODE-A");
+        assertThat(linkMapper.findPageByUserId(userId, 0, 20))
+                .extracting(UserPromotionLinkVO::getLandingUrl)
+                .containsExactly("https://example.test/b-landing", "https://example.test/a-landing");
+
+        assertThat(linkMapper.countAdminPage(PRIMARY_USER_NO, providerId, null, null)).isEqualTo(2);
+        assertThat(linkMapper.findAdminPage(PRIMARY_USER_NO, providerId, null, null, 0, 1))
+                .extracting(AdminPromotionLinkVO::getExternalCode).containsExactly("CODE-B");
+        assertThat(linkMapper.findAdminPage(PRIMARY_USER_NO, providerId, null, null, 1, 1))
+                .extracting(AdminPromotionLinkVO::getExternalCode).containsExactly("CODE-A");
+    }
+
+    @Test
+    @DisplayName("跨媒体共用同一口令时标记归因冲突且不返回转化指标")
+    void crossMediaSharedCodeReportsConflict() {
+        jdbcTemplate.execute("DELETE FROM promotion_analytical_report");
+        Long userId = jdbcTemplate.queryForObject(
+                "SELECT id FROM promotion_user WHERE user_no=?", Long.class, PRIMARY_USER_NO);
+        Long providerId = jdbcTemplate.queryForObject(
+                "SELECT id FROM short_drama_provider WHERE provider_code='GOODSHORT'", Long.class);
+        jdbcTemplate.update("INSERT INTO short_drama_connection "
+                        + "(provider_id,connection_name,partner_id,currency) VALUES (?,?,?,?)",
+                providerId, "GoodShort", "partner-1", "USD");
+        Long connectionId = jdbcTemplate.queryForObject(
+                "SELECT id FROM short_drama_connection WHERE provider_id=?", Long.class, providerId);
+        jdbcTemplate.update("INSERT INTO provider_drama "
+                        + "(connection_id,external_drama_id,title,language) VALUES (?,?,?,?)",
+                connectionId, "book-1", "Drama", "ENGLISH");
+        Long dramaId = jdbcTemplate.queryForObject(
+                "SELECT id FROM provider_drama WHERE external_drama_id='book-1'", Long.class);
+        insertLink(userId, providerId, connectionId, dramaId, "request-tiktok", "SUCCESS",
+                "SHARED-CODE", "https://example.test/tiktok");
+        jdbcTemplate.update("INSERT INTO promotion_link "
+                        + "(user_id,provider_id,connection_id,drama_id,batch_no,media_type,link_variant,"
+                        + "request_key,tracking_no,external_code,share_url,status) VALUES (?,?,?,?,?,?,?,?,?,?,?,'SUCCESS')",
+                userId, providerId, connectionId, dramaId, "batch-1", "YOUTUBE", "ONELINK",
+                "request-youtube", "tracking-youtube", "SHARED-CODE", "https://example.test/youtube");
+        insertReport(LocalDate.of(2026, 9, 7), "partner-1", PRIMARY_USER_NO, "book-1", "SHARED-CODE",
+                10, 20, 30, 40, 50, 60, 70);
+
+        var page = linkMapper.findPageByUserId(userId, 0, 20);
+
+        assertThat(page).hasSize(1);
+        UserPromotionLinkVO row = page.getFirst();
+        assertThat(row.isAnalyticsConflict()).isTrue();
+        assertThat(row.getMediaType()).isNull();
+        assertThat(row.getClickCount()).isNull();
+        assertThat(row.getAttributedUserCount()).isNull();
+        assertThat(row.getNewRegisteredUserCount()).isNull();
+        assertThat(row.getNewPaidUserCount()).isNull();
+        assertThat(row.getNewMemberUserCount()).isNull();
+        assertThat(row.getPaidUserCount()).isNull();
+        assertThat(row.getOrderCount()).isNull();
+        assertThat(linkMapper.countByUserId(userId)).isEqualTo(1);
+
+        var adminPage = linkMapper.findAdminPage(PRIMARY_USER_NO, providerId, "SHARED-CODE", null, 0, 20);
+        assertThat(adminPage).hasSize(1);
+        assertThat(adminPage.getFirst().isAnalyticsConflict()).isTrue();
+        assertThat(adminPage.getFirst().getMediaType()).isNull();
+        assertThat(adminPage.getFirst().getClickCount()).isNull();
+        assertThat(adminPage.getFirst().getOrderCount()).isNull();
+        assertThat(linkMapper.countAdminPage(PRIMARY_USER_NO, providerId, "SHARED-CODE", null)).isEqualTo(1);
+
+        var trackingFilteredPage = linkMapper.findAdminPage(
+                PRIMARY_USER_NO, providerId, "SHARED-CODE", "tracking-request-tiktok", 0, 20);
+        assertThat(trackingFilteredPage).singleElement().satisfies(filteredRow -> {
+            assertThat(filteredRow.getLandingUrl()).isEqualTo("https://example.test/tiktok");
+            assertThat(filteredRow.getOneLinkUrl()).isEqualTo("https://example.test/youtube");
+            assertThat(filteredRow.isAnalyticsConflict()).isTrue();
+            assertThat(filteredRow.getClickCount()).isNull();
+        });
+        assertThat(linkMapper.countAdminPage(
+                PRIMARY_USER_NO, providerId, "SHARED-CODE", "tracking-request-tiktok")).isEqualTo(1);
     }
 
     @Test
@@ -190,8 +344,10 @@ class PromotionLinkPersistenceTest extends BaseAuthTest {
                 "tracking-request-success", 0, 20);
 
         assertThat(page).hasSize(1);
-        assertThat(page.getFirst().getUserNo()).isEqualTo(PRIMARY_USER_NO);
-        assertThat(page.getFirst().getTrackingNo()).isEqualTo("tracking-request-success");
+        assertThat(page).extracting(AdminPromotionLinkVO::getUserNo).containsExactly(PRIMARY_USER_NO);
+        assertThat(page.getFirst().getLandingUrl()).isEqualTo("https://example.test/success");
+        assertThat(page.getFirst().getOneLinkUrl()).isNull();
+        assertThat(page.getFirst().isAnalyticsConflict()).isFalse();
         assertThat(page.getFirst().getClickCount()).isEqualTo(11);
         assertThat(page.getFirst().getOrderCount()).isEqualTo(17);
         assertThat(linkMapper.countAdminPage(PRIMARY_USER_NO, providerId, "CODE-1",
@@ -312,5 +468,15 @@ class PromotionLinkPersistenceTest extends BaseAuthTest {
                         + "VALUES (?,?,?,?,?,?,?,?,?,?,?,?)",
                 userId, providerId, connectionId, dramaId, "batch-1", "TIKTOK", "LANDING",
                 requestKey, "tracking-" + requestKey, externalCode, shareUrl, status);
+    }
+
+    private void insertOneLink(Long userId, Long providerId, Long connectionId, Long dramaId,
+                               String requestKey, String externalCode, String shareUrl) {
+        jdbcTemplate.update("INSERT INTO promotion_link "
+                        + "(user_id,provider_id,connection_id,drama_id,batch_no,media_type,link_variant,"
+                        + "request_key,tracking_no,external_code,share_url,status) "
+                        + "VALUES (?,?,?,?,?,?,?,?,?,?,?,'SUCCESS')",
+                userId, providerId, connectionId, dramaId, "batch-1", "TIKTOK", "ONELINK",
+                requestKey, "tracking-" + requestKey, externalCode, shareUrl);
     }
 }

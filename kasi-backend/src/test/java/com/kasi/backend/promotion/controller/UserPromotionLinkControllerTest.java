@@ -1,10 +1,11 @@
 package com.kasi.backend.promotion.controller;
 
 import com.kasi.backend.BaseAuthTest;
+import com.kasi.backend.promotion.dto.CreatePromotionLinkDTO;
 import com.kasi.backend.promotion.service.PromotionLinkService;
 import com.kasi.backend.promotion.vo.PromotionLinkBatchVO;
 import com.kasi.backend.promotion.vo.PromotionLinkPageVO;
-import com.kasi.backend.promotion.vo.PromotionLinkVO;
+import com.kasi.backend.promotion.vo.UserPromotionLinkVO;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -15,6 +16,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+import static org.assertj.core.api.Assertions.assertThat;
 
 @DisplayName("推广用户推广链接接口")
 class UserPromotionLinkControllerTest extends BaseAuthTest {
@@ -49,12 +51,21 @@ class UserPromotionLinkControllerTest extends BaseAuthTest {
     }
 
     @Test
-    @DisplayName("推广任务接口返回七项转化指标且不返回充值金额")
+    @DisplayName("推广任务接口按口令返回两种链接和七项转化指标且不返回充值金额")
     void userLinkPageReturnsConversionMetricsWithoutOrderAmount() throws Exception {
-        PromotionLinkVO link = PromotionLinkVO.builder()
-                .id(1L).clickCount(11L).attributedUserCount(12L).newRegisteredUserCount(13L)
-                .newPaidUserCount(14L).newMemberUserCount(15L).paidUserCount(16L).orderCount(17L)
-                .build();
+        UserPromotionLinkVO link = new UserPromotionLinkVO();
+        link.setId(1L);
+        link.setExternalCode("CODE-123");
+        link.setMediaType("TIKTOK");
+        link.setLandingUrl("https://example.test/landing");
+        link.setOneLinkUrl("https://example.test/one");
+        link.setClickCount(11L);
+        link.setAttributedUserCount(12L);
+        link.setNewRegisteredUserCount(13L);
+        link.setNewPaidUserCount(14L);
+        link.setNewMemberUserCount(15L);
+        link.setPaidUserCount(16L);
+        link.setOrderCount(17L);
         org.mockito.Mockito.when(promotionLinkService.getMine(
                         org.mockito.ArgumentMatchers.anyLong(), org.mockito.ArgumentMatchers.any()))
                 .thenReturn(PromotionLinkPageVO.builder().list(java.util.List.of(link))
@@ -63,6 +74,10 @@ class UserPromotionLinkControllerTest extends BaseAuthTest {
         mockMvc.perform(get("/api/user/promotion/links")
                         .header("Authorization", "Bearer " + loginAsUser()))
                 .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.list[0].externalCode").value("CODE-123"))
+                .andExpect(jsonPath("$.data.list[0].landingUrl").value("https://example.test/landing"))
+                .andExpect(jsonPath("$.data.list[0].oneLinkUrl").value("https://example.test/one"))
+                .andExpect(jsonPath("$.data.list[0].analyticsConflict").value(false))
                 .andExpect(jsonPath("$.data.list[0].clickCount").value(11))
                 .andExpect(jsonPath("$.data.list[0].attributedUserCount").value(12))
                 .andExpect(jsonPath("$.data.list[0].newRegisteredUserCount").value(13))
@@ -70,6 +85,8 @@ class UserPromotionLinkControllerTest extends BaseAuthTest {
                 .andExpect(jsonPath("$.data.list[0].newMemberUserCount").value(15))
                 .andExpect(jsonPath("$.data.list[0].paidUserCount").value(16))
                 .andExpect(jsonPath("$.data.list[0].orderCount").value(17))
+                .andExpect(jsonPath("$.data.list[0].linkVariant").doesNotExist())
+                .andExpect(jsonPath("$.data.list[0].shareUrl").doesNotExist())
                 .andExpect(jsonPath("$.data.list[0].orderAmount").doesNotExist());
     }
 
@@ -133,17 +150,10 @@ class UserPromotionLinkControllerTest extends BaseAuthTest {
     }
 
     @Test
-    @DisplayName("鍒涘缓璇锋眰鎷掔粷鏈敮鎸佺殑閾炬帴绫诲瀷")
-    void createRejectsUnsupportedLinkVariant() throws Exception {
-        mockMvc.perform(post("/api/user/promotion/links")
-                        .header("Authorization", "Bearer " + loginAsUser())
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content("""
-                                {"providerId":1,"dramaId":1,"mediaTypes":["TIKTOK"],
-                                 "linkVariant":"INVALID",
-                                 "requestKey":"123e4567-e89b-12d3-a456-426614174002"}
-                                """))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.code").value(1006));
+    @DisplayName("创建请求不暴露单链接类型选择")
+    void createRequestDoesNotExposeSingleLinkVariant() {
+        assertThat(CreatePromotionLinkDTO.class.getDeclaredFields())
+                .extracting(java.lang.reflect.Field::getName)
+                .doesNotContain("linkVariant");
     }
 }

@@ -191,17 +191,15 @@ describe('DramaPage', () => {
     )
     await user.click(screen.getByPlaceholderText('请选择媒体平台'))
     await user.click(await screen.findByText('TikTok'))
-    await user.click(screen.getByPlaceholderText('请选择链接类型'))
-    await user.click(await screen.findByText('OneLink'))
+    expect(screen.queryByText('链接类型')).toBeNull()
     await user.type(screen.getByPlaceholderText('请输入推广名称'), '夏季推广')
-    await user.click(screen.getByRole('button', { name: '生成链接' }))
+    await user.click(screen.getByRole('button', { name: '生成推广任务' }))
 
     await waitFor(() =>
       expect(createPromotionLinks).toHaveBeenCalledWith({
         providerId: 2,
         dramaId: 1,
         mediaTypes: ['TIKTOK'],
-        linkVariant: 'ONELINK',
         campaignName: '夏季推广',
       }),
     )
@@ -232,10 +230,10 @@ describe('DramaPage', () => {
     )
     await user.click(screen.getByPlaceholderText('请选择媒体平台'))
     await user.click(await screen.findByText('TikTok'))
-    await user.click(screen.getByRole('button', { name: '生成链接' }))
+    await user.click(screen.getByRole('button', { name: '生成推广任务' }))
 
     await waitFor(() => expect(createPromotionLinks).toHaveBeenCalledTimes(1))
-    expect(screen.getByRole('button', { name: '生成链接' })).toBeTruthy()
+    expect(screen.getByRole('button', { name: '生成推广任务' })).toBeTruthy()
     expect(navigateMock).not.toHaveBeenCalled()
   })
 
@@ -271,7 +269,7 @@ describe('DramaPage', () => {
     )
     await user.click(screen.getByPlaceholderText('请选择媒体平台'))
     await user.click(await screen.findByText('TikTok'))
-    await user.click(screen.getByRole('button', { name: '生成链接' }))
+    await user.click(screen.getByRole('button', { name: '生成推广任务' }))
 
     await waitFor(() => expect(createPromotionLinks).toHaveBeenCalledTimes(1))
     expect(success).not.toHaveBeenCalled()

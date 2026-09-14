@@ -25,7 +25,8 @@ class AdminPromotionLinkControllerTest extends BaseAuthTest {
     void adminCanReadPromotionTasks() throws Exception {
         when(adminService.getPage(any())).thenReturn(AdminPromotionLinkPageVO.builder()
                 .list(List.of(AdminPromotionLinkVO.builder().id(1L).userNo(PRIMARY_USER_NO)
-                        .trackingNo("tracking-1").externalCode("code-1").clickCount(11L)
+                        .landingUrl("https://example.test/landing").oneLinkUrl("https://example.test/one")
+                        .externalCode("code-1").clickCount(11L)
                         .orderCount(17L).build()))
                 .page(1).size(20).total(1).build());
 
@@ -35,10 +36,14 @@ class AdminPromotionLinkControllerTest extends BaseAuthTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.code").value(0))
                 .andExpect(jsonPath("$.data.list[0].userNo").value(PRIMARY_USER_NO))
-                .andExpect(jsonPath("$.data.list[0].trackingNo").value("tracking-1"))
+                .andExpect(jsonPath("$.data.list[0].landingUrl").value("https://example.test/landing"))
+                .andExpect(jsonPath("$.data.list[0].oneLinkUrl").value("https://example.test/one"))
+                .andExpect(jsonPath("$.data.list[0].analyticsConflict").value(false))
                 .andExpect(jsonPath("$.data.list[0].externalCode").value("code-1"))
                 .andExpect(jsonPath("$.data.list[0].clickCount").value(11))
                 .andExpect(jsonPath("$.data.list[0].orderCount").value(17))
+                .andExpect(jsonPath("$.data.list[0].trackingNo").doesNotExist())
+                .andExpect(jsonPath("$.data.list[0].linkVariant").doesNotExist())
                 .andExpect(jsonPath("$.data.list[0].orderAmount").doesNotExist());
 
         mockMvc.perform(get("/api/admin/promotion/links")

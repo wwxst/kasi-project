@@ -24,8 +24,36 @@
 .copyButton {
   flex: 0 0 auto;
 }
+.linkGroup {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+.linkRow {
+  display: grid;
+  grid-template-columns: 52px minmax(0, 1fr) 28px;
+  align-items: center;
+  gap: 4px;
+  min-height: 28px;
+}
+.linkLabel {
+  color: var(--td-text-color-secondary);
+  white-space: nowrap;
+}
+.linkValue {
+  overflow: hidden;
+  color: var(--td-brand-color);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
 .emptyCell {
   color: var(--td-text-color-placeholder);
+}
+
+@media (width <= 480px) {
+  .page {
+    padding: 20px 16px;
+  }
 }
 
 .detailLoading,

@@ -27,7 +27,6 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.LocalDateTime;
 import java.util.UUID;
 import java.util.ArrayList;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Objects;
 import java.util.Set;
@@ -47,10 +46,10 @@ public class PromotionLinkPersistenceServiceImpl implements PromotionLinkPersist
         if (user == null || !Integer.valueOf(1).equals(user.getStatus())) {
             throw new BusinessException(ErrorCode.USER_DISABLED);
         }
-        String linkVariant = request.getLinkVariant() == null ? "LANDING" : request.getLinkVariant();
+        List<String> linkVariants = List.of("LANDING", "ONELINK");
         List<PromotionLink> existingBatch =
                 linkMapper.findBatchByUserAndRequestKey(userId, request.getRequestKey());
-        validateExistingBatch(existingBatch, request, linkVariant);
+        validateExistingBatch(existingBatch, request, linkVariants);
         ProviderDrama drama = dramaMapper.findById(request.getDramaId());
         if (drama == null || drama.getLocalStatus() != DramaLocalStatus.PUBLISHED
                 || !"1".equals(drama.getRemoteShowStatus())) {
@@ -66,43 +65,48 @@ public class PromotionLinkPersistenceServiceImpl implements PromotionLinkPersist
                 .orElseGet(() -> UUID.randomUUID().toString().replace("-", ""));
         for (String mediaTypeValue : request.getMediaTypes()) {
             MediaType mediaType = MediaType.valueOf(mediaTypeValue);
-            PromotionLink link = linkMapper.findByUserAndRequestKeyForUpdate(userId, request.getRequestKey(), mediaType.name(), linkVariant);
-            if (link != null && link.getStatus() == PromotionLinkStatus.SUCCESS) {
-                result.add(new PromotionLinkPreparation(link, null, null));
-                continue;
+            for (String linkVariant : linkVariants) {
+                PromotionLink link = linkMapper.findByUserAndRequestKeyForUpdate(
+                        userId, request.getRequestKey(), mediaType.name(), linkVariant);
+                if (link != null && link.getStatus() == PromotionLinkStatus.SUCCESS) {
+                    result.add(new PromotionLinkPreparation(link, null, null));
+                    continue;
+                }
+                if (link == null) {
+                    link = new PromotionLink();
+                    link.setUserId(userId); link.setProviderId(request.getProviderId());
+                    link.setConnectionId(runtime.connectionId()); link.setDramaId(drama.getId());
+                    link.setRequestKey(request.getRequestKey()); link.setTrackingNo(UUID.randomUUID().toString().replace("-", ""));
+                    link.setBatchNo(batchNo); link.setMediaType(mediaType.name()); link.setLinkVariant(linkVariant);
+                    link.setCampaignName(trimToNull(request.getCampaignName()));
+                    link.setStatus(PromotionLinkStatus.PENDING); linkMapper.insert(link);
+                } else {
+                    link.setTrackingNo(UUID.randomUUID().toString().replace("-", ""));
+                    linkMapper.resetPending(link.getId(), PromotionLinkStatus.PENDING, link.getTrackingNo(), LocalDateTime.now());
+                    link.setStatus(PromotionLinkStatus.PENDING);
+                }
+                result.add(new PromotionLinkPreparation(link, runtime,
+                        new PromotionLinkRequest(drama.getExternalDramaId(), user.getUserNo(), mediaType, linkVariant)));
             }
-            if (link == null) {
-                link = new PromotionLink();
-                link.setUserId(userId); link.setProviderId(request.getProviderId());
-                link.setConnectionId(runtime.connectionId()); link.setDramaId(drama.getId());
-                link.setRequestKey(request.getRequestKey()); link.setTrackingNo(UUID.randomUUID().toString().replace("-", ""));
-                link.setBatchNo(batchNo); link.setMediaType(mediaType.name()); link.setLinkVariant(linkVariant);
-                link.setCampaignName(trimToNull(request.getCampaignName()));
-                link.setStatus(PromotionLinkStatus.PENDING); linkMapper.insert(link);
-            } else {
-                link.setTrackingNo(UUID.randomUUID().toString().replace("-", ""));
-                linkMapper.resetPending(link.getId(), PromotionLinkStatus.PENDING, link.getTrackingNo(), LocalDateTime.now());
-                link.setStatus(PromotionLinkStatus.PENDING);
-            }
-            result.add(new PromotionLinkPreparation(link, runtime,
-                    new PromotionLinkRequest(drama.getExternalDramaId(), user.getUserNo(), mediaType, linkVariant)));
         }
         return result;
     }
 
     private void validateExistingBatch(List<PromotionLink> existingBatch,
-                                       CreatePromotionLinkDTO request, String linkVariant) {
+                                       CreatePromotionLinkDTO request, List<String> linkVariants) {
         if (existingBatch.isEmpty()) {
             return;
         }
-        Set<String> requestedMediaTypes = new HashSet<>(request.getMediaTypes());
-        Set<String> existingMediaTypes = existingBatch.stream()
-                .map(PromotionLink::getMediaType).collect(java.util.stream.Collectors.toSet());
+        Set<String> requestedVariants = request.getMediaTypes().stream()
+                .flatMap(mediaType -> linkVariants.stream().map(linkVariant -> mediaType + "/" + linkVariant))
+                .collect(java.util.stream.Collectors.toSet());
+        Set<String> existingVariants = existingBatch.stream()
+                .map(link -> link.getMediaType() + "/" + link.getLinkVariant())
+                .collect(java.util.stream.Collectors.toSet());
         boolean sameTask = existingBatch.stream().allMatch(link ->
                 Objects.equals(link.getProviderId(), request.getProviderId())
-                        && Objects.equals(link.getDramaId(), request.getDramaId())
-                        && Objects.equals(link.getLinkVariant(), linkVariant))
-                && existingMediaTypes.equals(requestedMediaTypes);
+                        && Objects.equals(link.getDramaId(), request.getDramaId()))
+                && existingVariants.equals(requestedVariants);
         if (!sameTask) {
             throw new BusinessException(ErrorCode.PROMOTION_LINK_REQUEST_CONFLICT);
         }

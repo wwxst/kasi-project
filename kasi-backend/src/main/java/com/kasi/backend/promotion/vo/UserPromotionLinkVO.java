@@ -1,21 +1,17 @@
 package com.kasi.backend.promotion.vo;
 
-import lombok.AllArgsConstructor;
-import lombok.Builder;
 import lombok.Data;
-import lombok.NoArgsConstructor;
 
 import java.time.LocalDateTime;
 
+/**
+ * 用户端推广任务按 GoodShort 口令（externalCode）聚合后的一行投影。
+ * 同一口令的 LANDING/ONELINK 两个变体共用一份转化日报；
+ * 跨媒体共用同一口令时 analyticsConflict 为 true，此时不返回媒体和转化指标。
+ */
 @Data
-@Builder
-@NoArgsConstructor
-@AllArgsConstructor
-public class AdminPromotionLinkVO {
+public class UserPromotionLinkVO {
     private Long id;
-    private String userNo;
-    private String nickname;
-    private String realName;
     private Long providerId;
     private String providerName;
     private Long dramaId;

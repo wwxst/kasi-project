@@ -212,7 +212,6 @@ export default function DramaPage({ title: _title }: { title: string }) {
     if (validateResult !== true || !viewDrama?.providerId) return
     const values = fields as {
       mediaTypes?: MediaType[]
-      linkVariant?: 'LANDING' | 'ONELINK'
       campaignName?: string
     }
     if (!values.mediaTypes?.length) return
@@ -222,7 +221,6 @@ export default function DramaPage({ title: _title }: { title: string }) {
         providerId: viewDrama.providerId,
         dramaId: viewDrama.id,
         mediaTypes: values.mediaTypes,
-        linkVariant: values.linkVariant ?? 'LANDING',
         campaignName: values.campaignName,
       })
       if (!result.complete) {
@@ -536,13 +534,13 @@ export default function DramaPage({ title: _title }: { title: string }) {
         </div>
       </Dialog>
       <Dialog
-        header="创建链接和口令"
+        header="创建推广任务"
         visible={createDialogVisible}
         width={520}
         closeBtn={null}
         closeOnOverlayClick={false}
         closeOnEscKeydown={false}
-        confirmBtn="生成链接"
+        confirmBtn="生成推广任务"
         cancelBtn="取消"
         confirmLoading={creatingPromotion}
         onConfirm={() => promotionFormRef.current?.submit()}
@@ -570,20 +568,6 @@ export default function DramaPage({ title: _title }: { title: string }) {
               multiple
               options={mediaOptions}
               placeholder="请选择媒体平台"
-            />
-          </Form.FormItem>
-          <Form.FormItem
-            label="链接类型"
-            name="linkVariant"
-            initialData="LANDING"
-            rules={[{ required: true, message: '请选择链接类型' }]}
-          >
-            <Select
-              options={[
-                { label: '落地页', value: 'LANDING' },
-                { label: 'OneLink', value: 'ONELINK' },
-              ]}
-              placeholder="请选择链接类型"
             />
           </Form.FormItem>
           <Form.FormItem label="推广名称" name="campaignName">

@@ -31,13 +31,15 @@ class PromotionLinkServiceTest {
     @InjectMocks PromotionLinkServiceImpl service;
 
     @Test
-    @DisplayName("一个媒体平台只生成用户选择的链接类型")
-    void createsSelectedVariantForOnePlatform() {
+    @DisplayName("一个媒体平台生成落地页和OneLink")
+    void createsBothVariantsForOnePlatform() {
         CreatePromotionLinkDTO request = request(List.of("TIKTOK"));
         ProviderRuntimeConnection runtime = runtime();
         PromotionLink landing = link(1L, "LANDING", "track-1");
+        PromotionLink onelink = link(2L, "ONELINK", "track-2");
         when(persistenceService.prepareBatchPending(7L, request)).thenReturn(List.of(
-                new PromotionLinkPreparation(landing, runtime, new PromotionLinkRequest("book", "583729104628", MediaType.TIKTOK, "LANDING"))));
+                new PromotionLinkPreparation(landing, runtime, new PromotionLinkRequest("book", "583729104628", MediaType.TIKTOK, "LANDING")),
+                new PromotionLinkPreparation(onelink, runtime, new PromotionLinkRequest("book", "583729104628", MediaType.TIKTOK, "ONELINK"))));
         when(adapter.generatePromotionLink(any(), any())).thenReturn(new PromotionLinkResult("code", "https://url"));
         when(persistenceService.markSuccess(any(), any(), any(), eq(7L), eq(request.getRequestKey()), any(), any()))
                 .thenAnswer(invocation -> {
@@ -48,9 +50,9 @@ class PromotionLinkServiceTest {
                 });
 
         var result = service.createOrRetry(7L, request);
-        assertThat(result.getLinks()).hasSize(1);
+        assertThat(result.getLinks()).extracting("linkVariant").containsExactly("LANDING", "ONELINK");
         assertThat(result.isComplete()).isTrue();
-        verify(adapter).generatePromotionLink(any(), any());
+        verify(adapter, times(2)).generatePromotionLink(any(), any());
     }
 
     @Test
