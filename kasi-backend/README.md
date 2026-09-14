@@ -249,7 +249,7 @@ mysql --host=127.0.0.1 --user=$env:SPRING_DATASOURCE_USERNAME --password --datab
 
 推广用户可查询已上架短剧、查看剧集并生成 GoodShort 推广链接/口令。用户前端直接下载免费剧集资源接口返回的媒体文件；后端不创建下载任务、不运行 FFmpeg、不生成 ZIP，也不保存下载文件。Chrome 使用 `hls.js` 播放 HLS。当前只同步 GoodShort 免费剧集；GoodShort 文档没有提供收费剧集列表或收费资源接口，因此不创建收费剧集占位记录。推广任务页已接入 GoodShort 转化日报的七项人数/次数指标；正式账单、钱包和提现仍未实现。
 
-推广链接生成采用短事务保存或重置 `PENDING`，事务外调用 GoodShort，随后用独立短事务写入 `SUCCESS` 或 `FAILED`；远程失败状态不会随外层业务异常回滚。GoodShort 口令唯一身份为 `pid + bookId + customParams + codeMedia`，`shareUrlType` 只选择 LANDING/ONELINK URL；一次请求为每个选中媒体固定生成两个变体，两种变体共享一个 code 并各自保存 URL。仅 `status=20005` 且响应 `data.code/shareUrl` 完整时按“已生成”有效结果同步，其他非零状态继续失败。生成调用按该四维身份保证至少 2 秒间隔；创建请求拒绝重复媒体平台，同一 `requestKey` 重复请求不得改变平台、短剧、媒体集合或完整双变体集合。只有所有媒体的两个变体全部成功时用户端才跳转并提示成功。生成链接/口令不以平台分佣规则为前置条件；分佣规则只在已支付订单计算佣金时读取。订单同步遇到 `(connection_id, external_order_id)` 唯一键并发冲突时回读已存在订单并按重复记录处理。
+推广链接生成采用短事务保存或重置 `PENDING`，事务外调用 GoodShort，随后用独立短事务写入 `SUCCESS` 或 `FAILED`；远程失败状态不会随外层业务异常回滚。GoodShort 口令唯一身份为 `pid + bookId + customParams + codeMedia`，`shareUrlType` 只选择 LANDING/ONELINK URL；一次请求为每个选中媒体固定生成两个变体，两种变体共享一个 code 并各自保存 URL。保存成功结果前会按连接、短剧、用户和媒体核对该身份已有成功口令；若新返回口令不一致，直接返回 `PROMOTION_LINK_EXTERNAL_CODE_CONFLICT`，不更新当前记录、不自动合并、不重试。仅 `status=20005` 且响应 `data.code/shareUrl` 完整时按“已生成”有效结果同步，其他非零状态继续失败。生成调用按该四维身份保证至少 2 秒间隔；创建请求拒绝重复媒体平台，同一 `requestKey` 重复请求不得改变平台、短剧、媒体集合或完整双变体集合。只有所有媒体的两个变体全部成功时用户端才跳转并提示成功。生成链接/口令不以平台分佣规则为前置条件；分佣规则只在已支付订单计算佣金时读取。订单同步遇到 `(connection_id, external_order_id)` 唯一键并发冲突时回读已存在订单并按重复记录处理。
 
 > **说明**：`sys_sequence` 表已移除，`user_no` 由后端在插入前随机生成；`promotion_user.id` 继续作为自增内部主键。`auth_verification_code` 和 `auth_password_reset_token` 表已移除，改用 Redis 存储（更高效、自动过期）。
 

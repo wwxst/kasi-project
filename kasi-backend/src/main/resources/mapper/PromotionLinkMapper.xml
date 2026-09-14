@@ -181,8 +181,15 @@
           AND media_type = #{mediaType}
           AND external_code = #{externalCode}
           AND link_variant = #{linkVariant}
-        ORDER BY id
-        LIMIT 1
+    </select>
+    <select id="findSuccessfulExternalCodesByIdentity" resultType="string">
+        SELECT external_code FROM promotion_link
+        WHERE status = 'SUCCESS'
+          AND external_code IS NOT NULL
+          AND connection_id = #{connectionId}
+          AND drama_id = #{dramaId}
+          AND user_id = #{userId}
+          AND media_type = #{mediaType}
     </select>
     <insert id="insert" useGeneratedKeys="true" keyProperty="id">
         INSERT INTO promotion_link

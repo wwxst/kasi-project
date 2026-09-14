@@ -195,6 +195,8 @@ class PromotionLinkPersistenceServiceTest {
         existing.setExternalCode("CODE-1");
         when(linkMapper.findByUserAndRequestKey(7L, "request", "TIKTOK", linkVariant))
                 .thenReturn(pending);
+        when(linkMapper.findSuccessfulExternalCodesByIdentity(3L, 23L, 7L, "TIKTOK"))
+                .thenReturn(List.of("CODE-1"));
         when(linkMapper.findSuccessfulByIdentity(3L, 23L, 7L, "TIKTOK", "CODE-1", linkVariant))
                 .thenReturn(existing);
         when(linkMapper.deleteById(42L)).thenReturn(1);
@@ -222,6 +224,8 @@ class PromotionLinkPersistenceServiceTest {
         pending.setShareUrl("https://example.test/one");
         when(linkMapper.findByUserAndRequestKey(7L, "request", "TIKTOK", currentVariant))
                 .thenReturn(pending);
+        when(linkMapper.findSuccessfulExternalCodesByIdentity(3L, 23L, 7L, "TIKTOK"))
+                .thenReturn(List.of("CODE-1"));
         when(linkMapper.findSuccessfulByIdentity(3L, 23L, 7L, "TIKTOK", "CODE-1", currentVariant))
                 .thenReturn(null);
         when(linkMapper.markSuccess(42L, "CODE-1", "https://example.test/one"))
@@ -235,6 +239,26 @@ class PromotionLinkPersistenceServiceTest {
         assertThat(result).isSameAs(pending);
         verify(linkMapper, never()).deleteById(42L);
         verify(linkMapper).markSuccess(42L, "CODE-1", "https://example.test/one");
+    }
+
+    @Test
+    @DisplayName("同一推广身份返回不同口令时拒绝保存新链接")
+    void differentExternalCodeIsRejectedBeforeSave() {
+        PromotionLink pending = link(42L, PromotionLinkStatus.PENDING);
+        pending.setLinkVariant("ONELINK");
+        when(linkMapper.findByUserAndRequestKey(7L, "request", "TIKTOK", "ONELINK"))
+                .thenReturn(pending);
+        when(linkMapper.findSuccessfulExternalCodesByIdentity(3L, 23L, 7L, "TIKTOK"))
+                .thenReturn(List.of("CODE-1"));
+
+        assertThatThrownBy(() -> new PromotionLinkPersistenceServiceImpl(
+                linkMapper, userMapper, dramaMapper, runtimeService)
+                .markSuccess(42L, "CODE-2", "https://example.test/one",
+                        7L, "request", "TIKTOK", "ONELINK"))
+                .isInstanceOf(BusinessException.class)
+                .extracting("code").isEqualTo(7026);
+        verify(linkMapper, never()).markSuccess(any(), any(), any());
+        verify(linkMapper, never()).deleteById(any());
     }
 
     @Test

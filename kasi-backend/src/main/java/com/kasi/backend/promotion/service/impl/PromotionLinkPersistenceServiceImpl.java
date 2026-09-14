@@ -117,6 +117,11 @@ public class PromotionLinkPersistenceServiceImpl implements PromotionLinkPersist
     public PromotionLink markSuccess(Long linkId, String externalCode, String shareUrl,
                                      Long userId, String requestKey, String mediaType, String linkVariant) {
         PromotionLink pending = linkMapper.findByUserAndRequestKey(userId, requestKey, mediaType, linkVariant);
+        List<String> existingExternalCodes = linkMapper.findSuccessfulExternalCodesByIdentity(
+                pending.getConnectionId(), pending.getDramaId(), pending.getUserId(), mediaType);
+        if (existingExternalCodes.stream().anyMatch(existingCode -> !Objects.equals(existingCode, externalCode))) {
+            throw new BusinessException(ErrorCode.PROMOTION_LINK_EXTERNAL_CODE_CONFLICT);
+        }
         PromotionLink existing = linkMapper.findSuccessfulByIdentity(
                 pending.getConnectionId(), pending.getDramaId(), pending.getUserId(), mediaType, externalCode, linkVariant);
         if (existing != null && !existing.getId().equals(linkId)) {

@@ -37,6 +37,10 @@ public interface PromotionLinkMapper {
                                            @Param("mediaType") String mediaType,
                                            @Param("externalCode") String externalCode,
                                            @Param("linkVariant") String linkVariant);
+    List<String> findSuccessfulExternalCodesByIdentity(@Param("connectionId") Long connectionId,
+                                                       @Param("dramaId") Long dramaId,
+                                                       @Param("userId") Long userId,
+                                                       @Param("mediaType") String mediaType);
     int insert(PromotionLink link);
     int deleteById(@Param("id") Long id);
     int markSuccess(@Param("id") Long id, @Param("externalCode") String externalCode,

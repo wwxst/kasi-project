@@ -1,8 +1,10 @@
 package com.kasi.backend.promotion.mapper;
 
 import com.kasi.backend.BaseAuthTest;
+import com.kasi.backend.common.exception.BusinessException;
 import com.kasi.backend.promotion.entity.PromotionLink;
 import com.kasi.backend.promotion.enums.PromotionLinkStatus;
+import com.kasi.backend.promotion.service.PromotionLinkPersistenceService;
 import com.kasi.backend.promotion.vo.AdminPromotionLinkVO;
 import com.kasi.backend.promotion.vo.UserPromotionLinkVO;
 import org.junit.jupiter.api.DisplayName;
@@ -17,6 +19,9 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 class PromotionLinkPersistenceTest extends BaseAuthTest {
     @Autowired
     private PromotionLinkMapper linkMapper;
+
+    @Autowired
+    private PromotionLinkPersistenceService linkPersistenceService;
 
     @Test
     @DisplayName("推广链接持久化保存批次、平台和变体字段")
@@ -447,6 +452,45 @@ class PromotionLinkPersistenceTest extends BaseAuthTest {
 
         assertThat(jdbcTemplate.queryForObject(
                 "SELECT COUNT(*) FROM promotion_link WHERE user_id=?", Long.class, userId)).isEqualTo(2L);
+    }
+
+    @Test
+    @DisplayName("同一推广身份的第二种链接返回不同口令时不保存第二套口令")
+    void rejectsDifferentExternalCodeAcrossVariantsWithoutSaving() {
+        Long userId = jdbcTemplate.queryForObject(
+                "SELECT id FROM promotion_user WHERE user_no=?", Long.class, PRIMARY_USER_NO);
+        Long providerId = jdbcTemplate.queryForObject(
+                "SELECT id FROM short_drama_provider WHERE provider_code='GOODSHORT'", Long.class);
+        jdbcTemplate.update("INSERT INTO short_drama_connection "
+                        + "(provider_id,connection_name,partner_id,currency) VALUES (?,?,?,?)",
+                providerId, "GoodShort", "partner-1", "USD");
+        Long connectionId = jdbcTemplate.queryForObject(
+                "SELECT id FROM short_drama_connection WHERE provider_id=?", Long.class, providerId);
+        jdbcTemplate.update("INSERT INTO provider_drama "
+                        + "(connection_id,external_drama_id,title,language) VALUES (?,?,?,?)",
+                connectionId, "book-1", "Drama", "ENGLISH");
+        Long dramaId = jdbcTemplate.queryForObject(
+                "SELECT id FROM provider_drama WHERE external_drama_id='book-1'", Long.class);
+        insertLink(userId, providerId, connectionId, dramaId, "request-landing", "SUCCESS",
+                "CODE-1", "https://example.test/landing");
+        insertOneLink(userId, providerId, connectionId, dramaId, "request-onelink", "CODE-2",
+                "https://example.test/one");
+        Long pendingId = jdbcTemplate.queryForObject(
+                "SELECT id FROM promotion_link WHERE request_key='request-onelink'", Long.class);
+        jdbcTemplate.update("UPDATE promotion_link SET status='PENDING', external_code=NULL, share_url=NULL WHERE id=?", pendingId);
+
+        assertThatThrownBy(() -> linkPersistenceService.markSuccess(pendingId, "CODE-2",
+                "https://example.test/one", userId, "request-onelink", "TIKTOK", "ONELINK"))
+                .isInstanceOf(BusinessException.class)
+                .extracting("code").isEqualTo(7026);
+        assertThat(jdbcTemplate.queryForObject(
+                "SELECT COUNT(*) FROM promotion_link WHERE connection_id=? AND drama_id=? AND user_id=? "
+                        + "AND media_type='TIKTOK' AND status='SUCCESS'", Long.class,
+                connectionId, dramaId, userId)).isEqualTo(1L);
+        assertThat(jdbcTemplate.queryForObject(
+                "SELECT COUNT(*) FROM promotion_link WHERE connection_id=? AND drama_id=? AND user_id=? "
+                        + "AND media_type='TIKTOK' AND external_code='CODE-2'", Long.class,
+                connectionId, dramaId, userId)).isEqualTo(0L);
     }
 
     private void insertReport(LocalDate date, String pid, String customParams, String bookId, String code,
