@@ -217,12 +217,18 @@ class PromotionLinkPersistenceTest extends BaseAuthTest {
                 "SELECT id FROM provider_drama WHERE external_drama_id='book-1'", Long.class);
         insertLink(userId, providerId, connectionId, dramaId, "request-order", "SUCCESS",
                 "CODE-1", "https://example.test/link");
+        jdbcTemplate.update("INSERT INTO promotion_link "
+                        + "(user_id,provider_id,connection_id,drama_id,batch_no,media_type,link_variant,"
+                        + "request_key,tracking_no,external_code,share_url,status) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)",
+                userId, providerId, connectionId, dramaId, "batch-1", "TIKTOK", "ONELINK",
+                "request-order-one", "tracking-request-order-one", "CODE-1", "https://example.test/one", "SUCCESS");
 
-        PromotionLink matched = linkMapper.findForOrderAttribution(
+        PromotionOrderAttribution matched = linkMapper.findForOrderAttribution(
                 connectionId, "partner-1", "book-1", PRIMARY_USER_NO, "CODE-1");
 
         assertThat(matched).isNotNull();
-        assertThat(matched.getTrackingNo()).isEqualTo("tracking-request-order");
+        assertThat(matched.userId()).isEqualTo(userId);
+        assertThat(matched.dramaId()).isEqualTo(dramaId);
         assertThat(linkMapper.findForOrderAttribution(
                 connectionId, "other-partner", "book-1", PRIMARY_USER_NO, "CODE-1")).isNull();
         assertThat(linkMapper.findForOrderAttribution(

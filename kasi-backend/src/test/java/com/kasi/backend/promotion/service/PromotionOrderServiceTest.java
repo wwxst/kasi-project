@@ -3,12 +3,12 @@ package com.kasi.backend.promotion.service;
 import com.kasi.backend.drama.calculator.ProviderCommissionCalculator;
 import com.kasi.backend.drama.entity.ProviderCommissionRuleHistory;
 import com.kasi.backend.drama.mapper.ProviderCommissionRuleHistoryMapper;
-import com.kasi.backend.promotion.entity.PromotionLink;
 import com.kasi.backend.promotion.entity.PromotionOrder;
 import com.kasi.backend.promotion.enums.PromotionAttributionStatus;
 import com.kasi.backend.promotion.enums.PromotionCommissionStatus;
 import com.kasi.backend.promotion.enums.PromotionOrderStatus;
 import com.kasi.backend.promotion.mapper.PromotionLinkMapper;
+import com.kasi.backend.promotion.mapper.PromotionOrderAttribution;
 import com.kasi.backend.promotion.mapper.PromotionOrderMapper;
 import com.kasi.backend.promotion.service.impl.PromotionOrderServiceImpl;
 import com.kasi.backend.provider.spi.ProviderOrderRecord;
@@ -60,7 +60,7 @@ class PromotionOrderServiceTest {
     @DisplayName("首次已支付订单通过用户编号归因并保存费率和佣金快照")
     void paidOrderIsAttributedAndSnapshotted() {
         when(linkMapper.findForOrderAttribution(3L, "partner-1", "book-1",
-                "583729104628", "21302")).thenReturn(link());
+                "583729104628", "21302")).thenReturn(new PromotionOrderAttribution(11L, 23L));
         when(historyMapper.findLatestByProviderId(7L)).thenReturn(history());
         doAnswer(invocation -> {
             PromotionOrder order = invocation.getArgument(0);
@@ -80,7 +80,8 @@ class PromotionOrderServiceTest {
         assertThat(order.getUserId()).isEqualTo(11L);
         assertThat(order.getAttributionStatus()).isEqualTo(PromotionAttributionStatus.ATTRIBUTED);
         assertThat(order).extracting("promotionLinkId", "trackingNo", "dramaId")
-                .containsExactly(41L, "tracking-41", 23L);
+                .containsExactly(null, null, 23L);
+        assertThat(order.getSearchCode()).isEqualTo("21302");
         assertThat(order.getRuleHistoryId()).isEqualTo(31L);
         assertThat(order.getCommissionAmount()).isEqualByComparingTo("4.79");
         assertThat(order.getCommissionStatus()).isEqualTo(PromotionCommissionStatus.CALCULATED);
@@ -133,7 +134,7 @@ class PromotionOrderServiceTest {
     @DisplayName("首次同步已退款订单仍保留佣金快照并标记为冲销")
     void firstSyncedRefundedOrderIsSnapshottedAndReversed() {
         when(linkMapper.findForOrderAttribution(3L, "partner-1", "book-1",
-                "583729104628", "21302")).thenReturn(link());
+                "583729104628", "21302")).thenReturn(new PromotionOrderAttribution(11L, 23L));
         when(historyMapper.findLatestByProviderId(7L)).thenReturn(history());
 
         service.upsert(runtime, record(ProviderOrderStatus.REFUNDED),
@@ -209,15 +210,6 @@ class PromotionOrderServiceTest {
         history.setDownstreamFeeRate(new BigDecimal("0.0300000000"));
         history.setDownstreamCommissionRate(new BigDecimal("0.7000000000"));
         return history;
-    }
-
-    private PromotionLink link() {
-        PromotionLink link = new PromotionLink();
-        link.setId(41L);
-        link.setUserId(11L);
-        link.setDramaId(23L);
-        link.setTrackingNo("tracking-41");
-        return link;
     }
 
     private ProviderOrderRecord record(ProviderOrderStatus status) {

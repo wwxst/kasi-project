@@ -128,8 +128,10 @@
         <include refid="adminPageFilters"/>
         ORDER BY l.id DESC LIMIT #{offset}, #{size}
     </select>
-    <select id="findForOrderAttribution" resultMap="PromotionLinkMap">
-        SELECT l.* FROM promotion_link l
+    <select id="findForOrderAttribution"
+            resultType="com.kasi.backend.promotion.mapper.PromotionOrderAttribution">
+        SELECT DISTINCT u.id AS user_id, d.id AS drama_id
+        FROM promotion_link l
         JOIN short_drama_connection c ON c.id = l.connection_id
         JOIN provider_drama d ON d.id = l.drama_id
         JOIN promotion_user u ON u.id = l.user_id
@@ -139,8 +141,6 @@
           AND d.external_drama_id = #{externalDramaId}
           AND u.user_no = #{userNo}
           AND l.external_code = #{externalCode}
-        ORDER BY l.id
-        LIMIT 1
     </select>
     <select id="findSuccessfulByIdentity" resultMap="PromotionLinkMap">
         SELECT * FROM promotion_link

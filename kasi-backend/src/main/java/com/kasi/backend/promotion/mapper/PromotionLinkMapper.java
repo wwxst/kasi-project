@@ -25,11 +25,11 @@ public interface PromotionLinkMapper {
                                              @Param("externalCode") String externalCode,
                                              @Param("trackingNo") String trackingNo,
                                              @Param("offset") int offset, @Param("size") int size);
-    PromotionLink findForOrderAttribution(@Param("connectionId") Long connectionId,
-                                          @Param("partnerId") String partnerId,
-                                          @Param("externalDramaId") String externalDramaId,
-                                          @Param("userNo") String userNo,
-                                          @Param("externalCode") String externalCode);
+    PromotionOrderAttribution findForOrderAttribution(@Param("connectionId") Long connectionId,
+                                                      @Param("partnerId") String partnerId,
+                                                      @Param("externalDramaId") String externalDramaId,
+                                                      @Param("userNo") String userNo,
+                                                      @Param("externalCode") String externalCode);
     PromotionLink findSuccessfulByIdentity(@Param("connectionId") Long connectionId,
                                            @Param("dramaId") Long dramaId,
                                            @Param("userId") Long userId,

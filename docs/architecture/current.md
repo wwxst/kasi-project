@@ -15,7 +15,7 @@
 - GoodShort 平台接入、AES-GCM 凭据保护，以及媒体账号 API/人工报白、状态核实和后台任务接续。
 - 短剧目录和免费剧集全量/增量同步、断点、租约、本地上下架及永久媒体 URL。
 - 平台级 CPS 费率与不可变历史快照。
-- 推广链接、订单同步、trackingNo 归因、订单费率/佣金快照及管理员/用户查询；管理端账号报白和推广订单按筛选条件全量导出 XLSX。
+- 推广链接、转化日报 code 级归因、订单同步与订单费率/佣金快照及管理员/用户查询；订单按甲方 `pid + customParams + bookId + searchCode` 归因到用户和短剧，新订单不填无法确定具体 LANDING/ONELINK 变体的 `promotion_link_id`、`tracking_no`。管理端账号报白和推广订单按筛选条件全量导出 XLSX。
 - 推广项目 CRUD，以及独立的 CPA/CPM/CPS 项目类型分类和管理端两级菜单。
 - 系统固定任务统一通过 `system_scheduled_task` 的到期时间和数据库租约调度。
 

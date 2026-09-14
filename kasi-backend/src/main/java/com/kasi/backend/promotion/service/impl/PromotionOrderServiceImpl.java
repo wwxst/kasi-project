@@ -109,18 +109,16 @@ public class PromotionOrderServiceImpl implements PromotionOrderService {
     }
 
     private void applyAttributionAndCommission(PromotionOrder order) {
-        var link = linkMapper.findForOrderAttribution(order.getConnectionId(), order.getPartnerId(),
+        var attribution = linkMapper.findForOrderAttribution(order.getConnectionId(), order.getPartnerId(),
                 order.getExternalDramaId(), order.getCustomParams(), order.getSearchCode());
-        if (link == null) {
+        if (attribution == null) {
             order.setAttributionStatus(PromotionAttributionStatus.UNATTRIBUTED);
             order.setCommissionStatus(PromotionCommissionStatus.NOT_APPLICABLE);
             return;
         }
 
-        order.setTrackingNo(link.getTrackingNo());
-        order.setPromotionLinkId(link.getId());
-        order.setUserId(link.getUserId());
-        order.setDramaId(link.getDramaId());
+        order.setUserId(attribution.userId());
+        order.setDramaId(attribution.dramaId());
         order.setAttributionStatus(PromotionAttributionStatus.ATTRIBUTED);
         if (order.getStatus() != PromotionOrderStatus.PAID
                 && order.getStatus() != PromotionOrderStatus.REFUNDED) {

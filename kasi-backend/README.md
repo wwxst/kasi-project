@@ -432,7 +432,7 @@ mysql --host=127.0.0.1 --user=$env:SPRING_DATASOURCE_USERNAME --password --datab
 | GET | `/api/user/promotion/orders` | USER | 按月份查询本人已归因订单 |
 | GET | `/api/user/promotion/orders/monthly` | USER | 查询本人月度已支付订单数及收益汇总，不返回订单总额 |
 
-GoodShort 订单同步只按甲方订单字段接收数据：`orderId`、`userId`、`payMoney`、`payTime`、`payStatus`、`customParams`、`bookId`、`searchCode`、`channelCode`、`pid`、`utime`。本地订单状态包含 `UNPAID`（未支付）、`PAID`（已支付）、`REFUNDED`（已退款）和 `UNKNOWN`（未知）；四种状态均写入本地订单。`payMoney` 仅用于后台分佣计算和管理员核对。用户订单 JSON 只返回甲方订单号、币种快照、未支付/已支付/已退款状态、支付时间和该用户的收益，过滤 `UNKNOWN`；`customParams` 仅作为服务端原始字段保存，用户归因直接使用 `customParams -> user_no -> user_id`，不通过内部 `trackingNo` 反查链接。用户端不提供订单导出，管理员查询仍保留内部核对字段，并按相同筛选条件全量导出 XLSX，不受列表分页限制。
+GoodShort 订单同步只按甲方订单字段接收数据：`orderId`、`userId`、`payMoney`、`payTime`、`payStatus`、`customParams`、`bookId`、`searchCode`、`channelCode`、`pid`、`utime`。本地订单状态包含 `UNPAID`（未支付）、`PAID`（已支付）、`REFUNDED`（已退款）和 `UNKNOWN`（未知）；四种状态均写入本地订单。`payMoney` 仅用于后台分佣计算和管理员核对。用户订单 JSON 只返回甲方订单号、币种快照、未支付/已支付/已退款状态、支付时间和该用户的收益，过滤 `UNKNOWN`；订单保留甲方 `searchCode`，并按 `pid + customParams + bookId + searchCode` 匹配成功推广口令后直接归因到用户和短剧，不通过内部 `trackingNo` 反查链接。由于 LANDING/ONELINK 可共用同一口令，新订单不写入无法可靠确定变体的 `promotion_link_id`、`tracking_no`；这两个字段仅保留为可空的历史/兼容字段。用户端不提供订单导出，管理员查询仍保留内部核对字段，并按相同筛选条件全量导出 XLSX，不受列表分页限制。
 
 订单 upsert 使用 `READ_COMMITTED` 事务隔离级别：已有订单继续通过 `FOR UPDATE` 串行更新；两个事务同时插入同一 `(connection_id, external_order_id)` 时由唯一键确定唯一记录，竞争事务回读已提交订单，避免默认 `REPEATABLE_READ` 对不存在行加 gap lock 后并发插入产生死锁。
 

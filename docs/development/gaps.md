@@ -6,9 +6,9 @@
 
 ## 当前快速上线边界
 
-短剧 CPS 快速上线版已具备 GoodShort 短剧目录、媒体账号 API/人工报白、真实推广链接/口令、订单每分钟自动同步最近 3 天及管理员手动历史补拉、订单幂等与原始数据留存、`trackingNo` 归因、费率及佣金快照、退款冲销，以及管理员/用户查询；管理端账号报白和推广订单使用 XLSX 导出。
+短剧 CPS 快速上线版已具备 GoodShort 短剧目录、媒体账号 API/人工报白、真实推广链接/口令、订单每分钟自动同步最近 3 天及管理员手动历史补拉、订单幂等与原始数据留存、按 `pid + customParams + bookId + searchCode` 的订单归因、费率及佣金快照、退款冲销，以及管理员/用户查询；管理端账号报白和推广订单使用 XLSX 导出。
 
-当前月度佣金只是按 `promotion_order.paid_at` 聚合的只读结果，不是已确认或已付款账单。推广任务入口和订单归因以真实 `PromotionLink` 为准，不再保留独立 `PromotionTask` 壳。
+当前月度佣金只是按 `promotion_order.paid_at` 聚合的只读结果，不是已确认或已付款账单。推广任务入口以真实 `PromotionLink` 为准；订单归因以甲方 code 级字段匹配为准，不再通过任意一条 `PromotionLink` 变体绑定订单，也不再保留独立 `PromotionTask` 壳。
 
 生产增量升级路径已按 [ADR-0004](../adr/ADR-0004-production-database-migrations.md) 落地：Flyway 由独立发布步骤执行，应用启动不迁移；已有数据库显式登记 version `1` baseline，后续只新增版本脚本。生产备份恢复和目标环境迁移仍需在实际发布时执行并留存证据，不因工具链已接入而视为已验证。
 

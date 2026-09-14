@@ -19,6 +19,23 @@ class PromotionOrderPersistenceTest extends BaseAuthTest {
     private PromotionOrderMapper orderMapper;
 
     @Test
+    @DisplayName("新订单保留甲方口令且不写入无法确定的链接字段")
+    void newOrderKeepsSearchCodeAndLeavesLinkFieldsNull() {
+        PromotionOrder order = order("external-order-with-shared-code", PromotionOrderStatus.PAID);
+        order.setSearchCode("21302");
+        order.setAttributionStatus(PromotionAttributionStatus.ATTRIBUTED);
+        order.setUserId(1L);
+        order.setDramaId(1L);
+
+        assertThat(orderMapper.insert(order)).isEqualTo(1);
+
+        PromotionOrder stored = orderMapper.findBySource(order.getConnectionId(), "external-order-with-shared-code");
+        assertThat(stored.getSearchCode()).isEqualTo("21302");
+        assertThat(stored.getPromotionLinkId()).isNull();
+        assertThat(stored.getTrackingNo()).isNull();
+    }
+
+    @Test
     @DisplayName("订单按连接和供应方订单号幂等更新且退款不覆盖佣金快照")
     void orderUpsertPreservesCommissionSnapshot() {
         PromotionOrder order = order("external-order-1", PromotionOrderStatus.PAID);
