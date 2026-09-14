@@ -2,12 +2,55 @@
 
 ## 文档状态
 
-- 整理日期：2026-09-05
-- 依据：2026-09-04 宝塔部署现场记录、当前仓库配置和已发布前端构建结果
+- 整理日期：2026-09-14
+- 依据：2026-09-04、2026-09-09 和 2026-09-14 宝塔部署现场记录、当前仓库配置和已发布前端构建结果
 - 适用环境：阿里云 ECS、宝塔、Apache 2.4、Docker、MySQL 8.0、Redis 7.2、Java 25
 - 说明：本文是交接手册，不是实时探针。每次发布前仍要在服务器执行检查命令。
 
-## 本次生产发布记录（2026-09-09）
+## 最近一次生产发布记录（2026-09-14）
+
+### 发布基线与本地验证
+
+- 发布代码：`25c0eff808c2b53cfc7dfa3c9de0d71ba5aae305`；本地 `master`、`origin/master` 和发布提交一致，提交时间为 `2026-09-13 23:31:36 +08:00`。
+- 管理端 `pnpm check` 串行执行成功：`22/22` 个测试文件、`113/113` 个测试通过，生产构建成功。此前两个并行测试失败未在串行完整 Gate 中复现，不记为业务回归。
+- 用户端测试 `72/72` 通过，生产构建成功；构建存在大 chunk warning，不是构建失败。
+- 后端 `mvnw package -DskipTests` 成功。完整 `mvnw verify` 在 embedded Redis 相关测试长时间运行后被人工停止，没有最终退出码，因此不能记为 `PASS`。
+- 本地未配置真实 MySQL/GoodShort 授权环境，对应 Real Verification 记为 `SKIP`，不能用 H2 或构建成功替代。
+- 根目录 `git diff --check` 在打包前通过。
+
+本机发布目录为 `E:\JavaProjects\kasi-project-release-20260914-25c0eff`：
+
+| 文件 | SHA-256 |
+|---|---|
+| `kasi-backend.new.jar` | `FBEFFE7980CA8FAA8BF76837261CBEDAA9B9F261911E25EF3EADAB79A9BEAE86` |
+| `kasi-admin-dist.zip` | `2F61B2029E1C96554EFF7227B979343775D8CAE7F07E217691B919BA4B176AF0` |
+| `kasi-user-dist.zip` | `6036D3806BBD0BAA291C46795AB6C26150EDBF31D1B2FBAE3095C1CD724398C3` |
+| `kasi-migrations-v9-v12.zip` | `326F6652E4907D0F2853D7E104509597EB6B70E3F074FC3FF587622B11577458` |
+| `kasi-migrations-v2-v8.zip` | `9CA1B0FC74C4D70D50B367B0EC73312A6427D53B5E0223267EF6368C50408576` |
+
+两个前端 ZIP 的顶层均直接包含 `index.html` 和 `assets/`。
+
+### 生产执行结果
+
+- 迁移前备份命令报告成功，现场可见 `/www/wwwroot/kasixm/backups/kasi_promotion-20260914-023001.sql.gz`（约 `15 MB`）及对应 `.sha256` 文件。此次会话未取得隔离数据库恢复演练结果，不能把“文件生成成功”记为“恢复验证成功”。
+- migration runner 已包含 `V1` 至 `V12`。Flyway 11.14.1 成功校验 `12` 个迁移，并将生产 schema 从 `v8` 依次迁移到 `v12`；随后 `flyway:info` 显示 `V1` 至 `V12` 全部为 `Success`。
+- 服务器上的新 JAR SHA-256 与本机一致。旧 JAR 已复制到 `/www/wwwroot/kasixm/backups/release-<时间戳>/kasi-backend.jar`，新 JAR 已替换 `/www/wwwroot/kasixm/backend/kasi-backend.jar`。
+- `spring_kasi_backend` 重启后为 `active (running)`，使用 Java 25.0.3、Spring Boot 4.0.7 和 `prod` profile；进程监听 `127.0.0.1:8080`，HikariPool 已成功连接 MySQL。
+- `http://127.0.0.1:8080/actuator/health` 返回 HTTP `200` 和 `{"groups":["liveness","readiness"],"status":"UP"}`。
+- systemd 状态中的旧 `ExecStop status=1` 属于停止命令返回值；同一段日志确认旧进程已完成 Spring graceful shutdown，新进程随后正常启动。该记录不等同于当前服务失败。
+- 用户端和管理端已通过宝塔直接覆盖 `/www/wwwroot/kasixm/user-web`、`/www/wwwroot/kasixm/admin-web`。本次构建入口分别为用户端 `/assets/index-9gytvubi.js`、管理端 `/assets/index-BrVANgNG.js`。
+
+### 尚未完成的生产验收
+
+- 尚未取得 `apachectl -t`、Apache graceful reload、两个线上 `index.html` 对本次入口文件的引用，以及两个入口 JS 的 HTTP `200` 结果。
+- 尚未取得两个站点空登录 API 烟囱、真实账号登录/退出、短信流程和浏览器强制刷新/无痕验收结果。
+- 管理端仍需检查“项目管理 -> 项目类型”和媒体账号报白页面；用户端仍需检查首页、短剧推广、推广任务和订单。
+- 启动日志出现 Spring 生成默认 security password 和 `inMemoryUserDetailsManager` 的 warning。健康检查已通过，但在真实登录验收完成前保留该观察项，不据此单独判定业务认证成功或失败。
+- 上述验收完成前，不清理旧静态哈希资源、旧 JAR 回滚副本和数据库备份。
+
+## 上一次生产发布记录（2026-09-09，历史证据）
+
+以下状态是 2026-09-09 发布窗口当时的记录，不代表 2026-09-14 发布后的当前生产状态。
 
 ### 已验证事实
 
@@ -42,7 +85,7 @@
 
 | 组件 | 当前名称/地址 | 目录或端口 | 当前状态 |
 |---|---|---|---|
-| MySQL | Docker 容器 kasi_promotion，镜像 mysql:8.0.35 | 宿主机 3307 -> 3306，数据库 kasi_promotion | 已迁移至 Flyway V8（2026-09-09） |
+| MySQL | Docker 容器 kasi_promotion，镜像 mysql:8.0.35 | 宿主机 3307 -> 3306，数据库 kasi_promotion | 已迁移至 Flyway V12（2026-09-14） |
 | Redis | Docker 容器 kasi_redis，镜像 redis:7.2-alpine | 127.0.0.1:6380 -> 6379，无密码 | 已启用，数据目录 /www/wwwroot/kasixm/redis-data |
 | 后端 | systemd 服务 spring_kasi_backend | 127.0.0.1:8080 | JAR /www/wwwroot/kasixm/backend/kasi-backend.jar |
 | 后端配置 | 外部 properties 文件 | /www/wwwroot/kasixm/backend/kasi-backend.properties | Spring additional-location 读取 |
@@ -70,11 +113,13 @@
 /www/wwwroot/kasixm/admin-web/
 ~~~
 
-本次发布包（本机）：
+最近一次发布包（本机）：
 
 ~~~text
-E:\JavaProjects\kasi-project-release-20260909\kasi-user-dist.zip
-E:\JavaProjects\kasi-project-release-20260909\kasi-admin-dist.zip
+E:\JavaProjects\kasi-project-release-20260914-25c0eff\kasi-backend.new.jar
+E:\JavaProjects\kasi-project-release-20260914-25c0eff\kasi-user-dist.zip
+E:\JavaProjects\kasi-project-release-20260914-25c0eff\kasi-admin-dist.zip
+E:\JavaProjects\kasi-project-release-20260914-25c0eff\kasi-migrations-v9-v12.zip
 ~~~
 
 前端压缩包解压后顶层必须直接包含：
@@ -144,9 +189,9 @@ docker exec -it kasi_promotion mysql -ukasi_app -p -D kasi_promotion -e \
 
 ### 4.3 生产迁移规则
 
-- 当前生产库已有 flyway_schema_history，V1 已执行；不要重复 baseline，不要执行 clean。
+- 当前生产库已有 flyway_schema_history，V1 至 V12 已执行；不要重复 baseline，不要执行 clean。
 - 应用启动关闭 Flyway：spring.flyway.enabled=false。
-- 后续只能新增 V2__...sql、V3__...sql，不能修改已经执行的迁移。
+- 后续只能新增 `V13__...sql` 或更高版本，不能修改已经执行的 `V1` 至 `V12`。
 - 每次迁移前先备份 MySQL，并确认备份文件可读；任一步失败立即停止发布。
 
 已经由旧初始化 SQL 创建、且经核对与 V1 完全一致的库，首次纳管才执行一次：
@@ -453,6 +498,19 @@ curl -i -X POST https://xmadmin.kasi730.com/api/admin/auth/login \
 ~~~
 
 空登录请求预期返回后端 JSON 校验错误，例如“账号不能为空；密码不能为空”，这能证明 /api/ 已代理到后端。
+
+2026-09-14 发布的静态入口还应执行以下版本核对：
+
+~~~bash
+curl -fsS https://xm.kasi730.com/login \
+  | grep -F 'index-9gytvubi.js'
+curl -fsS https://xmadmin.kasi730.com/login \
+  | grep -F 'index-BrVANgNG.js'
+curl -I https://xm.kasi730.com/assets/index-9gytvubi.js
+curl -I https://xmadmin.kasi730.com/assets/index-BrVANgNG.js
+~~~
+
+两个 `grep` 必须匹配本次入口，两个 JS 请求必须返回 HTTP `200`。直接覆盖目录可能保留旧哈希资源；在以上检查和浏览器验收完成前不要清理，以保留页面缓存和回滚所需文件。
 
 ## 九、短信验证码
 
