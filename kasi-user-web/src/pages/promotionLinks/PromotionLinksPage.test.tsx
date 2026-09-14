@@ -89,9 +89,23 @@ describe('PromotionLinksPage', () => {
     expect(screen.queryByText('batch-1')).toBeNull()
     expect(screen.getByText('CODE-123')).toBeTruthy()
     expect(screen.getByText('TikTok')).toBeTruthy()
-    expect(screen.getByRole('columnheader', { name: '推广链接' })).toBeTruthy()
-    expect(screen.queryByRole('columnheader', { name: '落地页' })).toBeNull()
-    expect(screen.queryByRole('columnheader', { name: 'OneLink' })).toBeNull()
+    expect(screen.queryByRole('columnheader', { name: '推广链接' })).toBeNull()
+    const oneLinkHeader = screen.getByRole('columnheader', { name: 'OneLink' })
+    const landingHeader = screen.getByRole('columnheader', { name: '落地页' })
+    const columnWidths = Array.from(
+      oneLinkHeader.closest('table')?.querySelectorAll('col') ?? [],
+      (column) => (column as HTMLElement).style.width,
+    )
+    expect(
+      columnWidths[(oneLinkHeader as HTMLTableCellElement).cellIndex],
+    ).toBe('320px')
+    expect(
+      columnWidths[(landingHeader as HTMLTableCellElement).cellIndex],
+    ).toBe('320px')
+    expect(
+      oneLinkHeader.compareDocumentPosition(landingHeader) &
+        Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy()
     expect(
       screen
         .getByRole('link', { name: 'https://example.com/landing' })
@@ -102,12 +116,24 @@ describe('PromotionLinksPage', () => {
         .getByRole('link', { name: 'https://example.com/one' })
         .getAttribute('href'),
     ).toBe('https://example.com/one')
+    const oneLink = screen.getByRole('link', {
+      name: 'https://example.com/one',
+    })
+    expect(oneLink.childElementCount).toBe(0)
+    expect(oneLink.textContent).toBe('https://example.com/one')
+    expect(getComputedStyle(oneLink).whiteSpace).toBe('normal')
+    expect(getComputedStyle(oneLink).textOverflow).not.toBe('ellipsis')
     expect(screen.getByRole('button', { name: '复制落地页链接' })).toBeTruthy()
     expect(screen.getByRole('button', { name: '复制OneLink链接' })).toBeTruthy()
-    expect(screen.getByText('落地页')).toBeTruthy()
-    expect(screen.getByText('OneLink')).toBeTruthy()
-    expect(screen.getByText('https://example.com/landing')).toBeTruthy()
-    expect(screen.getByText('https://example.com/one')).toBeTruthy()
+    expect(
+      screen
+        .getByRole('link', { name: 'https://example.com/landing' })
+        .closest('td'),
+    ).not.toBe(
+      screen
+        .getByRole('link', { name: 'https://example.com/one' })
+        .closest('td'),
+    )
     expect(screen.queryByText('归因冲突')).toBeNull()
     expect(screen.queryByRole('button', { name: '生成推广链接' })).toBeNull()
     expect(screen.queryByRole('button', { name: '创建链接和口令' })).toBeNull()
@@ -161,7 +187,7 @@ describe('PromotionLinksPage', () => {
     }
   })
 
-  it('keeps a labeled placeholder for a missing historical link variant', async () => {
+  it('keeps a placeholder for a missing historical link variant', async () => {
     vi.mocked(promotionLinksApi.getPromotionLinks).mockResolvedValue({
       list: [codeRow({ oneLinkUrl: null })],
       page: 1,
@@ -176,8 +202,8 @@ describe('PromotionLinksPage', () => {
         name: 'https://example.com/landing',
       }),
     ).toBeTruthy()
-    expect(screen.getByText('落地页')).toBeTruthy()
-    expect(screen.getByText('OneLink')).toBeTruthy()
+    expect(screen.getByRole('columnheader', { name: '落地页' })).toBeTruthy()
+    expect(screen.getByRole('columnheader', { name: 'OneLink' })).toBeTruthy()
     expect(screen.getByText('暂无')).toBeTruthy()
     expect(screen.queryByRole('button', { name: '复制OneLink链接' })).toBeNull()
   })

@@ -115,24 +115,27 @@ export default function PromotionLinksPage({
       ),
     },
     {
-      title: '推广链接',
-      colKey: 'promotionUrls',
-      width: 280,
+      title: 'OneLink',
+      colKey: 'oneLinkUrl',
+      width: 320,
       cell: ({ row }) => (
-        <div className={Style.linkGroup}>
-          <PromotionLinkRow
-            label="落地页"
-            value={row.landingUrl}
-            copyLabel="复制落地页链接"
-            onCopy={copy}
-          />
-          <PromotionLinkRow
-            label="OneLink"
-            value={row.oneLinkUrl}
-            copyLabel="复制OneLink链接"
-            onCopy={copy}
-          />
-        </div>
+        <PromotionLinkCell
+          value={row.oneLinkUrl}
+          copyLabel="复制OneLink链接"
+          onCopy={copy}
+        />
+      ),
+    },
+    {
+      title: '落地页',
+      colKey: 'landingUrl',
+      width: 320,
+      cell: ({ row }) => (
+        <PromotionLinkCell
+          value={row.landingUrl}
+          copyLabel="复制落地页链接"
+          onCopy={copy}
+        />
       ),
     },
     {
@@ -204,35 +207,26 @@ export default function PromotionLinksPage({
   )
 }
 
-function PromotionLinkRow({
-  label,
+function PromotionLinkCell({
   value,
   copyLabel,
   onCopy,
 }: {
-  label: string
   value: string | null
   copyLabel: string
   onCopy: (value: string | null) => void
 }) {
-  if (!value) {
-    return (
-      <div className={Style.linkRow}>
-        <span className={Style.linkLabel}>{label}</span>
-        <span className={Style.emptyCell}>暂无</span>
-      </div>
-    )
-  }
+  if (!value) return <span className={Style.emptyCell}>暂无</span>
 
   return (
-    <div className={Style.linkRow}>
-      <span className={Style.linkLabel}>{label}</span>
+    <div className={Style.linkCell}>
       <a
         className={Style.linkValue}
         href={value}
         target="_blank"
         rel="noreferrer"
         title={value}
+        style={{ overflowWrap: 'anywhere', whiteSpace: 'normal' }}
       >
         {value}
       </a>
