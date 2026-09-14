@@ -114,7 +114,7 @@ public class PromotionLinkPersistenceServiceImpl implements PromotionLinkPersist
                                      Long userId, String requestKey, String mediaType, String linkVariant) {
         PromotionLink pending = linkMapper.findByUserAndRequestKey(userId, requestKey, mediaType, linkVariant);
         PromotionLink existing = linkMapper.findSuccessfulByIdentity(
-                pending.getConnectionId(), pending.getDramaId(), pending.getUserId(), externalCode);
+                pending.getConnectionId(), pending.getDramaId(), pending.getUserId(), mediaType, externalCode, linkVariant);
         if (existing != null && !existing.getId().equals(linkId)) {
             if (linkMapper.deleteById(linkId) != 1) {
                 throw new IllegalStateException("重复推广链接清理未生效");
@@ -127,7 +127,7 @@ public class PromotionLinkPersistenceServiceImpl implements PromotionLinkPersist
             }
         } catch (DuplicateKeyException exception) {
             PromotionLink concurrent = linkMapper.findSuccessfulByIdentity(
-                    pending.getConnectionId(), pending.getDramaId(), pending.getUserId(), externalCode);
+                    pending.getConnectionId(), pending.getDramaId(), pending.getUserId(), mediaType, externalCode, linkVariant);
             if (concurrent == null) {
                 throw exception;
             }

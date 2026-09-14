@@ -4,6 +4,9 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.core.io.ClassPathResource;
+
+import java.nio.charset.StandardCharsets;
 
 import static com.kasi.backend.support.DatabaseInitializationTestSupport.initializeDatabase;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -35,6 +38,17 @@ class PromotionLinkMigrationTest {
         assertThatThrownBy(() -> jdbc.update(
                 "INSERT INTO promotion_link (user_id, provider_id, connection_id, drama_id, batch_no, media_type, link_variant, request_key, tracking_no, status) VALUES (1, 1, 1, 1, 'batch-1', 'TIKTOK', 'LANDING', 'request-1', 'tracking-2', 'PENDING')"))
                 .isInstanceOf(org.springframework.dao.DuplicateKeyException.class);
+    }
+
+    @Test
+    @DisplayName("迁移脚本允许同一口令由两个链接变体共享")
+    void migrationDefinesSharedExternalCodeIdentity() throws Exception {
+        String migration = new ClassPathResource(
+                "db/migration/V13__promotion_link_shared_external_code.sql")
+                .getContentAsString(StandardCharsets.UTF_8);
+
+        assertThat(migration).contains("DROP INDEX uk_promotion_link_external_identity");
+        assertThat(migration).contains("media_type, external_code, link_variant");
     }
 
 }

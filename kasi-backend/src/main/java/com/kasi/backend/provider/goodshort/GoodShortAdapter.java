@@ -267,8 +267,7 @@ public class GoodShortAdapter implements AccountFilingProviderAdapter, DramaCata
         parameters.put("codeMedia", codeMedia);
         parameters.put("timestamp", clock.millis());
         GoodShortPromotionLinkResponse response = postPromotionLink(connection, PROMOTION_LINK_PATH, parameters);
-        if (!successful(response) || response.getData() == null
-                || response.getData().getCode() == null || response.getData().getShareUrl() == null) {
+        if (!promotionLinkResponseUsable(response)) {
             throw new ProviderRemoteRejectedException("GoodShort推广链接生成被拒绝");
         }
         return new PromotionLinkResult(response.getData().getCode(), response.getData().getShareUrl());
@@ -676,8 +675,20 @@ public class GoodShortAdapter implements AccountFilingProviderAdapter, DramaCata
                 && Boolean.TRUE.equals(response.getSuccess());
     }
 
+    private boolean promotionLinkResponseUsable(GoodShortPromotionLinkResponse response) {
+        if (response == null || response.getData() == null
+                || response.getData().getCode() == null || response.getData().getCode().isBlank()
+                || response.getData().getShareUrl() == null || response.getData().getShareUrl().isBlank()) {
+            return false;
+        }
+        if (successful(response)) {
+            return true;
+        }
+        return Integer.valueOf(20005).equals(response.getStatus())
+                && Boolean.FALSE.equals(response.getSuccess());
+    }
+
     private String mapCodeMedia(MediaType mediaType) {
-        if (mediaType == null) return "UNKNOWN";
         return switch (mediaType) {
             case TIKTOK -> "TIKTOK";
             case FACEBOOK -> "FACEBOOK";

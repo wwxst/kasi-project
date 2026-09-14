@@ -16,6 +16,9 @@ import com.kasi.backend.user.entity.PromotionUser;
 import com.kasi.backend.user.mapper.PromotionUserMapper;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -169,26 +172,57 @@ class PromotionLinkPersistenceServiceTest {
                 .isInstanceOf(BusinessException.class).extracting("code").isEqualTo(7014);
     }
 
-    @Test
-    @DisplayName("GoodShort返回相同口令时复用已有成功链接并删除新建占位记录")
-    void sameExternalCodeReusesExistingLink() {
+    @ParameterizedTest(name = "{0}")
+    @ValueSource(strings = {"LANDING", "ONELINK"})
+    @DisplayName("GoodShort同类型重复返回相同口令时复用成功链接并删除新占位")
+    void sameExternalCodeReusesExistingLink(String linkVariant) {
         PromotionLink pending = link(42L, PromotionLinkStatus.PENDING);
         PromotionLink existing = link(41L, PromotionLinkStatus.SUCCESS);
+        pending.setLinkVariant(linkVariant);
+        existing.setLinkVariant(linkVariant);
         existing.setExternalCode("CODE-1");
-        when(linkMapper.findByUserAndRequestKey(7L, "request", "TIKTOK", "LANDING"))
+        when(linkMapper.findByUserAndRequestKey(7L, "request", "TIKTOK", linkVariant))
                 .thenReturn(pending);
-        when(linkMapper.findSuccessfulByIdentity(3L, 23L, 7L, "CODE-1"))
+        when(linkMapper.findSuccessfulByIdentity(3L, 23L, 7L, "TIKTOK", "CODE-1", linkVariant))
                 .thenReturn(existing);
         when(linkMapper.deleteById(42L)).thenReturn(1);
 
         PromotionLink result = new PromotionLinkPersistenceServiceImpl(
                 linkMapper, userMapper, dramaMapper, runtimeService)
                 .markSuccess(42L, "CODE-1", "https://example.test/new",
-                        7L, "request", "TIKTOK", "LANDING");
+                        7L, "request", "TIKTOK", linkVariant);
 
         assertThat(result).isSameAs(existing);
         verify(linkMapper).deleteById(42L);
         verify(linkMapper, never()).markSuccess(42L, "CODE-1", "https://example.test/new");
+    }
+
+    @ParameterizedTest(name = "已有{0}，新增{1}")
+    @CsvSource({"LANDING,ONELINK", "ONELINK,LANDING"})
+    @DisplayName("相同口令的两个链接变体按任意顺序各自保存")
+    void sameExternalCodeAcrossVariantsKeepsBothLinks(String existingVariant, String currentVariant) {
+        PromotionLink pending = link(42L, PromotionLinkStatus.PENDING);
+        pending.setLinkVariant(currentVariant);
+        PromotionLink existing = link(41L, PromotionLinkStatus.SUCCESS);
+        existing.setLinkVariant(existingVariant);
+        existing.setExternalCode("CODE-1");
+        pending.setExternalCode("CODE-1");
+        pending.setShareUrl("https://example.test/one");
+        when(linkMapper.findByUserAndRequestKey(7L, "request", "TIKTOK", currentVariant))
+                .thenReturn(pending);
+        when(linkMapper.findSuccessfulByIdentity(3L, 23L, 7L, "TIKTOK", "CODE-1", currentVariant))
+                .thenReturn(null);
+        when(linkMapper.markSuccess(42L, "CODE-1", "https://example.test/one"))
+                .thenReturn(1);
+
+        PromotionLink result = new PromotionLinkPersistenceServiceImpl(
+                linkMapper, userMapper, dramaMapper, runtimeService)
+                .markSuccess(42L, "CODE-1", "https://example.test/one",
+                        7L, "request", "TIKTOK", currentVariant);
+
+        assertThat(result).isSameAs(pending);
+        verify(linkMapper, never()).deleteById(42L);
+        verify(linkMapper).markSuccess(42L, "CODE-1", "https://example.test/one");
     }
 
     @Test
@@ -199,7 +233,7 @@ class PromotionLinkPersistenceServiceTest {
         existing.setExternalCode("CODE-1");
         when(linkMapper.findByUserAndRequestKey(7L, "request", "TIKTOK", "LANDING"))
                 .thenReturn(pending);
-        when(linkMapper.findSuccessfulByIdentity(3L, 23L, 7L, "CODE-1"))
+        when(linkMapper.findSuccessfulByIdentity(3L, 23L, 7L, "TIKTOK", "CODE-1", "LANDING"))
                 .thenReturn(null, existing);
         when(linkMapper.markSuccess(42L, "CODE-1", "https://example.test/new"))
                 .thenThrow(new DuplicateKeyException("duplicate external code"));

@@ -29,7 +29,7 @@
 kasi-backend/src/main/resources/db/migration/V*.sql
 ```
 
-生产 Flyway 仍只通过 Maven `migration` profile 作为独立发布步骤运行；应用默认关闭启动迁移，仅显式激活 Spring `local` profile 时在本地启动前自动校验并执行迁移。当前迁移链为不可变 `V1__baseline.sql` 到 `V12__promotion_project_type.sql`，后续变更只新增更高版本。开发环境可从 `kasi-backend/src/main/resources/db/kasi_promotion.sql` 重建空库，该文件始终描述最新最终结构；MySQL 8.4 Contract 比较开发重建与完整迁移链结果。`*_id` 是逻辑关联，当前生产 schema 不使用物理外键或数据库级联。
+生产 Flyway 仍只通过 Maven `migration` profile 作为独立发布步骤运行；应用默认关闭启动迁移，仅显式激活 Spring `local` profile 时在本地启动前自动校验并执行迁移。当前迁移链为不可变 `V1__baseline.sql` 到 `V13__promotion_link_shared_external_code.sql`，后续变更只新增更高版本。开发环境可从 `kasi-backend/src/main/resources/db/kasi_promotion.sql` 重建空库，该文件始终描述最新最终结构；MySQL 8.4 Contract 比较开发重建与完整迁移链结果。`*_id` 是逻辑关联，当前生产 schema 不使用物理外键或数据库级联。
 
 上游订单原始 payload、归因字段、费率快照和佣金结果分别保存；历史订单结果不因当前费率修改而重算。
 
@@ -47,10 +47,10 @@ API 记录由后台 Worker 分批领取到期的 `SUBMIT`/`QUERY` 任务，每�
 
 管理员可按平台、报白方式和真实五状态查询，单条删除任意状态/方式的本地账号及其报白记录；删除不调用甲方接口。账号报白 XLSX 和推广订单 XLSX 都按当前筛选条件导出全部匹配数据，不受列表分页影响。
 
-当前仓库验证覆盖 H2、服务/控制器/持久层回归和三个应用 canonical Gate。真实 MySQL 存量核对与 V1..V12 结构契约、生产 Flyway 执行以及真实 GoodShort report/query 仍属于发布环境验证项，未验证时必须记录为 `SKIP`，不能视为已通过。
+当前仓库验证覆盖 H2、服务/控制器/持久层回归和三个应用 canonical Gate。真实 MySQL 存量核对与 V1..V13 结构契约、生产 Flyway 执行以及真实 GoodShort report/query 仍属于发布环境验证项，未验证时必须记录为 `SKIP`，不能视为已通过。
 
 ## 时间与事务
 
 业务时间的唯一语义是 `Asia/Shanghai`。Java 共享 `Clock` 使用 `ZoneId.of("Asia/Shanghai")`；MySQL datasource 在创建连接时把 session 设置为 `+08:00`。`+08:00` 只是 MySQL 连接实现，不是第二个业务时区定义；H2 test profile 明确关闭该 MySQL 专用语句。
 
-推广链接的 `PENDING`、`SUCCESS`、`FAILED` 通过 production Spring proxy 的独立短事务持久化，第三方 HTTP 调用在数据库事务之外。手动免费剧集同步在事务提交后才提交现有 worker；定时任务的 `next_run_at`、到期查询、租约和完成更新使用同一业务时间基准。
+推广链接的 `PENDING`、`SUCCESS`、`FAILED` 通过 production Spring proxy 的独立短事务持久化，第三方 HTTP 调用在数据库事务之外。GoodShort 同一 `pid + bookId + customParams + codeMedia` 只对应一个 code，LANDING/ONELINK 两条本地记录共享该 code 并各自保存 URL；`20005` 仅在响应携带完整 code/URL 时作为已生成结果同步。转化日报按 code 聚合，并只归属同 code 的一条成功链接。手动免费剧集同步在事务提交后才提交现有 worker；定时任务的 `next_run_at`、到期查询、租约和完成更新使用同一业务时间基准。

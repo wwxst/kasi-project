@@ -57,6 +57,8 @@ class MySqlContractIT extends MySqlContractTestSupport {
         assertUniqueIndex("provider_commission_rule", "uk_provider_commission_provider", "provider_id");
         assertUniqueIndex("promotion_link", "uk_promotion_link_variant",
                 "user_id", "request_key", "media_type", "link_variant");
+        assertUniqueIndex("promotion_link", "uk_promotion_link_external_identity",
+                "connection_id", "drama_id", "user_id", "media_type", "external_code", "link_variant");
         assertUniqueIndex("promotion_order", "uk_promotion_order_source",
                 "connection_id", "external_order_id");
     }

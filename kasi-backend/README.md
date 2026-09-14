@@ -2,11 +2,11 @@
 
 ## GoodShort 推广转化日报
 
-后端通过 GoodShort `POST /creek/open/promotion/analyticalReport` 拉取每日汇总，数据独立保存于 `promotion_analytical_report`，不写入 `promotion_order`。同步请求固定 `pageSize=500`，按 `reportDate` 使用 `yyyy-MM-dd`，单次日期范围最多 30 个自然日。用户推广任务查询以 `code -> promotion_link.external_code` 为主，并同时核对 PID、bookId 和 `customParams -> promotion_user.user_no`，按链接累计自然日指标；`orderAmount` 只在后端保存和管理端使用，不通过用户推广任务接口返回。
+后端通过 GoodShort `POST /creek/open/promotion/analyticalReport` 拉取每日汇总，数据独立保存于 `promotion_analytical_report`，不写入 `promotion_order`。同步请求固定 `pageSize=500`，按 `reportDate` 使用 `yyyy-MM-dd`，单次日期范围最多 30 个自然日。用户推广任务查询以 `code -> promotion_link.external_code` 为主，并同时核对 PID、bookId 和 `customParams -> promotion_user.user_no`；同一 code 对应 LANDING/ONELINK 两条记录时，累计自然日指标只归属最早成功记录一次。`orderAmount` 只在后端保存和管理端使用，不通过用户推广任务接口返回。
 
 管理端通过 `GET /api/admin/promotion/links` 按已成功生成的推广链接查看任务级转化，支持用户编号、短剧平台、口令和 `trackingNo` 筛选，并返回用户、短剧、推广名称、媒体、口令、推广链接及七项累计指标，不返回 `orderAmount`。该查询与用户端使用相同的 PID、bookId、用户编号和口令四维匹配。原始日报接口继续保留：`POST /api/admin/promotion/analytical-reports/sync` 手动补拉（日期范围及可选 `code`、`bookId`、`customParams`），`GET /api/admin/promotion/analytical-reports` 分页查询（日期范围、达人 `customParams/user_no`、短剧 `bookId`、口令 `code`）。系统任务 `GOODSHORT_ANALYTICAL_REPORT_SYNC` 使用 `Asia/Shanghai` 每日 08:00 滚动同步最近 3 个已经结束的自然日。
 
-推广转化日报结构由 `V2__promotion_analytical_report.sql` 引入。生产数据库统一通过独立 Flyway 发布步骤按顺序执行完整迁移链，当前应升级至 `V12__promotion_project_type.sql`；已部署数据库不得重新执行 `kasi_promotion.sql` 或删库重建。
+推广转化日报结构由 `V2__promotion_analytical_report.sql` 引入。生产数据库统一通过独立 Flyway 发布步骤按顺序执行完整迁移链，当前仓库最新结构迁移为 `V13__promotion_link_shared_external_code.sql`；已部署数据库不得重新执行 `kasi_promotion.sql` 或删库重建。
 
 最后核对时间：2026-09-12
 
@@ -85,7 +85,7 @@ src/
         kasi_promotion.sql                  # 开发空库最终结构重建脚本
         migration/
           V1__baseline.sql                 # 不可变生产 Flyway 基线
-          V2__...sql .. V12__...sql        # 不可变增量迁移，当前最新为 V12
+          V2__...sql .. V13__...sql        # 不可变增量迁移，当前最新为 V13
       mapper/                               # MyBatis XML 映射文件
   test/
     java/com/kasi/backend/
@@ -182,7 +182,7 @@ Flyway 会在应用完成启动前校验并执行 `db/migration/V*.sql`。连接
 
 ### 生产数据库迁移
 
-生产 schema 的版本真相是 `src/main/resources/db/migration/V*.sql`。当前完整迁移链为不可变 `V1__baseline.sql` 到 `V12__promotion_project_type.sql`；以后只新增更高版本，禁止修改已经执行的文件。生产仍只由 Maven `migration` profile 独立执行，默认 `spring.flyway.enabled=false`；`application-local.properties` 的开启配置不影响生产发布流程。
+生产 schema 的版本真相是 `src/main/resources/db/migration/V*.sql`。当前完整迁移链为不可变 `V1__baseline.sql` 到 `V13__promotion_link_shared_external_code.sql`；以后只新增更高版本，禁止修改已经执行的文件。生产仍只由 Maven `migration` profile 独立执行，默认 `spring.flyway.enabled=false`；`application-local.properties` 的开启配置不影响生产发布流程。
 
 发布平台通过密钥环境注入连接参数，不把真实值写入仓库、配置文件或命令历史：
 
@@ -241,7 +241,7 @@ mysql --host=127.0.0.1 --user=$env:SPRING_DATASOURCE_USERNAME --password --datab
 | Redis | `auth:version:*` | 账号会话版本（含 `ACTIVE:*` 或 `MUTATING:*`） | TTL 不超过 JWT 有效期加宽限期 |
 | Redis | `auth:session:*` | 单个 JWT 会话（按 `jti`） | TTL 与 JWT 有效期一致，退出时删除 |
 
-`kasi_promotion.sql` 按当前最终结构一次重建开发空库；生产数据库从 `V1` 基线按顺序执行到当前 `V12` 后达到相同目标结构。开发重建脚本和 `V1` 基线都会插入 `admin` 超级管理员和一个启用的初始推广用户；管理员固定写入 `status=1`、`is_super_admin=1`，推广用户使用邮箱登录，两类密码均只以 BCrypt 哈希保存。显式 `local` profile 可在应用启动时自动执行完整 Flyway 链；两条路径都不植入任何平台接入密钥。
+`kasi_promotion.sql` 按当前最终结构一次重建开发空库；生产数据库从 `V1` 基线按顺序执行到当前 `V13` 后达到相同目标结构。开发重建脚本和 `V1` 基线都会插入 `admin` 超级管理员和一个启用的初始推广用户；管理员固定写入 `status=1`、`is_super_admin=1`，推广用户使用邮箱登录，两类密码均只以 BCrypt 哈希保存。显式 `local` profile 可在应用启动时自动执行完整 Flyway 链；两条路径都不植入任何平台接入密钥。
 
 当前已完成平台定义与接入账号持久层、AES-GCM 密钥加密、不暴露密钥的管理服务和管理员 API，以及 GoodShort 签名和连接探测适配器。GoodShort 接入配置同时保存一个媒体根域名，并可分别选择 Facebook、TikTok、YouTube、Instagram 使用 API 自动报白；未选媒体使用人工报白。未知域名不会自动加入白名单；官方文档未保证媒体资源固定属于 `novelopen.com`，`novelopen.com` 是当前实际配置值而非官方契约。媒体账号绑定与通用报白模块已支持 `API`/`MANUAL` 双向切换和 `NOT_SUBMITTED`、`PENDING`、`APPROVED`、`REJECTED`、`SUBMIT_FAILED` 五种持久状态；已有终态和远端证据在切换时保留，已发出但尚未收敛的提交禁止切换。API 新建账号仍在本地事务提交后立即尝试调用 GoodShort `/creek/open/filing/report`，后台 Worker 使用独立租约 token 分批接续到期的提交与查询任务；提交结果不确定时停止自动重报，管理员可确认甲方已收到或未收到。MANUAL 新建记录直接进入 `PENDING` 等待甲方审核，不调用 GoodShort，管理员根据甲方结果直接更新为 `APPROVED` 或 `REJECTED`。用户端只展示四种业务状态，将技术提交失败显示为审核中且不暴露错误；管理端展示真实五状态、报白方式、错误、人工操作信息和可用操作，并可单条删除任意状态/方式的账号及其本地报白记录，删除不影响甲方记录。管理端可按当前筛选条件全量导出账号报白和推广订单 XLSX。停用配置允许不填写接入资料，启用配置必须具备接口 URL、媒体根域名、PID 和 KEY。
 
@@ -249,7 +249,7 @@ mysql --host=127.0.0.1 --user=$env:SPRING_DATASOURCE_USERNAME --password --datab
 
 推广用户可查询已上架短剧、查看剧集并生成 GoodShort 推广链接/口令。用户前端直接下载免费剧集资源接口返回的媒体文件；后端不创建下载任务、不运行 FFmpeg、不生成 ZIP，也不保存下载文件。Chrome 使用 `hls.js` 播放 HLS。当前只同步 GoodShort 免费剧集；GoodShort 文档没有提供收费剧集列表或收费资源接口，因此不创建收费剧集占位记录。推广任务页已接入 GoodShort 转化日报的七项人数/次数指标；正式账单、钱包和提现仍未实现。
 
-推广链接生成采用短事务保存或重置 `PENDING`，事务外调用 GoodShort，随后用独立短事务写入 `SUCCESS` 或 `FAILED`；远程失败状态不会随外层业务异常回滚。GoodShort 生成调用按 `pid + bookId + customParams + codeMedia` 保证至少 2 秒间隔；创建请求拒绝重复媒体平台，同一 `requestKey` 重复请求不得改变平台、短剧、媒体集合或链接类型。只有整批全部成功时用户端才跳转并提示成功。生成链接/口令不以平台分佣规则为前置条件；分佣规则只在已支付订单计算佣金时读取。订单同步遇到 `(connection_id, external_order_id)` 唯一键并发冲突时回读已存在订单并按重复记录处理。
+推广链接生成采用短事务保存或重置 `PENDING`，事务外调用 GoodShort，随后用独立短事务写入 `SUCCESS` 或 `FAILED`；远程失败状态不会随外层业务异常回滚。GoodShort 口令唯一身份为 `pid + bookId + customParams + codeMedia`，`shareUrlType` 只选择 LANDING/ONELINK URL；两种变体共享一个 code 并各自保存 URL。仅 `status=20005` 且响应 `data.code/shareUrl` 完整时按“已生成”有效结果同步，其他非零状态继续失败。生成调用按该四维身份保证至少 2 秒间隔；创建请求拒绝重复媒体平台，同一 `requestKey` 重复请求不得改变平台、短剧、媒体集合或链接类型。只有整批全部成功时用户端才跳转并提示成功。生成链接/口令不以平台分佣规则为前置条件；分佣规则只在已支付订单计算佣金时读取。订单同步遇到 `(connection_id, external_order_id)` 唯一键并发冲突时回读已存在订单并按重复记录处理。
 
 > **说明**：`sys_sequence` 表已移除，`user_no` 由后端在插入前随机生成；`promotion_user.id` 继续作为自增内部主键。`auth_verification_code` 和 `auth_password_reset_token` 表已移除，改用 Redis 存储（更高效、自动过期）。
 
@@ -538,7 +538,7 @@ GoodShort 订单同步只按甲方订单字段接收数据：`orderId`、`userId
 
 Unit/Integration 的 JaCoCo HTML/XML 报告分别位于 `target/site/jacoco-unit` 和 `target/site/jacoco-integration`，当前不设置覆盖率阈值。Java 21 下编译会因 `release 25` 失败，必须使用 Java 25。真实 MySQL Contract、手动 GoodShort smoke 和 CI 阻断语义见根级 [测试规范](../docs/development/testing.md)。
 
-本地 canonical Gate 覆盖 H2、服务/控制器/持久层回归和应用构建。真实 MySQL 存量与 V1..V12 结构契约、生产 Flyway 迁移、真实 GoodShort report/query 必须在获得对应环境和授权后单独验证；未配置或未授权时记录为 `SKIP`，不能据本地 Gate 宣称通过。
+本地 canonical Gate 覆盖 H2、服务/控制器/持久层回归和应用构建。真实 MySQL 存量与 V1..V13 结构契约、生产 Flyway 迁移、真实 GoodShort report/query 必须在获得对应环境和授权后单独验证；未配置或未授权时记录为 `SKIP`，不能据本地 Gate 宣称通过。
 
 ## 8. 开发优先级
 
@@ -589,7 +589,7 @@ Unit/Integration 的 JaCoCo HTML/XML 报告分别位于 `target/site/jacoco-unit
 平台分佣规则采用默认配置：每个平台一条当前记录、无时间限制、无状态、不可删除；首次使用 POST，后续由超级管理员使用 PUT 直接覆盖五项费率。每次写入会生成不可变历史快照，但不提供规则时间线或按支付时间自动匹配历史版本；旧文档中的 PENDING/ACTIVE/ENDED 和提前结束不再是当前契约。
 ## 推广链接当前边界
 
-用户通过 `/api/user/promotion/links` 提交 `providerId`、`dramaId`、不重复的 `mediaTypes`、可选 `linkVariant` 和 `requestKey`。`linkVariant` 只允许 `LANDING`（落地页）或 `ONELINK`（OneLink），每个选中的媒体平台只生成用户选择的一条链接和一个口令；未传时兼容旧客户端默认生成 `LANDING`。每条记录保留独立的内部 `trackingNo`；发送 GoodShort 时 `customParams` 固定使用该推广用户的稳定 `user_no`，订单同步再按 `customParams -> user_no -> user_id` 直接归因，不通过推广链接追踪号反查。同一 `requestKey` 只代表同一组平台、短剧、媒体和链接类型，内容变化返回业务冲突。用户重新发起推广时使用新的 `requestKey` 创建新任务。
+用户通过 `/api/user/promotion/links` 提交 `providerId`、`dramaId`、不重复的 `mediaTypes`、可选 `linkVariant` 和 `requestKey`。`linkVariant` 只允许 `LANDING`（落地页）或 `ONELINK`（OneLink），每个选中的媒体平台只生成用户选择的一条链接；同一用户、短剧、连接和媒体的两个变体可保存同一 `externalCode` 与各自的 `shareUrl`。未传时兼容旧客户端默认生成 `LANDING`。每条记录保留独立的内部 `trackingNo`；发送 GoodShort 时 `customParams` 固定使用该推广用户的稳定 `user_no`，订单同步再按 `customParams -> user_no -> user_id` 直接归因，不通过推广链接追踪号反查。同一 `requestKey` 只代表同一组平台、短剧、媒体和链接类型，内容变化返回业务冲突。用户重新发起推广时使用新的 `requestKey` 创建新任务。
 # 手机验证码（阿里云短信）
 
 超级管理员通过 `PUT/GET /api/admin/system/sms-config` 配置阿里云 AccessKey、签名和注册/登录/找回密码模板；AccessKey 仅以 AES-GCM 密文保存，响应不返回密钥。用户端手机号验证码接口为注册发码、验证码登录发码/校验、个人中心改密发码/校验和找回密码发码/校验；个人中心改密使用独立 `CHANGE_PASSWORD` 场景并复用找回密码模板，发送失败返回 HTTP 503。邮箱密码登录保持可用，邮箱验证码流程暂未开放。

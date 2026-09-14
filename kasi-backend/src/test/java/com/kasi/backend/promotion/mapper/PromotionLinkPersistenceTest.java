@@ -116,6 +116,51 @@ class PromotionLinkPersistenceTest extends BaseAuthTest {
     }
 
     @Test
+    @DisplayName("同一口令的落地页和OneLink日报只归属一条记录")
+    void sharedExternalCodeAggregatesAnalyticsOnce() {
+        jdbcTemplate.execute("DELETE FROM promotion_analytical_report");
+        Long userId = jdbcTemplate.queryForObject(
+                "SELECT id FROM promotion_user WHERE user_no=?", Long.class, PRIMARY_USER_NO);
+        Long providerId = jdbcTemplate.queryForObject(
+                "SELECT id FROM short_drama_provider WHERE provider_code='GOODSHORT'", Long.class);
+        jdbcTemplate.update("INSERT INTO short_drama_connection "
+                        + "(provider_id,connection_name,partner_id,currency) VALUES (?,?,?,?)",
+                providerId, "GoodShort", "partner-1", "USD");
+        Long connectionId = jdbcTemplate.queryForObject(
+                "SELECT id FROM short_drama_connection WHERE provider_id=?", Long.class, providerId);
+        jdbcTemplate.update("INSERT INTO provider_drama "
+                        + "(connection_id,external_drama_id,title,language) VALUES (?,?,?,?)",
+                connectionId, "book-1", "Drama", "ENGLISH");
+        Long dramaId = jdbcTemplate.queryForObject(
+                "SELECT id FROM provider_drama WHERE external_drama_id='book-1'", Long.class);
+        insertLink(userId, providerId, connectionId, dramaId, "request-landing", "SUCCESS",
+                "CODE-1", "https://example.test/landing");
+        jdbcTemplate.update("INSERT INTO promotion_link "
+                        + "(user_id,provider_id,connection_id,drama_id,batch_no,media_type,link_variant,"
+                        + "request_key,tracking_no,external_code,share_url,status) VALUES (?,?,?,?,?,?,?,?,?,?,?,'SUCCESS')",
+                userId, providerId, connectionId, dramaId, "batch-1", "TIKTOK", "ONELINK",
+                "request-one", "tracking-one", "CODE-1", "https://example.test/one");
+        insertReport(LocalDate.of(2026, 9, 7), "partner-1", PRIMARY_USER_NO, "book-1", "CODE-1",
+                10, 20, 30, 40, 50, 60, 70);
+
+        var page = linkMapper.findPageByUserId(userId, 0, 20);
+
+        assertThat(page).hasSize(2);
+        assertThat(page).filteredOn(link -> "LANDING".equals(link.getLinkVariant()))
+                .singleElement().satisfies(link -> assertThat(link.getClickCount()).isEqualTo(10));
+        assertThat(page).filteredOn(link -> "ONELINK".equals(link.getLinkVariant()))
+                .singleElement().satisfies(link -> assertThat(link.getClickCount()).isZero());
+        assertThat(page).extracting(PromotionLink::getClickCount)
+                .satisfies(counts -> assertThat(counts.stream().mapToLong(Long::longValue).sum()).isEqualTo(10));
+        assertThat(linkMapper.findAdminPage(PRIMARY_USER_NO, providerId, "CODE-1", null, 0, 20))
+                .extracting(com.kasi.backend.promotion.vo.AdminPromotionLinkVO::getOrderCount)
+                .satisfies(counts -> assertThat(counts.stream().mapToLong(Long::longValue).sum()).isEqualTo(70));
+        assertThat(jdbcTemplate.queryForObject(
+                "SELECT SUM(order_amount) FROM promotion_analytical_report WHERE code='CODE-1'",
+                java.math.BigDecimal.class)).isEqualByComparingTo("999.99");
+    }
+
+    @Test
     @DisplayName("管理员推广任务只显示成功链接并按四维归因聚合日报")
     void adminPageAggregatesMatchingAnalyticalReports() {
         jdbcTemplate.execute("DELETE FROM promotion_analytical_report");
@@ -189,7 +234,7 @@ class PromotionLinkPersistenceTest extends BaseAuthTest {
     }
 
     @Test
-    @DisplayName("同一连接短剧用户和外部口令只能保存一条推广链接")
+    @DisplayName("同一连接短剧用户和外部口令在同一变体内只能保存一条推广链接")
     void duplicateExternalCodeIdentityIsRejected() {
         Long userId = jdbcTemplate.queryForObject(
                 "SELECT id FROM promotion_user WHERE user_no=?", Long.class, PRIMARY_USER_NO);
@@ -211,6 +256,35 @@ class PromotionLinkPersistenceTest extends BaseAuthTest {
         assertThatThrownBy(() -> insertLink(userId, providerId, connectionId, dramaId, "request-2", "SUCCESS",
                 "CODE-1", "https://example.test/link"))
                 .isInstanceOf(org.springframework.dao.DataIntegrityViolationException.class);
+    }
+
+    @Test
+    @DisplayName("不同codeMedia允许保存不同口令")
+    void differentCodeMediaAllowsDifferentExternalCodes() {
+        Long userId = jdbcTemplate.queryForObject(
+                "SELECT id FROM promotion_user WHERE user_no=?", Long.class, PRIMARY_USER_NO);
+        Long providerId = jdbcTemplate.queryForObject(
+                "SELECT id FROM short_drama_provider WHERE provider_code='GOODSHORT'", Long.class);
+        jdbcTemplate.update("INSERT INTO short_drama_connection "
+                        + "(provider_id,connection_name,partner_id,currency) VALUES (?,?,?,?)",
+                providerId, "GoodShort", "partner-1", "USD");
+        Long connectionId = jdbcTemplate.queryForObject(
+                "SELECT id FROM short_drama_connection WHERE provider_id=?", Long.class, providerId);
+        jdbcTemplate.update("INSERT INTO provider_drama "
+                        + "(connection_id,external_drama_id,title,language) VALUES (?,?,?,?)",
+                connectionId, "book-1", "Drama", "ENGLISH");
+        Long dramaId = jdbcTemplate.queryForObject(
+                "SELECT id FROM provider_drama WHERE external_drama_id='book-1'", Long.class);
+        insertLink(userId, providerId, connectionId, dramaId, "request-tiktok", "SUCCESS",
+                "TIKTOK-CODE", "https://example.test/tiktok");
+        jdbcTemplate.update("INSERT INTO promotion_link "
+                        + "(user_id,provider_id,connection_id,drama_id,batch_no,media_type,link_variant,"
+                        + "request_key,tracking_no,external_code,share_url,status) VALUES (?,?,?,?,?,?,?,?,?,?,?,'SUCCESS')",
+                userId, providerId, connectionId, dramaId, "batch-2", "YOUTUBE", "LANDING",
+                "request-youtube", "tracking-youtube", "YOUTUBE-CODE", "https://example.test/youtube");
+
+        assertThat(jdbcTemplate.queryForObject(
+                "SELECT COUNT(*) FROM promotion_link WHERE user_id=?", Long.class, userId)).isEqualTo(2L);
     }
 
     private void insertReport(LocalDate date, String pid, String customParams, String bookId, String code,

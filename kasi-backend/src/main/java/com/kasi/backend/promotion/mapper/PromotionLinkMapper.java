@@ -33,7 +33,9 @@ public interface PromotionLinkMapper {
     PromotionLink findSuccessfulByIdentity(@Param("connectionId") Long connectionId,
                                            @Param("dramaId") Long dramaId,
                                            @Param("userId") Long userId,
-                                           @Param("externalCode") String externalCode);
+                                           @Param("mediaType") String mediaType,
+                                           @Param("externalCode") String externalCode,
+                                           @Param("linkVariant") String linkVariant);
     int insert(PromotionLink link);
     int deleteById(@Param("id") Long id);
     int markSuccess(@Param("id") Long id, @Param("externalCode") String externalCode,

@@ -50,6 +50,12 @@
         LEFT JOIN short_drama_connection c ON c.id = l.connection_id
         LEFT JOIN promotion_user u ON u.id = l.user_id
         LEFT JOIN (
+            SELECT connection_id, drama_id, user_id, external_code, MIN(id) AS id
+            FROM promotion_link
+            WHERE status = 'SUCCESS' AND external_code IS NOT NULL
+            GROUP BY connection_id, drama_id, user_id, external_code
+        ) canonical ON canonical.id = l.id
+        LEFT JOIN (
             SELECT pid, custom_params, book_id, code,
                    SUM(click_count) AS click_count,
                    SUM(attributed_user_count) AS attributed_user_count,
@@ -60,7 +66,7 @@
                    SUM(order_count) AS order_count
             FROM promotion_analytical_report
             GROUP BY pid, custom_params, book_id, code
-        ) r ON r.code = l.external_code
+        ) r ON canonical.id = l.id AND r.code = l.external_code
             AND r.pid = c.partner_id
             AND r.book_id = d.external_drama_id
             AND r.custom_params = u.user_no
@@ -99,6 +105,12 @@
         LEFT JOIN provider_drama d ON d.id = l.drama_id
         LEFT JOIN short_drama_connection c ON c.id = l.connection_id
         LEFT JOIN (
+            SELECT connection_id, drama_id, user_id, external_code, MIN(id) AS id
+            FROM promotion_link
+            WHERE status = 'SUCCESS' AND external_code IS NOT NULL
+            GROUP BY connection_id, drama_id, user_id, external_code
+        ) canonical ON canonical.id = l.id
+        LEFT JOIN (
             SELECT pid, custom_params, book_id, code,
                    SUM(click_count) AS click_count,
                    SUM(attributed_user_count) AS attributed_user_count,
@@ -109,7 +121,7 @@
                    SUM(order_count) AS order_count
             FROM promotion_analytical_report
             GROUP BY pid, custom_params, book_id, code
-        ) r ON r.code = l.external_code
+        ) r ON canonical.id = l.id AND r.code = l.external_code
             AND r.pid = c.partner_id
             AND r.book_id = d.external_drama_id
             AND r.custom_params = u.user_no
@@ -136,7 +148,9 @@
           AND connection_id = #{connectionId}
           AND drama_id = #{dramaId}
           AND user_id = #{userId}
+          AND media_type = #{mediaType}
           AND external_code = #{externalCode}
+          AND link_variant = #{linkVariant}
         ORDER BY id
         LIMIT 1
     </select>
