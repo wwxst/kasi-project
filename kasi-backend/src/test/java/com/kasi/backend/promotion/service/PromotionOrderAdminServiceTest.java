@@ -53,12 +53,12 @@ class PromotionOrderAdminServiceTest {
     }
 
     @Test
-    @DisplayName("管理端订单返回真实追踪号且退款当前有效佣金为零")
-    void adminOrderShowsTrackingAndZeroEffectiveRefundCommission() {
+    @DisplayName("管理端订单返回甲方推广口令且退款当前有效佣金为零")
+    void adminOrderShowsSearchCodeAndZeroEffectiveRefundCommission() {
         PromotionOrderMapper mapper = mock(PromotionOrderMapper.class);
         PromotionOrder order = new PromotionOrder();
         order.setId(9L);
-        order.setTrackingNo("tracking-9");
+        order.setSearchCode("21302");
         order.setStatus(PromotionOrderStatus.REFUNDED);
         order.setCommissionAmount(new BigDecimal("4.79"));
         when(mapper.findPage(null, null, null, null, null, null, 0, 20, false))
@@ -68,7 +68,9 @@ class PromotionOrderAdminServiceTest {
 
         var result = service.getPage(query);
 
-        assertThat(result.getList().getFirst().getTrackingNo()).isEqualTo("tracking-9");
+        assertThat(result.getList().getFirst().getSearchCode()).isEqualTo("21302");
+        assertThat(result.getList().getFirst().getTrackingNo()).isNull();
+        assertThat(result.getList().getFirst().getPromotionLinkId()).isNull();
         assertThat(result.getList().getFirst().getCommissionAmount()).isEqualByComparingTo("0.00");
     }
 

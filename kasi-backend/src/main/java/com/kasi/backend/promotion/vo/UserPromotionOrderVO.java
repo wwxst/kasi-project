@@ -14,6 +14,6 @@ public class UserPromotionOrderVO {
     private String currency;
     private PromotionOrderStatus status;
     private LocalDateTime paidAt;
-    private String trackingNo;
+    private String searchCode;
     private BigDecimal commissionAmount;
 }

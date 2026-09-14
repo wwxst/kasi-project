@@ -69,12 +69,13 @@ class AdminPromotionOrderControllerTest extends BaseAuthTest {
     void orderEndpointsEnforceAdminRole() throws Exception {
         when(adminService.getPage(any())).thenReturn(PromotionOrderPageVO.builder()
                 .list(List.of(PromotionOrderVO.builder().id(1L)
-                        .trackingNo("tracking-admin-order").build()))
+                        .searchCode("21302").build()))
                 .page(1).size(20).total(1).build());
         mockMvc.perform(get("/api/admin/promotion/orders")
                         .header("Authorization", "Bearer " + loginAsAdmin("operator", ADMIN_PASSWORD)))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.data.list[0].trackingNo").value("tracking-admin-order"));
+                .andExpect(jsonPath("$.data.list[0].searchCode").value("21302"))
+                .andExpect(jsonPath("$.data.list[0].trackingNo").doesNotExist());
         mockMvc.perform(get("/api/admin/promotion/orders")
                         .header("Authorization", "Bearer " + loginAsUser()))
                 .andExpect(status().isForbidden());

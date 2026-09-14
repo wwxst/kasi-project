@@ -53,7 +53,7 @@ public class PromotionOrderUserServiceImpl implements PromotionOrderUserService 
     private static UserPromotionOrderVO toUserVO(PromotionOrder order) {
         return UserPromotionOrderVO.builder().externalOrderId(order.getExternalOrderId())
                 .currency(order.getCurrency()).status(order.getStatus()).paidAt(order.getPaidAt())
-                .trackingNo(order.getTrackingNo())
+                .searchCode(order.getSearchCode())
                 .commissionAmount(effectiveCommission(order)).build();
     }
 

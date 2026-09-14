@@ -5,7 +5,7 @@ export interface PromotionOrder {
   currency: string
   status: PromotionOrderStatus
   paidAt?: string | null
-  trackingNo?: string | null
+  searchCode?: string | null
   commissionAmount?: number | null
 }
 

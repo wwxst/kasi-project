@@ -34,7 +34,7 @@ Kasi 推广平台的独立管理端前端，后端项目位于同级目录 `../k
 
 左侧“推广管理”一级菜单下提供“媒体账号报白”二级菜单，页面路由为 `/promotion/media-accounts`。管理员可以按用户编号、媒体平台、短剧平台、账号状态、API/人工方式和五种真实报白状态筛选媒体账号并查看详情；API 技术提交失败可重试，提交结果未知时可确认甲方已收到或未收到，人工记录直接进入审核中，并可在列表“更多”中随时选择“报白通过”或“报白未通过”。页面不提供新增或编辑账号资料；所有账号均可通过列表“更多”单条删除，删除确认明确只清理本系统账号及报白记录、不删除甲方记录。页面对接列表、详情、重试、人工状态、提交核实、删除和 XLSX 导出接口，导出使用当前筛选条件且不受列表分页影响。平台接入配置可为 Facebook、TikTok、YouTube、Instagram 分别勾选 API 报白，未勾选媒体按人工方式处理。
 
-“推广管理”下新增“推广订单”，页面路由为 `/promotion/orders`。普通管理员和超级管理员均可按短剧平台、订单状态、归因状态和支付时间查询订单，查看金额、trackingNo、归因与佣金状态，按相同条件导出 XLSX，并在弹窗中选择平台和不超过 31 天的时间窗口手动同步 GoodShort 订单。页面对接 `POST /api/admin/promotion/orders/sync`、`GET /api/admin/promotion/orders` 和 `GET /api/admin/promotion/orders/export.xlsx`。首发支持 GoodShort 订单自动同步（今日每 5 分钟、昨日加今天每 60 分钟、最近 7 天每 3 天补偿），人工改归属、正式账单、钱包或提现仍不提供。
+“推广管理”下新增“推广订单”，页面路由为 `/promotion/orders`。普通管理员和超级管理员均可按短剧平台、订单状态、归因状态和支付时间查询订单，查看金额、`searchCode`、归因与佣金状态，按相同条件导出 XLSX，并在弹窗中选择平台和不超过 31 天的时间窗口手动同步 GoodShort 订单。页面对接 `POST /api/admin/promotion/orders/sync`、`GET /api/admin/promotion/orders` 和 `GET /api/admin/promotion/orders/export.xlsx`。首发支持 GoodShort 订单自动同步（今日每 5 分钟、昨日加今天每 60 分钟、最近 7 天每 3 天补偿），人工改归属、正式账单、钱包或提现仍不提供。
 
 “推广管理”下提供“推广任务”，页面路由为 `/promotion/links`。普通管理员和超级管理员可按用户编号、短剧平台、口令和 trackingNo 查询已成功生成的推广链接任务，查看用户、短剧、推广名称、媒体、口令、推广链接以及点击、归因用户、新注册、新充值、新会员、充值用户和订单七项累计转化指标。页面对接 `GET /api/admin/promotion/links`，并可选择支持转化同步的平台和不超过 30 个自然日的日期范围，通过 `POST /api/admin/promotion/analytical-reports/sync` 手动补拉日报；不展示原始日报金额，也不修改订单归因或收益计算。
 

@@ -71,10 +71,10 @@ export default function OrdersPage({ title: _title }: { title: string }) {
       cell: ({ row }) => formatTime(row.paidAt),
     },
     {
-      colKey: 'trackingNo',
-      title: '推广跟踪号',
+      colKey: 'searchCode',
+      title: '推广口令',
       width: 200,
-      cell: ({ row }) => row.trackingNo || '-',
+      cell: ({ row }) => row.searchCode || '-',
     },
     {
       colKey: 'commissionAmount',

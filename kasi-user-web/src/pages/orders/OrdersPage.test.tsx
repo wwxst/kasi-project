@@ -40,7 +40,7 @@ describe('OrdersPage', () => {
           currency: 'USD',
           status: 'PAID',
           paidAt: '2026-08-30T12:34:56',
-          trackingNo: 'tracking-001',
+          searchCode: '21302',
           commissionAmount: 4.79,
         },
         {
@@ -48,7 +48,7 @@ describe('OrdersPage', () => {
           currency: 'USD',
           status: 'REFUNDED',
           paidAt: '2026-08-29T12:00:00',
-          trackingNo: 'tracking-002',
+          searchCode: '21303',
           commissionAmount: 0,
         },
       ],
@@ -70,7 +70,9 @@ describe('OrdersPage', () => {
     expect(screen.getByText('$0.00')).toBeTruthy()
     expect(screen.getByText('我的收益')).toBeTruthy()
     expect(screen.getByText('2026-08-30 12:34:56')).toBeTruthy()
-    expect(screen.getByText('tracking-001')).toBeTruthy()
+    expect(screen.getByText('21302')).toBeTruthy()
+    expect(screen.getByText('推广口令')).toBeTruthy()
+    expect(screen.queryByText('推广跟踪号')).toBeNull()
   })
 
   it('requests the selected server page', async () => {

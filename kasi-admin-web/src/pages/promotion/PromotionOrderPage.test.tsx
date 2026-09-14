@@ -84,7 +84,7 @@ describe('PromotionOrderPage', () => {
                 currency: 'USD',
                 status: 'PAID',
                 paidAt: '2025-07-01T10:00:00',
-                trackingNo: 'tracking-7',
+                searchCode: '21302',
                 attributionStatus: 'ATTRIBUTED',
                 commissionAmount: 9.59,
                 commissionStatus: 'CALCULATED',
@@ -98,7 +98,7 @@ describe('PromotionOrderPage', () => {
                 currency: 'USD',
                 status: 'REFUNDED',
                 paidAt: '2025-07-01T11:00:00',
-                trackingNo: 'tracking-8',
+                searchCode: '21303',
                 attributionStatus: 'ATTRIBUTED',
                 commissionAmount: 0,
                 commissionStatus: 'REVERSED',
@@ -144,10 +144,11 @@ describe('PromotionOrderPage', () => {
     expect(
       screen.queryByText('手动同步 GoodShort 订单并核对归因与 CPS 佣金。'),
     ).not.toBeInTheDocument()
-    expect(screen.getByText('tracking-7')).toBeInTheDocument()
+    expect(screen.getByText('21302')).toBeInTheDocument()
     expect(screen.getAllByText('$19.98').length).toBeGreaterThanOrEqual(1)
     expect(screen.getByText('$9.59')).toBeInTheDocument()
-    expect(screen.getByText('tracking-8')).toBeInTheDocument()
+    expect(screen.getByText('21303')).toBeInTheDocument()
+    expect(screen.queryByText('追踪号')).not.toBeInTheDocument()
     expect(screen.getByText('$0.00')).toBeInTheDocument()
 
     await user.type(

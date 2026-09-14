@@ -210,7 +210,12 @@ export function PromotionOrderPage() {
       ),
     },
     { title: '支付时间', dataIndex: 'paidAt', width: 170, render: formatDate },
-    { title: '追踪号', dataIndex: 'trackingNo', width: 180, render: emptyText },
+    {
+      title: '推广口令',
+      dataIndex: 'searchCode',
+      width: 180,
+      render: emptyText,
+    },
     {
       title: '归因状态',
       dataIndex: 'attributionStatus',
